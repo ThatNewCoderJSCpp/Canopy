@@ -1,0 +1,113 @@
+$bg = #1e1e2e;
+$surface = #181825;
+$panel = #11111b;
+$line = #313244;
+$text = #cdd6f4;
+$muted = #9399b2;
+$accent = #a6e3a1;
+$warn = #f9e2af;
+
+body {
+    size: 70vwidth 75vheight;
+    background: $bg;
+    color: $text;
+    accent-color: $accent;
+    font-size: 14px;
+    padding: 0;
+}
+
+#shell {
+    gap: 0;
+    min-height: 90vheight;
+}
+
+#sidebar {
+    background: $surface;
+    padding: 10px 12px;
+    min-width: 220px;
+    max-width: 260px;
+    min-height: 88vheight;
+    border-color: $line;
+    border-width: 0 1px 0 0;
+}
+
+.sidebar-title,
+.panel-title {
+    color: $muted;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 0 0 8px 0;
+}
+
+.workspace {
+    font-weight: bold;
+    margin: 0 0 6px 0;
+}
+
+#explorer item {
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        background: $line;
+    }
+}
+
+#explorer item.folder {
+    color: $accent;
+}
+
+#main {
+    padding: 0;
+}
+
+#tabs {
+    background: $surface;
+    padding: 6px 10px 0 10px;
+    gap: 2px;
+}
+
+.tab {
+    padding: 6px 14px;
+    color: $muted;
+}
+
+.tab.active {
+    background: $bg;
+    color: $text;
+}
+
+#editor {
+    padding: 24px 28px;
+    min-height: 55vheight;
+}
+
+.muted {
+    color: $muted;
+}
+
+#output {
+    background: $panel;
+    padding: 10px 14px;
+    min-height: 18vheight;
+    border-color: $line;
+    border-width: 1px 0 0 0;
+}
+
+.problem {
+    color: $warn;
+    margin: 0 0 4px 0;
+}
+
+.ok {
+    color: $accent;
+    margin: 0;
+}
+
+#status {
+    background: $line;
+    padding: 4px 12px;
+    font-size: 12px;
+    justify-content: space-between;
+}

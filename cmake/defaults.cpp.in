@@ -1,0 +1,9 @@
+#include <canopy/settings.hpp>
+
+namespace canopy {
+
+std::string_view default_settings_text() noexcept {
+    return R"canopy_defaults(@CANOPY_DEFAULT_SETTINGS@)canopy_defaults";
+}
+
+} // namespace canopy

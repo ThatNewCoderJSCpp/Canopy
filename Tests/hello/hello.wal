@@ -1,0 +1,6 @@
+import module.io
+
+function main() -> int {
+    std::io::println("Hello from Walnut");
+    return 0;
+} end function main

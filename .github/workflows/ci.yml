@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+jobs:
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libx11-dev libxft-dev libxrender-dev libfontconfig1-dev libfreetype-dev \
+            libssl-dev libpango1.0-dev libcairo2-dev zlib1g-dev libjpeg-dev \
+            libvulkan-dev libgl-dev
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFIZMO_TUNE=OFF
+
+      - name: Build
+        run: cmake --build build -j 4
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+  windows:
+    name: Windows UCRT64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-cc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-libjpeg-turbo
+            mingw-w64-ucrt-x86_64-vulkan-headers
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFIZMO_TUNE=OFF
+
+      - name: Build
+        run: cmake --build build -j 4
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure

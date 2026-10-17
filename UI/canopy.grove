@@ -1,0 +1,35 @@
+<!grove>
+<grove>
+    <head>
+        <title>Canopy</title>
+        <style src="canopy.bark" />
+    </head>
+    <body title="Canopy">
+        <row id="shell">
+            <column id="sidebar">
+                <p class="sidebar-title">EXPLORER</p>
+                <p id="workspace-name" class="workspace">workspace</p>
+                <list id="explorer"></list>
+            </column>
+            <column id="main">
+                <row id="tabs">
+                    <text class="tab active">Welcome</text>
+                </row>
+                <panel id="editor">
+                    <h2>Welcome to Canopy</h2>
+                    <p class="muted">Open a file from the explorer to start editing.</p>
+                    <p>C, C++, Walnut and Grove build out of the box.</p>
+                    <p>Settings are one Bark file. Run "canopy settings" to see them all.</p>
+                </panel>
+                <panel id="output">
+                    <p class="panel-title">PROBLEMS</p>
+                    <panel id="problems"></panel>
+                </panel>
+            </column>
+        </row>
+        <row id="status">
+            <text id="status-toolchain">detecting toolchain</text>
+            <text id="status-version">Canopy</text>
+        </row>
+    </body>
+</grove>
