@@ -7,29 +7,79 @@
     <body title="Canopy">
         <row id="shell">
             <column id="sidebar">
-                <p class="sidebar-title">EXPLORER</p>
-                <p id="workspace-name" class="workspace">workspace</p>
+                <row class="sidebar-header">
+                    <text class="sidebar-title">EXPLORER</text>
+                </row>
+                <p id="workspace-name" class="workspace">No folder open</p>
+                <row class="sidebar-actions">
+                    <input_file id="open-folder" mode="folder" title="Open a folder" hide-value>Open Folder…</input_file>
+                    <input_file id="open-file" mode="open" title="Open a file" hide-value>Open File…</input_file>
+                </row>
                 <list id="explorer"></list>
+                <p class="sidebar-title section">RECENT FOLDERS</p>
+                <list id="recent"></list>
+                <row class="sidebar-footer">
+                    <button id="open-settings">Settings</button>
+                </row>
             </column>
             <column id="main">
-                <row id="tabs">
-                    <text class="tab active">Welcome</text>
+                <row id="tab-bar">
+                    <row id="tabs"></row>
+                    <row id="tab-actions">
+                        <button id="build-button">Build</button>
+                        <button id="run-button" class="primary">Run</button>
+                    </row>
                 </row>
-                <panel id="editor">
-                    <h2>Welcome to Canopy</h2>
-                    <p class="muted">Open a file from the explorer to start editing.</p>
-                    <p>C, C++, Walnut and Grove build out of the box.</p>
-                    <p>Settings are one Bark file. Run "canopy settings" to see them all.</p>
+                <panel id="editors">
+                    <panel id="welcome">
+                        <h2>Welcome to Canopy</h2>
+                        <p class="muted">Open a folder or a file from the explorer to start editing.</p>
+                        <p>C, C++, Walnut and Grove build out of the box: press <b>Build</b> or <b>Run</b> above, or <code>Ctrl+B</code> and <code>F5</code>.</p>
+                        <p><link id="welcome-settings">Settings</link> (<code>Ctrl+,</code>) has a page for the editor, colors and themes, compilers and building. Everything is saved as Bark files you can also edit by hand.</p>
+                    </panel>
                 </panel>
-                <panel id="output">
-                    <p class="panel-title">PROBLEMS</p>
-                    <panel id="problems"></panel>
-                </panel>
+                <column id="panel">
+                    <row id="panel-tabs">
+                        <text class="panel-tab" id="tab-terminal">TERMINAL</text>
+                        <text class="panel-tab active" id="tab-problems">PROBLEMS</text>
+                        <text class="panel-tab" id="tab-warnings">WARNINGS</text>
+                        <text class="panel-tab" id="tab-output">OUTPUT</text>
+                        <text class="panel-tab" id="tab-ports">PORTS</text>
+                        <text class="panel-tab" id="tab-debug">DEBUG CONSOLE</text>
+                    </row>
+                    <panel id="view-terminal" class="panel-view">
+                        <p class="muted">The terminal isn't built yet. It will run your shell here.</p>
+                    </panel>
+                    <panel id="view-problems" class="panel-view active">
+                        <panel id="problems"></panel>
+                    </panel>
+                    <panel id="view-warnings" class="panel-view">
+                        <panel id="warnings"></panel>
+                    </panel>
+                    <panel id="view-output" class="panel-view">
+                        <pre id="output-log">Build and run output shows up here.</pre>
+                    </panel>
+                    <panel id="view-ports" class="panel-view">
+                        <p class="muted">No forwarded ports. Ports your programs open will be listed here.</p>
+                    </panel>
+                    <panel id="view-debug" class="panel-view">
+                        <p class="muted">The debugger isn't built yet. Debug output and expressions will show up here.</p>
+                    </panel>
+                </column>
             </column>
         </row>
         <row id="status">
-            <text id="status-toolchain">detecting toolchain</text>
-            <text id="status-version">Canopy</text>
+            <row class="status-left">
+                <text id="status-workspace">No folder</text>
+                <text id="status-problems">0 problems</text>
+            </row>
+            <row class="status-right">
+                <input_select id="theme-picker" class="status-select" title="Color theme"></input_select>
+                <text id="status-cursor"></text>
+                <text id="status-language"></text>
+                <text id="status-toolchain">detecting toolchain</text>
+                <text id="status-version">Canopy</text>
+            </row>
         </row>
     </body>
 </grove>

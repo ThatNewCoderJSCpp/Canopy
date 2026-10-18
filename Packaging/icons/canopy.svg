@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232338"/>
+      <stop offset="1" stop-color="#16161f"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b9f0b0"/>
+      <stop offset="1" stop-color="#63c48a"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <rect x="116" y="138" width="24" height="76" rx="8" fill="#b88a64"/>
+  <path d="M128 214 L128 186 M128 196 L106 176 M128 190 L150 170" stroke="#b88a64" stroke-width="10" stroke-linecap="round" fill="none"/>
+  <g fill="url(#leaf)">
+    <circle cx="128" cy="86" r="50"/>
+    <circle cx="80" cy="118" r="40"/>
+    <circle cx="176" cy="118" r="40"/>
+    <circle cx="104" cy="146" r="32"/>
+    <circle cx="152" cy="146" r="32"/>
+  </g>
+  <g fill="none" stroke="#1e1e2e" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M104 96 L82 118 L104 140"/>
+    <path d="M152 96 L174 118 L152 140"/>
+    <path d="M138 90 L118 146"/>
+  </g>
+</svg>

@@ -1,0 +1,5 @@
+build {
+    mode: debug;
+    output-dir: "build";
+    save-before-build: true;
+}

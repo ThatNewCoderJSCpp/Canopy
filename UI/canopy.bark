@@ -2,75 +2,154 @@ $bg = #1e1e2e;
 $surface = #181825;
 $panel = #11111b;
 $line = #313244;
+$hover = #2a2b3c;
 $text = #cdd6f4;
 $muted = #9399b2;
 $accent = #a6e3a1;
+$blue = #89b4fa;
 $warn = #f9e2af;
+$error = #f38ba8;
 
 body {
-    size: 70vwidth 75vheight;
+    size: 75vwidth 80vheight;
     background: $bg;
     color: $text;
-    accent-color: $accent;
-    font-size: 14px;
+    accent-color: $blue;
+    font-size: 13px;
     padding: 0;
 }
 
 #shell {
     gap: 0;
-    min-height: 90vheight;
+    flex: 1;
 }
 
 #sidebar {
+    width: 250px;
     background: $surface;
-    padding: 10px 12px;
-    min-width: 220px;
-    max-width: 260px;
-    min-height: 88vheight;
+    padding: 8px 0 0 0;
     border-color: $line;
-    border-width: 0 1px 0 0;
+    border-width: 1px;
 }
 
-.sidebar-title,
-.panel-title {
+.sidebar-header {
+    padding: 0 12px;
+}
+
+.sidebar-title {
     color: $muted;
     font-size: 11px;
-    font-weight: bold;
-    margin: 0 0 8px 0;
-}
-
-.workspace {
     font-weight: bold;
     margin: 0 0 6px 0;
 }
 
+.sidebar-title.section {
+    padding: 0 12px;
+    margin: 10px 0 4px 0;
+}
+
+.workspace {
+    font-weight: bold;
+    padding: 0 12px;
+    margin: 0 0 6px 0;
+}
+
+.sidebar-actions {
+    padding: 0 12px;
+    gap: 6px;
+    margin: 0 0 8px 0;
+
+    input_file {
+        padding: 4px 10px;
+        margin: 0;
+        font-size: 12px;
+    }
+}
+
+#explorer {
+    flex: 1;
+    overflow: auto;
+    padding: 0 4px;
+}
+
 #explorer item {
-    padding: 2px 6px;
+    display: row;
+    gap: 5px;
+}
+
+.twisty {
+    color: $muted;
+    font-size: 11px;
+    padding: 1px 0 0 0;
+}
+
+.file-icon {
+    margin: 1px 0 0 0;
+}
+
+#explorer item,
+#recent item {
+    padding: 2px 8px;
     border-radius: 4px;
     cursor: pointer;
 
     &:hover {
-        background: $line;
+        background: $hover;
     }
 }
 
 #explorer item.folder {
-    color: $accent;
+    color: $blue;
+}
+
+#explorer item.open {
+    background: $line;
+}
+
+#recent {
+    max-height: 120px;
+    overflow: auto;
+    padding: 0 4px;
+}
+
+#recent item {
+    color: $muted;
+}
+
+.sidebar-footer {
+    padding: 8px 12px;
+
+    button {
+        margin: 0;
+        padding: 4px 10px;
+        font-size: 12px;
+    }
 }
 
 #main {
     padding: 0;
 }
 
-#tabs {
+#tab-bar {
     background: $surface;
-    padding: 6px 10px 0 10px;
-    gap: 2px;
+    gap: 0;
+    height: 36px;
+}
+
+#tabs {
+    gap: 0;
+    flex: 1;
 }
 
 .tab {
-    padding: 6px 14px;
+    gap: 6px;
+    padding: 9px 12px;
     color: $muted;
+    cursor: pointer;
+
+    &:hover {
+        background: $hover;
+    }
 }
 
 .tab.active {
@@ -78,26 +157,115 @@ body {
     color: $text;
 }
 
-#editor {
-    padding: 24px 28px;
-    min-height: 55vheight;
+.tab-close {
+    color: $muted;
+}
+
+#tab-actions {
+    width: 150px;
+    gap: 6px;
+    padding: 5px 8px;
+    justify-content: end;
+
+    button {
+        margin: 0;
+        padding: 3px 12px;
+        font-size: 12px;
+    }
+
+    button.primary {
+        background: $accent;
+        color: $panel;
+        border-color: $accent;
+    }
+}
+
+#editors {
+    flex: 1;
+    padding: 0;
+}
+
+#welcome {
+    padding: 28px 32px;
+    height: 100%;
+    overflow: auto;
 }
 
 .muted {
     color: $muted;
 }
 
-#output {
+code {
+    background: $line;
+    border-radius: 3px;
+}
+
+input_code.editor {
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+    background: $bg;
+    font-size: 14px;
+    padding: 4px 0;
+}
+
+.hidden {
+    display: none;
+}
+
+#panel {
+    height: 230px;
     background: $panel;
-    padding: 10px 14px;
-    min-height: 18vheight;
     border-color: $line;
-    border-width: 1px 0 0 0;
+    border-width: 1px;
+}
+
+#panel-tabs {
+    gap: 18px;
+    padding: 6px 14px 0 14px;
+    height: 30px;
+}
+
+.panel-tab {
+    color: $muted;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 0 4px 0;
+
+    &:hover {
+        color: $text;
+    }
+}
+
+.panel-tab.active {
+    color: $text;
+    font-weight: bold;
+}
+
+.panel-view {
+    display: none;
+    flex: 1;
+    padding: 8px 14px;
+    overflow: auto;
+}
+
+.panel-view.active {
+    display: block;
+}
+
+#output-log {
+    margin: 0;
+    font-size: 12px;
 }
 
 .problem {
     color: $warn;
     margin: 0 0 4px 0;
+    cursor: pointer;
+}
+
+.problem.error {
+    color: $error;
 }
 
 .ok {
@@ -107,7 +275,610 @@ body {
 
 #status {
     background: $line;
-    padding: 4px 12px;
+    padding: 3px 12px;
     font-size: 12px;
     justify-content: space-between;
+    height: 22px;
+}
+
+.status-left,
+.status-right {
+    gap: 16px;
+}
+
+.status-right {
+    justify-content: end;
+    align-items: center;
+}
+
+.status-select {
+    width: 150px;
+    padding: 0 8px;
+    margin: 0;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0);
+    border-color: rgba(0, 0, 0, 0);
+    border-radius: 4px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.settings-page {
+    height: 100%;
+    gap: 0;
+}
+
+.settings-page.hidden {
+    display: none;
+}
+
+.settings-nav {
+    width: 170px;
+    background: $surface;
+    padding: 14px 0 10px 0;
+    border-color: $line;
+    border-width: 1px;
+}
+
+.settings-nav-title {
+    color: $muted;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 0 16px 8px 16px;
+}
+
+.settings-nav-item {
+    margin: 0;
+    padding: 5px 16px;
+    cursor: pointer;
+    color: $muted;
+
+    &:hover {
+        background: $hover;
+        color: $text;
+    }
+}
+
+.settings-nav-item.active {
+    color: $text;
+    background: $line;
+}
+
+.settings-nav-spacer {
+    flex: 1;
+}
+
+.settings-nav-file {
+    margin: 0;
+    padding: 4px 16px;
+    color: $blue;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.settings-nav-path {
+    margin: 0;
+    padding: 0 16px;
+    color: $muted;
+    font-size: 11px;
+}
+
+.settings-body {
+    flex: 1;
+    height: 100%;
+    overflow: auto;
+    padding: 14px 24px;
+}
+
+.settings-heading {
+    margin: 0 0 4px 0;
+}
+
+.settings-note {
+    color: $muted;
+    font-size: 12px;
+    margin: 0 0 10px 0;
+}
+
+.settings-group {
+    margin: 16px 0 4px 0;
+    color: $blue;
+    font-size: 13px;
+}
+
+.setting {
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.setting-text {
+    flex: 1;
+}
+
+.setting-name {
+    font-weight: bold;
+}
+
+.setting-help {
+    color: $muted;
+    font-size: 12px;
+}
+
+.setting-where {
+    gap: 10px;
+}
+
+.setting-source {
+    color: $accent;
+    font-size: 11px;
+}
+
+.setting-reset {
+    color: $blue;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.shortcut-row.clash .setting-name {
+    color: $error;
+}
+
+.shortcut-clash {
+    color: $error;
+    font-size: 12px;
+}
+
+.shortcut-fixed {
+    color: $muted;
+    font-family: monospace;
+    padding: 0 8px;
+}
+
+.shortcut-record {
+    width: 150px;
+}
+
+.shortcut-record.recording {
+    color: $accent;
+    border-color: $accent;
+}
+
+.shortcut-banner {
+    padding: 8px 12px;
+    margin: 4px 0 8px 0;
+    border-color: $error;
+    border-width: 1px;
+    border-radius: 6px;
+}
+
+.shortcut-banner-title {
+    color: $error;
+    font-weight: bold;
+}
+
+.shortcut-banner-item {
+    margin: 4px 0 0 0;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.setting-choices {
+    gap: 12px;
+}
+
+.theme-row {
+    gap: 8px;
+    margin: 0 0 8px 0;
+}
+
+.theme-card {
+    flex: 1;
+    padding: 7px 10px;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 6px;
+    cursor: pointer;
+
+    &:hover {
+        border-color: $muted;
+    }
+}
+
+.theme-card.active {
+    border-color: $blue;
+    border-width: 2px;
+}
+
+.theme-card.filler {
+    border-width: 0;
+    cursor: default;
+}
+
+.theme-name {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.theme-swatches {
+    gap: 3px;
+    margin: 5px 0 0 0;
+}
+
+.theme-swatch {
+    width: 12px;
+    height: 8px;
+    border-radius: 2px;
+}
+
+.language-chips {
+    gap: 6px;
+    margin: 8px 0 10px 0;
+}
+
+.language-chip {
+    display: inline-block;
+    padding: 3px 10px;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 11px;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+        border-color: $muted;
+    }
+}
+
+.language-chip.active {
+    background: $blue;
+    color: $bg;
+    border-color: $blue;
+}
+
+.highlight-split {
+    gap: 16px;
+}
+
+.color-list {
+    flex: 1;
+    min-width: 300px;
+}
+
+.color-row {
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.color-row.lit {
+    background: $line;
+}
+
+.color-input {
+    width: 104px;
+    font-size: 12px;
+}
+
+.style-toggle {
+    width: 22px;
+    margin: 3px 0 0 0;
+    padding: 1px 0;
+    text-align: center;
+    font-size: 12px;
+    color: $muted;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 3px;
+    cursor: pointer;
+
+    &:hover {
+        color: $text;
+    }
+}
+
+.style-toggle.on {
+    color: $text;
+    background: $line;
+    border-color: $blue;
+}
+
+.style-toggle.bold {
+    font-weight: bold;
+}
+
+.style-toggle.italic {
+    font-style: italic;
+}
+
+.style-toggle.underline {
+    text-decoration: underline;
+}
+
+.style-toggle.strikethrough {
+    text-decoration: line-through;
+}
+
+.color-text {
+    flex: 1;
+    padding: 0 0 0 4px;
+}
+
+.color-name {
+    display: inline-block;
+    font-size: 13px;
+    padding: 0 6px;
+    border-radius: 3px;
+}
+
+.color-what {
+    color: $muted;
+    font-size: 11px;
+}
+
+.color-clear {
+    width: 18px;
+    margin: 3px 0 0 0;
+    text-align: center;
+    color: $muted;
+    cursor: pointer;
+
+    &:hover {
+        color: $error;
+    }
+}
+
+.color-reset-all {
+    color: $blue;
+    font-size: 12px;
+    margin: 8px 6px;
+    cursor: pointer;
+}
+
+.preview-side {
+    flex: 1;
+}
+
+.hl-preview {
+    height: 440px;
+    margin: 0 0 8px 0;
+    border-radius: 6px;
+    padding: 6px 0;
+}
+
+.theme-actions {
+    gap: 8px;
+    margin: 4px 0 6px 0;
+}
+
+.theme-action {
+    font-size: 12px;
+}
+
+.theme-status {
+    color: $muted;
+    font-size: 12px;
+    padding: 5px 0 0 6px;
+}
+
+.viewer {
+    height: 100%;
+    gap: 0;
+    background: $bg;
+}
+
+.viewer-bar {
+    gap: 6px;
+    padding: 6px 12px;
+    height: 32px;
+    background: $surface;
+    border-color: $line;
+    border-width: 1px;
+    align-items: center;
+}
+
+.viewer-title {
+    font-weight: bold;
+}
+
+.viewer-meta {
+    color: $muted;
+    font-size: 12px;
+}
+
+.viewer-spacer {
+    flex: 1;
+}
+
+.viewer-gap {
+    width: 10px;
+}
+
+.view-button {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: $text;
+    background: $line;
+    cursor: pointer;
+
+    &:hover {
+        background: $hover;
+        color: $blue;
+    }
+}
+
+.view-button.on {
+    background: $blue;
+    color: $panel;
+}
+
+.view-button.off {
+    color: $muted;
+    background: $surface;
+    cursor: default;
+}
+
+.zoom-level {
+    width: 52px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.view-tabs,
+.view-pager {
+    gap: 4px;
+    align-items: center;
+}
+
+.view-pager {
+    padding: 0 0 0 12px;
+}
+
+.viewer-body {
+    flex: 1;
+    overflow: auto;
+    overflow-x: auto;
+}
+
+.image-stage.fit {
+    overflow-x: hidden;
+}
+
+.image-stage {
+    background: $panel;
+    padding: 24px;
+    align-items: center;
+}
+
+.viewer-image {
+    margin: 0 0 12px 0;
+}
+
+.viewer-hint {
+    color: $muted;
+    font-size: 11px;
+    margin: 0;
+}
+
+.page-stack {
+    background: $panel;
+    padding: 16px 24px;
+    align-items: center;
+}
+
+.pdf-page {
+    margin: 0;
+}
+
+.page-number {
+    color: $muted;
+    font-size: 11px;
+    margin: 4px 0 14px 0;
+    text-align: center;
+}
+
+.viewer-status {
+    margin: 0 0 8px 0;
+    max-width: 640px;
+}
+
+.viewer-status.warn {
+    color: $warn;
+}
+
+.tex-split {
+    height: 100%;
+    gap: 0;
+}
+
+.tex-split input_code.editor {
+    flex: 1;
+}
+
+.tex-preview {
+    width: 46%;
+    border-color: $line;
+    border-width: 1px;
+}
+
+.tex-preview.collapsed {
+    width: 30px;
+}
+
+.tex-preview.collapsed {
+    padding: 8px 4px;
+    align-items: center;
+}
+
+.show-preview {
+    padding: 6px 7px;
+}
+
+input_code.dump {
+    flex: 1;
+    margin: 0;
+    border-radius: 0;
+    background: $bg;
+    padding: 6px 0;
+}
+
+.binary-info {
+    padding: 16px 24px;
+}
+
+.fact {
+    gap: 16px;
+    padding: 4px 0;
+}
+
+.fact-label {
+    width: 150px;
+    color: $muted;
+}
+
+.fact-value {
+    color: $text;
+}
+
+.info-heading {
+    margin: 18px 0 6px 0;
+    color: $blue;
+    font-size: 13px;
+}
+
+.info-table {
+    margin: 0;
+    font-size: 12px;
+    color: $text;
+}
+
+.page-stack.narrow {
+    padding: 10px 12px;
+}
+
+.viewer-bar.sub-bar {
+    background: $bg;
+    height: 30px;
+}
+
+.style-toggle.spacer {
+    border-color: rgba(0, 0, 0, 0);
+}
+
+.size-value {
+    width: 90px;
+}
+
+.size-unit {
+    width: 90px;
+}
+
+.font-select {
+    width: 240px;
 }

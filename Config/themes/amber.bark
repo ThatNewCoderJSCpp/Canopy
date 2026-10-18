@@ -1,0 +1,23 @@
+theme {
+    name: "Amber";
+    background: #120c02;
+    foreground: #ffb000;
+}
+
+highlight {
+    keyword: #ffcc33 bold;
+    type: #ffd77a;
+    function: #ffe6a3;
+    namespace: #e6a23c;
+    variable: #ffbe4d;
+    constant: #ff8c00;
+    string: #f2c46b;
+    escape: #ff7b00 bold;
+    number: #ffa64d;
+    comment: #7a5a20 italic;
+    preprocessor: #ff9e1f;
+    operator: #d99a2b;
+    tag: #ffcc33;
+    attribute: #ffd77a;
+    property: #ffbe4d;
+}

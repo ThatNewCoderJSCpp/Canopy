@@ -1,0 +1,50 @@
+theme {
+    name: "Ember";
+    background: #1b1311;
+    foreground: #fff1d6;
+}
+
+highlight {
+    keyword: #e76f51;
+    type: #f4a261;
+    function: #ffd166;
+    namespace: #e9c46a;
+    variable: #f2c48d;
+    constant: #ff8f5a;
+    string: #a7c957;
+    escape: #f2e8cf;
+    number: #90be6d;
+    comment: #8c7b6b italic;
+    preprocessor: #c9ada7;
+    operator: #e8a87c;
+    tag: #e76f51;
+    attribute: #8ab17d;
+    property: #f2c48d;
+    error-underline: #ff3b30;
+    warning-underline: #ffb000;
+}
+
+highlight.walnut {
+    keyword: #e76f51;
+    control-keyword: #ff6b57 bold;
+    type: #f4a261;
+    builtin-type: #e76f51;
+    function: #ffd166;
+    namespace: #e9c46a;
+    declaration: #fff1d6;
+    variable: #f2c48d;
+    variable-template: #ffb86b;
+    template-scope: #f4a261;
+    enum-member: #8ab17d;
+    constant: #ff8f5a;
+    string: #a7c957;
+    escape: #f2e8cf;
+    number: #90be6d;
+    comment: #8c7b6b italic;
+    preprocessor: #c9ada7;
+    builtin-operator: #e8a87c;
+    overloaded-operator: #ffd166 bold;
+    self: #ff6b57;
+    this: #ff6b57;
+    cast: #ff8f5a;
+}

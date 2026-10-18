@@ -1,0 +1,50 @@
+theme {
+    name: "Soft";
+    background: #1e1e2e;
+    foreground: #f5e0dc;
+}
+
+highlight {
+    keyword: #cba6f7;
+    type: #f9e2af;
+    function: #89b4fa;
+    namespace: #fab387;
+    variable: #b4befe;
+    constant: #fab387;
+    string: #a6e3a1;
+    escape: #f5c2e7;
+    number: #fab387;
+    comment: #7f849c italic;
+    preprocessor: #f5c2e7;
+    operator: #89dceb;
+    tag: #cba6f7;
+    attribute: #94e2d5;
+    property: #b4befe;
+    error-underline: #f38ba8;
+    warning-underline: #f9e2af;
+}
+
+highlight.walnut {
+    keyword: #cba6f7;
+    control-keyword: #cba6f7 italic;
+    type: #f9e2af;
+    builtin-type: #cba6f7;
+    function: #89b4fa;
+    namespace: #fab387;
+    declaration: #f5e0dc;
+    variable: #b4befe;
+    variable-template: #94e2d5;
+    template-scope: #f9e2af;
+    enum-member: #94e2d5;
+    constant: #fab387;
+    string: #a6e3a1;
+    escape: #f5c2e7;
+    number: #fab387;
+    comment: #7f849c italic;
+    preprocessor: #f5c2e7;
+    builtin-operator: #89dceb;
+    overloaded-operator: #f9e2af bold;
+    self: #f38ba8;
+    this: #f38ba8;
+    cast: #eba0ac;
+}

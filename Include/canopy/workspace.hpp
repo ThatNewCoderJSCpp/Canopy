@@ -4,6 +4,7 @@
 #include "settings.hpp"
 #include "toolchain.hpp"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,13 @@ struct Workspace {
 
 std::string find_workspace_root(const std::string& start);
 Workspace open_workspace(const std::string& folder);
+
+std::string recent_folders_path();
+std::vector<std::string> recent_folders();
+void remember_folder(const std::string& folder);
+
+std::optional<std::string> read_text_file(const std::string& path);
+bool write_text_file(const std::string& path, const std::string& text);
 
 } // namespace canopy
 

@@ -1,0 +1,1 @@
+/opt/canopy/bin/canopy install --system --prefix /usr --quiet || true

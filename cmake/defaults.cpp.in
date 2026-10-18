@@ -1,9 +1,26 @@
 #include <canopy/settings.hpp>
 
+#include <string>
+
 namespace canopy {
 
+const std::vector<ConfigFile>& default_config_files() noexcept {
+    static const std::vector<ConfigFile> files = {
+@CANOPY_DEFAULT_FILES@    };
+    return files;
+}
+
 std::string_view default_settings_text() noexcept {
-    return R"canopy_defaults(@CANOPY_DEFAULT_SETTINGS@)canopy_defaults";
+    static const std::string text = [] {
+        std::string out;
+        for (const ConfigFile& f : default_config_files()) {
+            if (f.name.find('/') != std::string_view::npos) continue;
+            if (!out.empty()) out += '\n';
+            out += f.text;
+        }
+        return out;
+    }();
+    return text;
 }
 
 } // namespace canopy

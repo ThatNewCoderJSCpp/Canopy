@@ -1,0 +1,23 @@
+theme {
+    name: "Mono";
+    background: #141414;
+    foreground: #d0d0d0;
+}
+
+highlight {
+    keyword: #ffffff bold;
+    type: #e6e6e6 italic;
+    function: #f2f2f2;
+    namespace: #b8b8b8;
+    variable: #d0d0d0;
+    constant: #ffffff;
+    string: #9e9e9e;
+    escape: #d8d8d8 bold;
+    number: #e6e6e6;
+    comment: #666666 italic;
+    preprocessor: #b8b8b8 bold;
+    operator: #9e9e9e;
+    tag: #ffffff bold;
+    attribute: #b8b8b8;
+    property: #e6e6e6;
+}

@@ -1,0 +1,21 @@
+editor {
+    font-family: "monospace";
+    font-size: 14px;
+    tab-size: 4;
+    insert-spaces: true;
+    line-numbers: true;
+    word-wrap: false;
+    theme: "canopy-dark";
+}
+
+gui {
+    size: 13px;
+}
+
+viewer {
+    pdf: auto;
+    pdf-resolution: 144;
+    latex: auto;
+    latex-flags: "";
+    latex-preview: true;
+}

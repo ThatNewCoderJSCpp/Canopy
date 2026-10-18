@@ -1,0 +1,23 @@
+theme {
+    name: "Ocean";
+    background: #0f1b26;
+    foreground: #d6e6f2;
+}
+
+highlight {
+    keyword: #c792ea;
+    type: #7fdbca;
+    function: #82aaff;
+    namespace: #9ccfd8;
+    variable: #c3e0ff;
+    constant: #f78c6c;
+    string: #addb67;
+    escape: #ff9cac;
+    number: #f78c6c;
+    comment: #5f7e97 italic;
+    preprocessor: #c792ea;
+    operator: #89ddff;
+    tag: #7fdbca;
+    attribute: #ffcb8b;
+    property: #80cbc4;
+}

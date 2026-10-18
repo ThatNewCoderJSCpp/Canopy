@@ -1,0 +1,23 @@
+theme {
+    name: "Canopy Dark";
+    background: #1e1e2e;
+    foreground: #cdd6f4;
+}
+
+highlight {
+    keyword: #cba6f7;
+    type: #f9e2af;
+    function: #89b4fa;
+    namespace: #94e2d5;
+    variable: #f2cdcd;
+    constant: #fab387;
+    string: #a6e3a1;
+    escape: #f5c2e7;
+    number: #fab387;
+    comment: #7f849c italic;
+    preprocessor: #f5c2e7;
+    operator: #89dceb;
+    tag: #89b4fa;
+    attribute: #f9e2af;
+    property: #89dceb;
+}

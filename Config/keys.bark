@@ -1,0 +1,39 @@
+// Keyboard and mouse shortcuts. Write chords like "Ctrl+Shift+B", several with commas, or "none".
+
+keys {
+    save: "Ctrl+S";
+    build: "Ctrl+B";
+    run: "F5";
+    close-tab: "Ctrl+W";
+    show-problems: "Ctrl+Shift+M";
+    show-warnings: "none";
+    show-output: "Ctrl+Shift+U";
+    open-settings: "Ctrl+,";
+    definition: "F12";
+    go-back: "Alt+Left";
+    go-forward: "Alt+Right";
+    select-all: "Ctrl+A";
+    copy: "Ctrl+C";
+    cut: "Ctrl+X";
+    paste: "Ctrl+V";
+    undo: "Ctrl+Z";
+    redo: "Ctrl+Y, Ctrl+Shift+Z";
+    indent: "Tab";
+    outdent: "Shift+Tab";
+    delete-word-left: "Ctrl+Backspace";
+    delete-word-right: "Ctrl+Delete";
+    word-left: "Ctrl+Left";
+    word-right: "Ctrl+Right";
+    select-word-left: "Ctrl+Shift+Left";
+    select-word-right: "Ctrl+Shift+Right";
+    file-start: "Ctrl+Home";
+    file-end: "Ctrl+End";
+    scroll-up: "Ctrl+Up";
+    scroll-down: "Ctrl+Down";
+    caret-above: "Shift+Up";
+    caret-below: "Shift+Down";
+    single-caret: "Escape";
+    go-to-definition: "Ctrl+Click";
+    add-caret: "Alt+Click";
+    column-select: "Shift+Click";
+}

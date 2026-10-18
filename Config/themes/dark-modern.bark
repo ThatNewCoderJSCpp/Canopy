@@ -1,0 +1,50 @@
+theme {
+    name: "Dark Modern";
+    background: #1f1f1f;
+    foreground: #d4d4d4;
+}
+
+highlight {
+    keyword: #569cd6;
+    type: #4ec9b0;
+    function: #dcdcaa;
+    namespace: #4ec9b0;
+    variable: #9cdcfe;
+    constant: #4fc1ff;
+    string: #ce9178;
+    escape: #d7ba7d;
+    number: #b5cea8;
+    comment: #6a9955 italic;
+    preprocessor: #c586c0;
+    operator: #d4d4d4;
+    tag: #569cd6;
+    attribute: #9cdcfe;
+    property: #9cdcfe;
+    error-underline: #f14c4c;
+    warning-underline: #cca700;
+}
+
+highlight.walnut {
+    keyword: #569cd6;
+    control-keyword: #c586c0;
+    type: #4ec9b0;
+    builtin-type: #569cd6;
+    function: #dcdcaa;
+    namespace: #4ec9b0;
+    declaration: #ffffff;
+    variable: #9cdcfe;
+    variable-template: #4fc1ff;
+    template-scope: #4ec9b0;
+    enum-member: #4fc1ff;
+    constant: #569cd6;
+    string: #ce9178;
+    escape: #d7ba7d;
+    number: #b5cea8;
+    comment: #6a9955 italic;
+    preprocessor: #c586c0;
+    builtin-operator: #d4d4d4;
+    overloaded-operator: #dcdcaa bold;
+    self: #f44747;
+    this: #569cd6;
+    cast: #c586c0;
+}

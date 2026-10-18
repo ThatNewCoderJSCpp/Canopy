@@ -1,0 +1,51 @@
+theme {
+    name: "Neon";
+    background: #0a0a10;
+    foreground: #ffffff;
+}
+
+highlight {
+    keyword: #af00ff;
+    type: #ffea00;
+    function: #ffff00;
+    namespace: #ffffff;
+    variable: #00ffff;
+    constant: #ff0000;
+    string: #329600;
+    escape: #ff0000;
+    number: #f2f2f2;
+    comment: #646464;
+    preprocessor: #ff00ea;
+    operator: #ff0000;
+    tag: #af00ff;
+    attribute: #00ff6e;
+    property: #00ffff;
+    error-underline: #ff0000;
+    warning-underline: #ffff00;
+    error-line: #ff0000;
+}
+
+highlight.walnut {
+    keyword: #af00ff;
+    control-keyword: #af00ff;
+    type: #ffea00;
+    builtin-type: #af00ff;
+    function: #ffff00;
+    namespace: #ffffff;
+    declaration: #ffffff;
+    variable: #00ffff;
+    variable-template: #ffea00;
+    template-scope: #ffea00;
+    enum-member: #00ff6e;
+    constant: #ff0000;
+    string: #329600;
+    escape: #ff0000;
+    number: #f2f2f2;
+    comment: #646464;
+    preprocessor: #ff00ea;
+    builtin-operator: #ff0000;
+    overloaded-operator: #ffff00;
+    self: #ff0000;
+    this: #66baff;
+    cast: #f00000;
+}

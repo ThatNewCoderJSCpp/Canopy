@@ -1,0 +1,23 @@
+theme {
+    name: "Forest";
+    background: #121a14;
+    foreground: #dfe8d8;
+}
+
+highlight {
+    keyword: #a3d977 bold;
+    type: #e0c97a;
+    function: #8fd3c2;
+    namespace: #b5c99a;
+    variable: #d8e6c3;
+    constant: #f0a868;
+    string: #c3e88d;
+    escape: #f78c6c;
+    number: #f0a868;
+    comment: #6b7d63 italic;
+    preprocessor: #d4a5d9;
+    operator: #9fc7a8;
+    tag: #a3d977;
+    attribute: #e0c97a;
+    property: #8fd3c2;
+}

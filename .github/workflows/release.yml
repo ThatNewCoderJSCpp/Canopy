@@ -1,0 +1,277 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Check the version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the version matches the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(sed -n 's/^project(canopy VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n 1)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::CMakeLists.txt says VERSION $version but the tag is $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+  linux:
+    name: Linux ${{ matrix.arch }}
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config rpm dpkg-dev file desktop-file-utils \
+            libx11-dev libxft-dev libxrender-dev libfontconfig1-dev libfreetype-dev \
+            libssl-dev libpango1.0-dev libcairo2-dev zlib1g-dev libjpeg-dev \
+            libvulkan-dev libgl-dev
+
+      - name: Configure
+        run: |
+          lib=/usr/lib/$(gcc -print-multiarch)
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+            -DCANOPY_PACKAGE_PLATFORM=linux-${{ matrix.arch }} \
+            -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
+            -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
+
+      - name: Build
+        run: cmake --build build -j 4
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+      - name: Check canopy only needs common system libraries
+        run: |
+          for exe in build/bin/canopy build/bin/grove; do
+            readelf -d $exe | grep NEEDED
+            if readelf -d $exe | grep NEEDED | grep -E "libjpeg|libz\.|libstdc\+\+|libgcc_s"; then
+              echo "::error::$exe links to a library users may not have"
+              exit 1
+            fi
+          done
+
+      - name: Package
+        working-directory: build
+        run: cpack
+
+      - name: Test the archive
+        run: |
+          mkdir -p smoke
+          tar -xzf build/Canopy-*.tar.gz -C smoke
+          app=$(echo smoke/Canopy-*)
+          $app/bin/canopy version
+          $app/bin/canopy doctor | tee doctor.txt
+          grep -E "Walnut +ok .*\(bundled\)" doctor.txt
+          grep -E "Grove +ok .*\(bundled\)" doctor.txt
+          printf 'import module.io\n\nfunction main() -> int {\n    std::io::println("packaged walnut works");\n    return 0;\n} end function main\n' > smoke/ok.wal
+          $app/bin/canopy run smoke/ok.wal | grep "packaged walnut works"
+          HOME=$PWD/smoke/home $app/bin/canopy install --desktop
+          test -L smoke/home/.local/bin/canopy
+          desktop-file-validate smoke/home/.local/share/applications/canopy.desktop
+          test -f smoke/home/.local/share/mime/packages/canopy.xml
+          test -f smoke/home/.local/share/icons/hicolor/scalable/mimetypes/text-x-walnut.svg
+          grep "text/x-walnut-header:\*.walh" smoke/home/.local/share/mime/globs2
+          HOME=$PWD/smoke/home $app/bin/canopy uninstall
+          test ! -e smoke/home/.local/bin/canopy
+
+      - name: Test the .deb
+        run: |
+          sudo apt-get install -y ./build/Canopy-*.deb
+          test -L /usr/bin/canopy
+          desktop-file-validate /usr/share/applications/canopy.desktop
+          test -f /usr/share/icons/hicolor/scalable/apps/canopy.svg
+          test -f /usr/share/mime/packages/canopy.xml
+          canopy version
+          sudo apt-get remove -y canopy
+          test ! -e /usr/bin/canopy
+          test ! -e /usr/share/applications/canopy.desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canopy-linux-${{ matrix.arch }}
+          path: |
+            build/Canopy-*.tar.gz
+            build/Canopy-*.tar.xz
+            build/Canopy-*.zip
+            build/Canopy-*.deb
+            build/Canopy-*.rpm
+          if-no-files-found: error
+
+  linux-i686:
+    name: Linux i686
+    needs: version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build, test and package in a 32-bit container
+        run: |
+          docker run --rm --platform linux/386 -v "$PWD:/src" -w /src i386/debian:bookworm bash -euo pipefail -c '
+            apt-get update
+            apt-get install -y --no-install-recommends ca-certificates git g++ cmake ninja-build pkg-config file rpm dpkg-dev binutils \
+              libx11-dev libxft-dev libxrender-dev libfontconfig-dev libfreetype-dev \
+              libssl-dev libpango1.0-dev libcairo2-dev zlib1g-dev libjpeg-dev \
+              libvulkan-dev libgl-dev
+            lib=/usr/lib/$(gcc -print-multiarch)
+            cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+              -DCANOPY_PACKAGE_PLATFORM=linux-i686 \
+              -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
+              -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
+            cmake --build build -j 4
+            (cd build && ctest --output-on-failure)
+            (cd build && cpack)
+            mkdir -p smoke
+            tar -xzf build/Canopy-*.tar.gz -C smoke
+            smoke/Canopy-*/bin/canopy version
+            smoke/Canopy-*/bin/canopy doctor
+          '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canopy-linux-i686
+          path: |
+            build/Canopy-*.tar.gz
+            build/Canopy-*.tar.xz
+            build/Canopy-*.zip
+            build/Canopy-*.deb
+            build/Canopy-*.rpm
+          if-no-files-found: error
+
+  windows:
+    name: Windows ${{ matrix.platform }}
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - msystem: MINGW64
+            prefix: mingw-w64-x86_64
+            platform: windows-mingw64
+            runner: windows-latest
+          - msystem: UCRT64
+            prefix: mingw-w64-ucrt-x86_64
+            platform: windows-ucrt64
+            runner: windows-latest
+          - msystem: CLANGARM64
+            prefix: mingw-w64-clang-aarch64
+            platform: windows-clangarm64
+            runner: windows-11-arm
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+
+      - name: Install packages
+        run: |
+          sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 2/' /etc/pacman.conf
+          packages="git unzip ${{ matrix.prefix }}-cc ${{ matrix.prefix }}-cmake ${{ matrix.prefix }}-ninja ${{ matrix.prefix }}-zlib ${{ matrix.prefix }}-libjpeg-turbo ${{ matrix.prefix }}-vulkan-headers"
+          for attempt in 1 2 3 4 5 6; do
+            if pacman -S --needed --noconfirm --overwrite '*' $packages; then
+              exit 0
+            fi
+            wait=$((attempt * 30))
+            echo "::warning::pacman couldn't download everything (attempt $attempt of 6); the MSYS2 mirrors are probably rate limiting, so trying again in $wait seconds"
+            sleep $wait
+          done
+          echo "::error::pacman still couldn't download the packages after 6 attempts"
+          exit 1
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { choco install nsis -y --no-progress }
+
+      - name: Configure
+        run: |
+          lib=$(cygpath -m "$MINGW_PREFIX/lib")
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+            -DCANOPY_PACKAGE_PLATFORM=${{ matrix.platform }} \
+            -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
+            -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
+
+      - name: Build
+        run: cmake --build build -j 4
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+      - name: Check canopy only needs DLLs that come with Windows
+        run: |
+          for exe in build/bin/canopy.exe build/bin/canopy-gui.exe build/bin/grove.exe; do
+            objdump -p $exe | grep "DLL Name"
+            if objdump -p $exe | grep "DLL Name" | grep -iE "libstdc|libgcc|libwinpthread|libc\+\+|libunwind|zlib|libjpeg"; then
+              echo "::error::$exe needs a DLL that users will not have"
+              exit 1
+            fi
+          done
+
+      - name: Package
+        working-directory: build
+        run: |
+          export PATH="$PATH:/c/Program Files (x86)/NSIS"
+          cpack
+
+      - name: Test the package
+        run: |
+          mkdir -p smoke
+          unzip -q build/Canopy-*.zip -d smoke
+          app=$(echo smoke/Canopy-*)
+          $app/bin/canopy.exe version
+          $app/bin/canopy.exe doctor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canopy-${{ matrix.platform }}
+          path: |
+            build/Canopy-*.zip
+            build/Canopy-*.7z
+            build/Canopy-*.exe
+          if-no-files-found: error
+
+  publish:
+    name: Attach packages to the release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, linux-i686, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*
+          fail_on_unmatched_files: true
