@@ -2013,7 +2013,7 @@ int dump_shell(const Workspace& workspace, std::ostream& os) {
     if (!project.diagnostics.ok()) return 1;
     EditorShell shell(project, workspace);
     shell.install();
-    grove::dump(project.document.root(), os);
+    grove::dump(project.document.root(), os, grove::DumpOptions::full());
     return 0;
 }
 

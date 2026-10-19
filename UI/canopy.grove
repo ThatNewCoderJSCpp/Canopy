@@ -74,7 +74,7 @@
                 <text id="status-problems">0 problems</text>
             </row>
             <row class="status-right">
-                <input_select id="theme-picker" class="status-select" title="Color theme"></input_select>
+                <input_select id="theme-picker" class="status-select" title="Color theme"><option value="canopy-dark">Canopy Dark</option></input_select>
                 <text id="status-cursor"></text>
                 <text id="status-language"></text>
                 <text id="status-toolchain">detecting toolchain</text>
