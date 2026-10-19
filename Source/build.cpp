@@ -126,7 +126,7 @@ BuildPlan plan_build(const BuildRequest& request, const Settings& settings, cons
     const BuildMode mode = build_mode(settings, request.mode);
     const std::vector<std::string> flags = split_flags(settings.get_or(section, "flags", ""));
     const std::vector<std::string> mode_flags = split_flags(settings.get_or(section, mode == BuildMode::Release ? "release-flags" : "debug-flags", ""));
-    plan.output = request.output.empty() ? default_output_path(request, settings) : request.output;
+    plan.output = request.output.empty() ? default_output_path(request, settings) : with_exe_suffix(request.output);
 
     switch (lang.build) {
     case BuildKind::CCompiler:

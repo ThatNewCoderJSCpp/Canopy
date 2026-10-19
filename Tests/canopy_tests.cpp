@@ -85,7 +85,7 @@ void test_plans() {
     r.output = "/work/build/main";
     canopy::BuildPlan p = canopy::plan_build(r, s, t);
     check(p.ok(), "C++ plan is ok");
-    check(canopy::command_line(p.command) == "/usr/bin/g++ -std=c++17 -Wall -Wextra -Wpedantic -g -O0 /work/main.cpp -o /work/build/main", "C++ debug command");
+    check(canopy::command_line(p.command) == "/usr/bin/g++ -std=c++17 -Wall -Wextra -Wpedantic -g -O0 /work/main.cpp -o " + canopy::with_exe_suffix("/work/build/main"), "C++ debug command");
 
     r.mode = canopy::BuildMode::Release;
     p = canopy::plan_build(r, s, t);
@@ -96,6 +96,11 @@ void test_plans() {
     r.output = "/work/build/app";
     p = canopy::plan_build(r, s, t);
     check(p.ok() && p.command.at(1) == "build" && p.command.back() == "-g", "Walnut builds through walnut build");
+    check(p.output == canopy::with_exe_suffix("/work/build/app"), "-o without an extension gets .exe on Windows");
+    r.output = "/work/build/app.bin";
+    p = canopy::plan_build(r, s, t);
+    check(p.output == "/work/build/app.bin", "-o with an extension is kept as given");
+    r.output = "/work/build/app";
 
     r.file = "/work/main.c";
     p = canopy::plan_build(r, s, t);
