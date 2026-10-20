@@ -1,0 +1,49 @@
+explorer {
+    preview-tabs: true;
+    confirm-delete: true;
+    confirm-drag-and-drop: true;
+    confirm-replace: true;
+}
+
+terminal {
+    shell: auto;
+    prompt: canopy;
+    font-size: 13px;
+    scrollback: 10000;
+    tab-size: 2;
+}
+
+server {
+    port: 5500;
+    host: "127.0.0.1";
+    live-reload: true;
+}
+
+git {
+    refresh-seconds: 4;
+    protected-branches: "main master";
+}
+
+history {
+    enabled: true;
+    limit: 50;
+}
+
+layout {
+    sidebar: left;
+    panel: bottom;
+    aside: right;
+    panel-span: editor;
+    sidebar-size: 250px;
+    panel-size: 230px;
+    aside-size: 340px;
+    explorer: sidebar;
+    terminal: panel;
+    problems: panel;
+    warnings: panel;
+    output: panel;
+    git: panel;
+    history: panel;
+    ports: panel;
+    debug: panel;
+}

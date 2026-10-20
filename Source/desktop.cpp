@@ -1,5 +1,6 @@
 #include <canopy/desktop.hpp>
 
+#include <canopy/build.hpp>
 #include <canopy/toolchain.hpp>
 
 #include <grove/script/builder.hpp>
@@ -7,12 +8,16 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
+#include <string>
+#include <unordered_map>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <shellapi.h>
 #include <shlobj.h>
 #include <shobjidl.h>
 #include <objbase.h>
@@ -289,6 +294,20 @@ std::string canopy_app_executable() {
 }
 
 std::string canopy_icon(const std::string& file_name) {
+    static std::mutex lock;
+    static std::unordered_map<std::string, std::string> found;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        const auto it = found.find(file_name);
+        if (it != found.end()) return it->second;
+    }
+    const std::string path = find_canopy_icon(file_name);
+    std::lock_guard<std::mutex> guard(lock);
+    found.emplace(file_name, path);
+    return path;
+}
+
+std::string find_canopy_icon(const std::string& file_name) {
     std::error_code ec;
     const fs::path dir = executable_dir();
     for (const fs::path& candidate : { dir.parent_path() / "share" / "canopy" / "icons" / file_name, dir / "icons" / file_name }) {
@@ -656,7 +675,7 @@ bool launch_detached(const std::string& program, const std::vector<std::string>&
         argv.push_back(const_cast<char*>(program.c_str()));
         for (const std::string& a : args) argv.push_back(const_cast<char*>(a.c_str()));
         argv.push_back(nullptr);
-        execv(program.c_str(), argv.data());
+        execvp(program.c_str(), argv.data());
         const char failed = 1;
         (void)!write(pipefd[1], &failed, 1);
         _exit(127);
@@ -668,6 +687,94 @@ bool launch_detached(const std::string& program, const std::vector<std::string>&
     const ssize_t n = read(pipefd[0], &failed, 1);
     close(pipefd[0]);
     return n <= 0;
+#endif
+}
+
+bool move_to_trash(const std::string& path) {
+    std::error_code ec;
+    if (!fs::exists(fs::symlink_status(path, ec))) return false;
+#if defined(_WIN32)
+    std::wstring from = wide(fs::path(path).make_preferred().string());
+    from.push_back(L'\0');
+    SHFILEOPSTRUCTW op{};
+    op.wFunc = FO_DELETE;
+    op.pFrom = from.c_str();
+    op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_SILENT;
+    if (SHFileOperationW(&op) != 0 || op.fAnyOperationsAborted) return false;
+#elif defined(__APPLE__)
+    std::string escaped;
+    for (char c : path) {
+        if (c == '"' || c == '\\') escaped += '\\';
+        escaped += c;
+    }
+    if (run_command({ "osascript", "-e", "tell application \"Finder\" to delete POSIX file \"" + escaped + "\"" }) != 0) return false;
+#else
+    std::string out;
+    if (run_command_capture({ "gio", "trash", "--", path }, out) != 0) return false;
+#endif
+    return !fs::exists(fs::symlink_status(path, ec));
+}
+
+std::string file_uri(const std::string& path) {
+    std::error_code ec;
+    std::string absolute = fs::absolute(path, ec).generic_string();
+    if (ec) absolute = path;
+    static const char* hex = "0123456789ABCDEF";
+    std::string out = "file://";
+    if (absolute.empty() || absolute[0] != '/') out += '/';
+    for (unsigned char c : absolute) {
+        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~' || c == '/';
+        if (plain) out += static_cast<char>(c);
+        else {
+            out += '%';
+            out += hex[c >> 4];
+            out += hex[c & 15];
+        }
+    }
+    return out;
+}
+
+bool open_in_browser(const std::string& url) {
+    if (url.empty()) return false;
+#if defined(_WIN32)
+    return reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", wide(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL)) > 32;
+#elif defined(__APPLE__)
+    return launch_detached("open", { url });
+#else
+    return launch_detached("xdg-open", { url });
+#endif
+}
+
+bool reveal_in_file_manager(const std::string& path) {
+    std::error_code ec;
+    if (!fs::exists(fs::symlink_status(path, ec))) return false;
+#if defined(_WIN32)
+    const std::wstring target = wide(fs::absolute(path, ec).make_preferred().string());
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    bool ok = false;
+    if (PIDLIST_ABSOLUTE item = ILCreateFromPathW(target.c_str())) {
+        ok = SUCCEEDED(SHOpenFolderAndSelectItems(item, 0, nullptr, 0));
+        ILFree(item);
+    }
+    if (SUCCEEDED(init)) CoUninitialize();
+    if (!ok) {
+        const std::wstring folder = wide((fs::is_directory(path, ec) ? fs::path(path) : fs::path(path).parent_path()).make_preferred().string());
+        ok = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", folder.c_str(), nullptr, nullptr, SW_SHOWNORMAL)) > 32;
+    }
+    return ok;
+#elif defined(__APPLE__)
+    return launch_detached("open", { "-R", fs::absolute(path, ec).string() });
+#else
+    const std::string absolute = fs::absolute(path, ec).string();
+    const std::string folder = fs::is_directory(absolute, ec) ? absolute : fs::path(absolute).parent_path().string();
+    const std::string script =
+        "uri=\"$1\"; folder=\"$2\"; "
+        "if command -v gdbus >/dev/null 2>&1 && gdbus call --session --timeout 3 --dest org.freedesktop.FileManager1 --object-path /org/freedesktop/FileManager1 "
+        "--method org.freedesktop.FileManager1.ShowItems \"['$uri']\" '' >/dev/null 2>&1; then exit 0; fi; "
+        "if command -v dbus-send >/dev/null 2>&1 && dbus-send --session --print-reply --reply-timeout=3000 --dest=org.freedesktop.FileManager1 /org/freedesktop/FileManager1 "
+        "org.freedesktop.FileManager1.ShowItems array:string:\"$uri\" string:'' >/dev/null 2>&1; then exit 0; fi; "
+        "exec xdg-open \"$folder\"";
+    return launch_detached("/bin/sh", { "-c", script, "canopy-reveal", file_uri(absolute), folder });
 #endif
 }
 

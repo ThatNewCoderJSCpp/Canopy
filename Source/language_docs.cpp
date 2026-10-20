@@ -216,6 +216,7 @@ const std::vector<DocEntry>& bark_function_table() {
         { "clamp", "clamp(200px, 40vw, 500px)", "the middle value, kept between the first and last" },
         { "max", "max(50%, 200px)", "the largest" },
         { "min", "min(100%, 600px)", "the smallest, so never wider than 600px" },
+        { "var", "var(--name, fallback)", "the value of a custom property (`--name: ...;`) on this element or the nearest parent that sets one, or the fallback when none does" },
     };
     return entries;
 }

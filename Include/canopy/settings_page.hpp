@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,16 @@ struct HighlightLook {
     bool underline = false;
     bool strikethrough = false;
 };
+
+struct SettingDoc {
+    std::string section;
+    std::string key;
+    std::string label;
+    std::string help;
+};
+
+const std::vector<SettingDoc>& setting_docs();
+std::optional<SettingDoc> find_setting_doc(const std::string& section, const std::string& key);
 
 HighlightLook parse_highlight_look(const std::string& value);
 std::string highlight_look_text(const HighlightLook& look);
@@ -59,12 +70,14 @@ private:
     void build_editor(grove::Node& body);
     void build_compilers(grove::Node& body);
     void build_build(grove::Node& body);
+    void build_workbench(grove::Node& body);
     void build_viewers(grove::Node& body);
     void build_gui(grove::Node& body);
     void build_highlighting(grove::Node& body);
     void build_shortcuts(grove::Node& body);
     void write_shortcut(const std::string& id, const std::string& text);
     void heading(grove::Node& body, const std::string& title, const std::string& note);
+    grove::Node* setting_row(grove::Node& parent, const std::string& section, const std::string& key);
     grove::Node* setting_row(grove::Node& parent, const std::string& section, const std::string& key, const std::string& label, const std::string& help);
     void text_control(grove::Node& row, const std::string& section, const std::string& key, const std::string& width = "260px");
     void integer_control(grove::Node& row, const std::string& section, const std::string& key, int min, int max);

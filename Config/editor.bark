@@ -1,10 +1,19 @@
 editor {
     font-family: "monospace";
     font-size: 14px;
-    tab-size: 4;
+    tab-size: 2;
     insert-spaces: true;
+    backspace-to-tab-stop: true;
+    close-blocks: true;
     line-numbers: true;
     word-wrap: false;
+    hover-width: 900;
+    hover-height: 560;
+    autocomplete: true;
+    accept-suggestion-on-enter: false;
+    word-suggestions: true;
+    suggestion-icons: true;
+    suggestion-kinds: true;
     theme: "canopy-dark";
 }
 
@@ -18,4 +27,5 @@ viewer {
     latex: auto;
     latex-flags: "";
     latex-preview: true;
+    markdown-preview: true;
 }

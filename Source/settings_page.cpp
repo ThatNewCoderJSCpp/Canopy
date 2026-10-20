@@ -73,6 +73,8 @@ const KindInfo* kind_info(const std::string& kind) {
     return nullptr;
 }
 
+
+
 std::string kind_what(const std::string& language, const std::string& kind) {
     static const std::vector<std::pair<std::string, std::string>> special = {
         { "cmake:function", "commands: set, add_executable" },
@@ -167,6 +169,100 @@ void clear_children(grove::Document& doc, grove::Node& node) {
 }
 
 } // namespace
+
+const std::vector<SettingDoc>& setting_docs() {
+    static const std::vector<SettingDoc> docs = {
+        { "editor", "font-family", "Font", "The font the code is drawn in. A font that isn't installed falls back to another monospace font." },
+        { "editor", "font-size", "Font size", "Size of the code. px and pt are fixed sizes; vmin, vmax, vdiag, vw and vh are a fraction (0 to 1) of the window, and % is a percentage of the window's smaller side." },
+        { "editor", "tab-size", "Tab size", "How many columns a tab takes up: in the editor, and in the Output and other panels, Markdown previews and hovers too." },
+        { "editor", "insert-spaces", "Insert spaces", "Tab and Enter insert spaces instead of tab characters." },
+        { "editor", "backspace-to-tab-stop", "Backspace to tab stop", "At a tab stop with a whole level of spaces before it, Backspace deletes the level at once, like deleting a tab. Between tab stops it deletes one space at a time. Turn it off to always delete one space." },
+        { "editor", "close-blocks", "Close blocks on Enter", "Pressing Enter after an opening { adds the closing line for you, based on the language: } end function name in Walnut, }; after a C++ class, and </tag> in Grove markup. Turn it off to only indent." },
+        { "editor", "line-numbers", "Line numbers", "Show line numbers beside the code." },
+        { "editor", "hover-width", "Hover width", "Widest the popup gets when you rest the mouse on code, in pixels. Function signatures that don't fit put a few parameters on each line." },
+        { "editor", "hover-height", "Hover height", "Tallest the hover popup gets, in pixels. Longer ones scroll with the mouse wheel." },
+        { "editor", "autocomplete", "Suggestions", "Show a list of names that fit while you type. Tab puts the highlighted one in, Escape closes the list until you start another word, and Ctrl+Space opens it any time." },
+        { "editor", "accept-suggestion-on-enter", "Accept suggestions with Enter", "Enter puts the highlighted suggestion in too, instead of starting a new line." },
+        { "editor", "word-suggestions", "Suggest words from the file", "Besides keywords and names the editor understands, suggest other words that appear in the file." },
+        { "editor", "suggestion-icons", "Suggestion icons", "Show the small colored letter beside each suggestion: F for functions, T for types, V for variables and so on." },
+        { "editor", "suggestion-kinds", "Suggestion kinds", "Write what each suggestion is (function, struct, enum, keyword, ...) beside its name." },
+        { "gui", "size", "Size", "13px is the normal size; everything grows or shrinks with it. The code's size is under Editor. px and pt are fixed; vmin, vmax, vdiag, vw and vh are a fraction (0 to 1) of the window, and % is a percentage of the window's smaller side, so the GUI follows the window's size." },
+        { "language.c", "standard", "Standard", "Which version of C to compile as." },
+        { "language.cpp", "standard", "Standard", "Which version of C++ to compile as." },
+        { "viewer", "pdf-resolution", "Resolution", "Dots per inch the pages are drawn at. Higher is sharper and slower." },
+        { "viewer", "latex-flags", "Flags", "Added to the LaTeX command, like -xelatex for latexmk." },
+        { "viewer", "latex-preview", "Live preview", "Show the preview beside .tex files and rebuild it when you save." },
+        { "viewer", "markdown-preview", "Live preview", "Show the rendered page beside .md files and update it as you type." },
+        { "build", "mode", "Mode", "Debug builds are quick to make and easy to debug; release builds run fast." },
+        { "build", "output-dir", "Output folder", "Where programs are built, inside the open folder." },
+        { "build", "save-before-build", "Save before building", "Save the file you're building first." },
+        { "explorer", "preview-tabs", "Preview tabs", "Clicking a file once opens it in a preview tab (its name is in italics) that the next file you click replaces. Double-click a file or its tab, or edit it, to keep it open." },
+        { "explorer", "confirm-delete", "Confirm delete", "Ask before moving files and folders to the trash." },
+        { "explorer", "confirm-drag-and-drop", "Confirm moving and copying", "Ask before a drag in the explorer moves or copies files (hold Ctrl while dropping to copy)." },
+        { "explorer", "confirm-replace", "Confirm replacing", "Ask before a move, copy, paste or rename replaces a file or folder that's already there (Replace, Keep both or Skip). Turned off, what's there goes to the trash without asking." },
+        { "terminal", "shell", "Shell", "The program the terminal runs. auto picks bash on Linux and macOS (or your $SHELL) and cmd.exe on Windows; you can name another, like zsh, powershell.exe or a full path. New terminals use it." },
+        { "terminal", "prompt", "Prompt", "canopy shows bash's prompt as you@host:folder$ in color; shell keeps the prompt from your own .bashrc. New terminals use it." },
+        { "terminal", "font-size", "Font size", "Size of the terminal's text. The font is the editor's." },
+        { "terminal", "scrollback", "Scrollback", "How many lines each terminal keeps above the screen." },
+        { "terminal", "tab-size", "Tab size", "How many columns a tab character moves in the terminal, like in programs' output. Terminals usually use 8; the code editor's own tab size is under Editor." },
+        { "server", "port", "Port", "The port a new local server tries first. If it's busy, the next free one is used." },
+        { "server", "host", "Address", "127.0.0.1 keeps the server on this computer; 0.0.0.0 lets other devices on your network open it too." },
+        { "server", "live-reload", "Live reload", "Reload pages the server sent when you save a file in the folder it serves." },
+        { "git", "refresh-seconds", "Git refresh", "How often, in seconds, the Git tab checks for changes made outside Canopy while it's showing (three times slower while it's hidden)." },
+        { "git", "protected-branches", "Protected branches", "Branches that need their name typed before Canopy deletes them or undoes a pushed commit on them, separated by spaces. Real protection belongs on the server (GitHub's branch rules); this guards against slips." },
+        { "history", "enabled", "Local history", "Keep a copy of a file each time you save it, so the History tab can compare and restore older versions." },
+        { "history", "limit", "Versions kept", "How many saved copies of each file to keep; the oldest go first." },
+        { "language.*", "flags", "Flags", "Passed on every build." },
+        { "language.*", "debug-flags", "Debug flags", "Added when building in debug mode." },
+        { "language.*", "release-flags", "Release flags", "Added when building in release mode." },
+        { "toolchain", "c", "C compiler", "The C compiler builds use. auto finds one for you; or give a path." },
+        { "toolchain", "cpp", "C++ compiler", "The C++ compiler builds use. auto finds one for you; or give a path." },
+        { "toolchain", "walnut", "Walnut", "The Walnut compiler. auto finds it for you; or give a path." },
+        { "toolchain", "grove", "Grove", "The Grove tool that runs .grove apps. auto finds it for you; or give a path." },
+        { "viewer", "pdf", "PDF renderer", "The program that draws PDF pages: pdftoppm, mutool, pdftocairo or Ghostscript. auto picks the first one installed." },
+        { "viewer", "latex", "LaTeX", "The program that builds .tex files: latexmk, tectonic, pdflatex, xelatex or lualatex. auto picks the first one installed." },
+        { "layout", "sidebar", "Sidebar side", "Where the sidebar sits: left, right, top or bottom." },
+        { "layout", "panel", "Panel side", "Where the panel (terminal, problems, output) sits: left, right, top or bottom." },
+        { "layout", "aside", "Aside side", "Where the aside area sits: left, right, top or bottom. It only shows when a view is moved there." },
+        { "layout", "panel-span", "Panel span", "editor keeps the panel under the editor only; full stretches it across the whole window." },
+        { "layout", "sidebar-size", "Sidebar size", "How wide (or tall) the sidebar is. Dragging its edge saves a new size here." },
+        { "layout", "panel-size", "Panel size", "How tall (or wide) the panel is. Dragging its edge saves a new size here." },
+        { "layout", "aside-size", "Aside size", "How wide (or tall) the aside area is. Dragging its edge saves a new size here." },
+        { "layout", "*", "View area", "Which area this view lives in: sidebar, panel or aside. Right-click a tab, or drag it, to move it." },
+        { "theme", "name", "Theme name", "The name shown in the theme picker." },
+        { "theme", "background", "Background", "The color behind the code." },
+        { "theme", "foreground", "Text", "The color of text that has no color of its own." },
+        { "editor", "theme", "Color theme", "Which color theme the editor uses, by its id (like canopy-dark). The picker in the status bar and Settings > Colors change it." },
+        { "editor", "word-wrap", "Word wrap", "Saved for wrapping long lines to the editor's width; Canopy doesn't wrap lines yet, so it has no effect." }
+    };
+    return docs;
+}
+
+std::optional<SettingDoc> find_setting_doc(const std::string& section, const std::string& key) {
+    for (const SettingDoc& d : setting_docs()) {
+        if (d.section == section && d.key == key) return d;
+    }
+    if (section.rfind("language.", 0) == 0) {
+        for (const SettingDoc& d : setting_docs()) {
+            if (d.section == "language.*" && d.key == key) return d;
+        }
+    }
+    if (section == "keys") {
+        for (const Shortcut& s : shortcuts()) {
+            if (s.id == key) return SettingDoc{ section, key, s.label, s.help };
+        }
+    }
+    if (section == "highlight" || section.rfind("highlight.", 0) == 0) {
+        if (const KindInfo* k = kind_info(key)) {
+            const std::string where = section == "highlight" ? std::string("every language") : section.substr(10);
+            return SettingDoc{ section, key, k->name, std::string("Color for ") + k->what + " in " + where + ": a color, then any of bold, italic, underline and strikethrough." };
+        }
+    }
+    for (const SettingDoc& d : setting_docs()) {
+        if (d.section == section && d.key == "*") return SettingDoc{ section, key, d.label, d.help };
+    }
+    return std::nullopt;
+}
 
 HighlightLook parse_highlight_look(const std::string& value) {
     HighlightLook look;
@@ -555,6 +651,7 @@ void SettingsPage::rebuild() {
     if (m_page == "highlighting") build_highlighting(*m_body);
     else if (m_page == "compilers") build_compilers(*m_body);
     else if (m_page == "build") build_build(*m_body);
+    else if (m_page == "workbench") build_workbench(*m_body);
     else if (m_page == "viewers") build_viewers(*m_body);
     else if (m_page == "gui") build_gui(*m_body);
     else if (m_page == "shortcuts") build_shortcuts(*m_body);
@@ -565,7 +662,7 @@ void SettingsPage::rebuild() {
 void SettingsPage::build_nav(grove::Node& nav) {
     add(nav, "div", "SETTINGS", "settings-nav-title");
     const std::vector<std::pair<std::string, std::string>> pages = {
-        { "editor", "Editor" }, { "gui", "GUI" }, { "highlighting", "Highlighting" }, { "compilers", "Compilers" }, { "build", "Build and Run" }, { "viewers", "Viewers" }, { "shortcuts", "Shortcuts" },
+        { "editor", "Editor" }, { "gui", "GUI" }, { "highlighting", "Highlighting" }, { "compilers", "Compilers" }, { "build", "Build and Run" }, { "workbench", "Explorer, Terminal and Git" }, { "viewers", "Viewers" }, { "shortcuts", "Shortcuts" },
     };
     for (const auto& [id, label] : pages) {
         grove::Node* item = add(nav, "p", label, id == m_page ? "settings-nav-item active" : "settings-nav-item");
@@ -574,7 +671,7 @@ void SettingsPage::build_nav(grove::Node& nav) {
     grove::Node* spacer = add(nav, "div", "", "settings-nav-spacer");
     (void)spacer;
     grove::Node* files = add(nav, "p", "Open the settings file", "settings-nav-file");
-    files->set_attribute("data-open-file", m_page == "highlighting" ? "highlighting.bark" : m_page == "compilers" ? "compilers.bark" : m_page == "build" ? "build.bark" : m_page == "shortcuts" ? "keys.bark" : "editor.bark");
+    files->set_attribute("data-open-file", m_page == "highlighting" ? "highlighting.bark" : m_page == "compilers" ? "compilers.bark" : m_page == "build" ? "build.bark" : m_page == "shortcuts" ? "keys.bark" : m_page == "workbench" ? "workbench.bark" : "editor.bark");
     add(nav, "p", user_config_dir(), "settings-nav-path");
 }
 
@@ -676,6 +773,11 @@ void SettingsPage::heading(grove::Node& body, const std::string& title, const st
     if (!note.empty()) add(body, "p", note, "settings-note");
 }
 
+grove::Node* SettingsPage::setting_row(grove::Node& parent, const std::string& section, const std::string& key) {
+    const std::optional<SettingDoc> doc = find_setting_doc(section, key);
+    return setting_row(parent, section, key, doc ? doc->label : key, doc ? doc->help : std::string());
+}
+
 grove::Node* SettingsPage::setting_row(grove::Node& parent, const std::string& section, const std::string& key, const std::string& label, const std::string& help) {
     grove::Node* row = add(parent, "row", "", "setting");
     grove::Node* text = add(*row, "column", "", "setting-text");
@@ -746,16 +848,34 @@ void SettingsPage::choice_control(grove::Node& row, const std::string& section, 
 
 void SettingsPage::build_editor(grove::Node& body) {
     heading(body, "Editor", "Changes are saved to your editor.bark as you make them.");
-    grove::Node* row = setting_row(body, "editor", "font-family", "Font", "The font the code is drawn in. A font that isn't installed falls back to another monospace font.");
+    grove::Node* row = setting_row(body, "editor", "font-family");
     font_control(*row, "editor", "font-family");
-    row = setting_row(body, "editor", "font-size", "Font size", "Size of the code. px and pt are fixed sizes; vmin, vmax, vdiag, vw and vh are a fraction (0 to 1) of the window, and % is a percentage of the window's smaller side.");
+    row = setting_row(body, "editor", "font-size");
     size_control(*row, "editor", "font-size", "14px");
-    row = setting_row(body, "editor", "tab-size", "Tab size", "How many columns a tab takes up.");
+    row = setting_row(body, "editor", "tab-size");
     integer_control(*row, "editor", "tab-size", 1, 16);
-    row = setting_row(body, "editor", "insert-spaces", "Insert spaces", "Tab and Enter insert spaces instead of tab characters.");
+    row = setting_row(body, "editor", "insert-spaces");
     bool_control(*row, "editor", "insert-spaces");
-    row = setting_row(body, "editor", "line-numbers", "Line numbers", "Show line numbers beside the code.");
+    row = setting_row(body, "editor", "backspace-to-tab-stop");
+    bool_control(*row, "editor", "backspace-to-tab-stop");
+    row = setting_row(body, "editor", "close-blocks");
+    bool_control(*row, "editor", "close-blocks");
+    row = setting_row(body, "editor", "line-numbers");
     bool_control(*row, "editor", "line-numbers");
+    row = setting_row(body, "editor", "hover-width");
+    integer_control(*row, "editor", "hover-width", 300, 4000);
+    row = setting_row(body, "editor", "hover-height");
+    integer_control(*row, "editor", "hover-height", 100, 3000);
+    row = setting_row(body, "editor", "autocomplete");
+    bool_control(*row, "editor", "autocomplete");
+    row = setting_row(body, "editor", "accept-suggestion-on-enter");
+    bool_control(*row, "editor", "accept-suggestion-on-enter");
+    row = setting_row(body, "editor", "word-suggestions");
+    bool_control(*row, "editor", "word-suggestions");
+    row = setting_row(body, "editor", "suggestion-icons");
+    bool_control(*row, "editor", "suggestion-icons");
+    row = setting_row(body, "editor", "suggestion-kinds");
+    bool_control(*row, "editor", "suggestion-kinds");
     grove::Node* more = add(body, "p", "", "settings-note");
     more->set_inner_text("Colors and themes are under Highlighting.");
 }
@@ -839,7 +959,7 @@ void SettingsPage::on_size_change(grove::Node& target) {
         else if (part == "unit") unit_node = child.get();
     }
     if (!value_node || !unit_node) return;
-    const std::string fallback = section == "gui" ? "13px" : "14px";
+    const std::string fallback = section == "gui" || section == "terminal" ? "13px" : "14px";
     const SizeValue before = parse_size(m_ws.settings.get_or(section, key, fallback)).value_or(parse_size(fallback).value_or(SizeValue{}));
     SizeValue size{ grove::input_float(*value_node).value_or(before.value), grove::input_string(*unit_node).value_or(before.unit) };
     if (target.attribute_or("data-size-part", "") == "unit" && size.unit != before.unit) {
@@ -858,7 +978,7 @@ void SettingsPage::on_size_change(grove::Node& target) {
 
 void SettingsPage::build_gui(grove::Node& body) {
     heading(body, "GUI", "How big Canopy's own parts are: tabs, the explorer, the panel, the status bar and these settings. Saved to your editor.bark.");
-    grove::Node* row = setting_row(body, "gui", "size", "Size", "13px is the normal size; everything grows or shrinks with it. The code's size is under Editor. px and pt are fixed; vmin, vmax, vdiag, vw and vh are a fraction (0 to 1) of the window, and % is a percentage of the window's smaller side, so the GUI follows the window's size.");
+    grove::Node* row = setting_row(body, "gui", "size");
     size_control(*row, "gui", "size", "13px");
 }
 
@@ -888,20 +1008,20 @@ void SettingsPage::build_compilers(grove::Node& body) {
     tool_row(body, "grove", "Grove");
 
     auto flags = [&](const std::string& section, bool debug_release) {
-        grove::Node* row = setting_row(body, section, "flags", "Flags", "Passed on every build.");
+        grove::Node* row = setting_row(body, section, "flags");
         text_control(*row, section, "flags");
         if (!debug_release) return;
-        row = setting_row(body, section, "debug-flags", "Debug flags", "Added when building in debug mode.");
+        row = setting_row(body, section, "debug-flags");
         text_control(*row, section, "debug-flags");
-        row = setting_row(body, section, "release-flags", "Release flags", "Added when building in release mode.");
+        row = setting_row(body, section, "release-flags");
         text_control(*row, section, "release-flags");
     };
     add(body, "h3", "C", "settings-group");
-    grove::Node* row = setting_row(body, "language.c", "standard", "Standard", "Which version of C to compile as.");
+    grove::Node* row = setting_row(body, "language.c", "standard");
     choice_control(*row, "language.c", "standard", { "c99", "c11", "c17", "c23" });
     flags("language.c", true);
     add(body, "h3", "C++", "settings-group");
-    row = setting_row(body, "language.cpp", "standard", "Standard", "Which version of C++ to compile as.");
+    row = setting_row(body, "language.cpp", "standard");
     choice_control(*row, "language.cpp", "standard", { "c++11", "c++14", "c++17", "c++20", "c++23" });
     flags("language.cpp", true);
     add(body, "h3", "Walnut", "settings-group");
@@ -928,29 +1048,70 @@ void SettingsPage::viewer_tool_row(grove::Node& body, const std::string& key, co
 }
 
 void SettingsPage::build_viewers(grove::Node& body) {
-    heading(body, "Viewers", "How images, PDFs, LaTeX and binary files open. Saved to your editor.bark.");
+    heading(body, "Viewers", "How images, PDFs, LaTeX, Markdown and binary files open. Saved to your editor.bark.");
     add(body, "h3", "PDF", "settings-group");
     viewer_tool_row(body, "pdf", "PDF renderer", "pdftoppm, mutool, pdftocairo or Ghostscript.");
-    grove::Node* row = setting_row(body, "viewer", "pdf-resolution", "Resolution", "Dots per inch the pages are drawn at. Higher is sharper and slower.");
+    grove::Node* row = setting_row(body, "viewer", "pdf-resolution");
     integer_control(*row, "viewer", "pdf-resolution", 36, 600);
     add(body, "h3", "LaTeX", "settings-group");
     viewer_tool_row(body, "latex", "LaTeX", "latexmk, tectonic, pdflatex, xelatex or lualatex.");
-    row = setting_row(body, "viewer", "latex-flags", "Flags", "Added to the LaTeX command, like -xelatex for latexmk.");
+    row = setting_row(body, "viewer", "latex-flags");
     text_control(*row, "viewer", "latex-flags");
-    row = setting_row(body, "viewer", "latex-preview", "Live preview", "Show the preview beside .tex files and rebuild it when you save.");
+    row = setting_row(body, "viewer", "latex-preview");
     bool_control(*row, "viewer", "latex-preview");
+    add(body, "h3", "Markdown", "settings-group");
+    row = setting_row(body, "viewer", "markdown-preview");
+    bool_control(*row, "viewer", "markdown-preview");
     add(body, "h3", "Images and binary files", "settings-group");
     add(body, "p", "Images (PNG, JPEG, GIF, BMP, WebP, TIFF, TGA, QOI, PNM, ICO and SVG) open as pictures. Programs, libraries, archives and other files that aren't text open in the hex view, with Info, Hex, Binary and Strings tabs.", "settings-note");
 }
 
 void SettingsPage::build_build(grove::Node& body) {
     heading(body, "Build and Run", "What Build (Ctrl+B) and Run (F5) do. Saved to your build.bark.");
-    grove::Node* row = setting_row(body, "build", "mode", "Mode", "Debug builds are quick to make and easy to debug; release builds run fast.");
+    grove::Node* row = setting_row(body, "build", "mode");
     choice_control(*row, "build", "mode", { "debug", "release" });
-    row = setting_row(body, "build", "output-dir", "Output folder", "Where programs are built, inside the open folder.");
+    row = setting_row(body, "build", "output-dir");
     text_control(*row, "build", "output-dir", "200px");
-    row = setting_row(body, "build", "save-before-build", "Save before building", "Save the file you're building first.");
+    row = setting_row(body, "build", "save-before-build");
     bool_control(*row, "build", "save-before-build");
+}
+
+void SettingsPage::build_workbench(grove::Node& body) {
+    heading(body, "Explorer, Terminal and Git", "How the file explorer, the terminal, the local server, Git and local file history behave. Saved to your workbench.bark.");
+    grove::Node* row = setting_row(body, "explorer", "preview-tabs");
+    bool_control(*row, "explorer", "preview-tabs");
+    row = setting_row(body, "explorer", "confirm-delete");
+    bool_control(*row, "explorer", "confirm-delete");
+    row = setting_row(body, "explorer", "confirm-drag-and-drop");
+    bool_control(*row, "explorer", "confirm-drag-and-drop");
+    row = setting_row(body, "explorer", "confirm-replace");
+    bool_control(*row, "explorer", "confirm-replace");
+    row = setting_row(body, "terminal", "shell");
+    text_control(*row, "terminal", "shell", "260px");
+    row = setting_row(body, "terminal", "prompt");
+    choice_control(*row, "terminal", "prompt", { "canopy", "shell" });
+    row = setting_row(body, "terminal", "font-size");
+    size_control(*row, "terminal", "font-size", "13px");
+    row = setting_row(body, "terminal", "scrollback");
+    integer_control(*row, "terminal", "scrollback", 100, 1000000);
+    row = setting_row(body, "terminal", "tab-size");
+    integer_control(*row, "terminal", "tab-size", 1, 16);
+    add(body, "h3", "Local server", "settings-group");
+    row = setting_row(body, "server", "port");
+    integer_control(*row, "server", "port", 1, 65535);
+    row = setting_row(body, "server", "host");
+    text_control(*row, "server", "host", "160px");
+    row = setting_row(body, "server", "live-reload");
+    bool_control(*row, "server", "live-reload");
+    add(body, "h3", "Git and file history", "settings-group");
+    row = setting_row(body, "git", "refresh-seconds");
+    integer_control(*row, "git", "refresh-seconds", 1, 600);
+    row = setting_row(body, "git", "protected-branches");
+    text_control(*row, "git", "protected-branches", "260px");
+    row = setting_row(body, "history", "enabled");
+    bool_control(*row, "history", "enabled");
+    row = setting_row(body, "history", "limit");
+    integer_control(*row, "history", "limit", 1, 10000);
 }
 
 void SettingsPage::theme_cards(grove::Node& body) {

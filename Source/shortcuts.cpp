@@ -73,21 +73,27 @@ const std::vector<Shortcut>& shortcuts() {
             general("show-warnings", "Show Warnings", "Open the Warnings tab in the panel", {}),
             general("show-output", "Show Output", "Open the Output tab in the panel", { key("Ctrl+Shift+U") }),
             general("open-settings", "Open Settings", "Open the Settings tab", { key("Ctrl+,") }),
+            general("open-developer", "Open Developer Info", "Open the Developer tab: window size, frame times, CPU, memory, GPU and system details (clicking the version in the status bar opens it too)", { key("Ctrl+Shift+I") }),
             general("definition", "Go to definition", "Jump to where the name at the caret is defined", { key("F12") }),
             general("go-back", "Go back", "Back to where you were before jumping", { key("Alt+Left") }),
             general("go-forward", "Go forward", "Forward again after going back", { key("Alt+Right") }),
+            general("show-terminal", "Show Terminal", "Open the Terminal tab in the panel", { key("Ctrl+`") }),
+            general("new-terminal", "New Terminal", "Start another terminal in the current terminal's folder", { key("Ctrl+Shift+`") }),
+            general("save-all", "Save All", "Save every file with unsaved changes", { key("Ctrl+Alt+S") }),
+            general("show-git", "Show Git", "Open the Git tab in the panel: changes, commit, push, pull, branches and tasks", { key("Ctrl+Shift+G") }),
+            general("show-history", "Show File History", "Open the History tab for the file you're editing: your saves and its Git commits", { key("Ctrl+Shift+H") }),
+            general("git-commit", "Git: Commit", "Commit with the message typed in the Git tab (stages everything if nothing is staged)", {}),
+            general("git-commit-push", "Git: Commit and Push", "Commit with the message in the Git tab, then push", {}),
+            general("git-push", "Git: Push", "Push the current branch", {}),
+            general("git-pull", "Git: Pull", "Pull the current branch", {}),
+            general("run-task", "Run Task", "Pick a task from .canopy/tasks.bark and run it", { key("Ctrl+Shift+R") }),
         };
         for (const grove::KeyAction& a : grove::code_editor_actions()) {
-            Shortcut s;
-            s.id = a.id;
-            s.label = a.label;
-            s.help = a.help;
-            s.group = a.mouse ? "Mouse" : "Editor";
-            s.defaults = a.defaults;
-            s.editor = true;
-            s.mouse = a.mouse;
-            out.push_back(std::move(s));
+            out.push_back(Shortcut{ a.id, a.label, a.help, a.mouse ? "Mouse" : "Editor", a.defaults, true, a.mouse, false, std::string() });
         }
+        out.push_back(fixed("Show suggestions", "Open the suggestion list at the caret, even when it didn't open by itself", "Editor", "Ctrl+Space"));
+        out.push_back(fixed("Accept a suggestion", "Put the highlighted suggestion in (Enter too, if that's turned on in Settings)", "Editor", "Tab"));
+        out.push_back(fixed("Close suggestions", "Hide the suggestion list until you start another word", "Editor", "Escape"));
         out.push_back(fixed("Select a word", "Pick the whole word under the mouse", "Mouse", "Double-click"));
         out.push_back(fixed("Select text", "Drag across the text to select it", "Mouse", "Drag"));
         out.push_back(fixed("Extend the selection", "Select from the caret to where you click", "Mouse", "Shift+Click"));

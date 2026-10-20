@@ -19,7 +19,8 @@ enum class ViewerKind {
     Image,
     Pdf,
     Latex,
-    Binary
+    Binary,
+    Markdown
 };
 
 const char* to_string(ViewerKind kind) noexcept;

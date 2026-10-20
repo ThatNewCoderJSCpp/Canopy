@@ -1,5 +1,7 @@
 #include <canopy/cli.hpp>
 
+#include <canopy/askpass.hpp>
+
 #include <canopy/build.hpp>
 #include <canopy/desktop.hpp>
 #include <canopy/languages.hpp>
@@ -269,6 +271,7 @@ std::string folder_argument(const std::vector<std::string>& args) {
 } // namespace
 
 int run_cli(std::vector<std::string> args, const CliOptions& cli) {
+    if (const char* askpass = std::getenv("CANOPY_ASKPASS"); askpass && *askpass) return canopy::run_askpass(args.empty() ? std::string() : args.front());
     std::string command = "open";
     if (!args.empty()) {
         const std::string& first = args.front();

@@ -5,6 +5,7 @@
 #include "code_intel.hpp"
 
 #include <grove/input/code_buffer.hpp>
+#include <grove/input/completion.hpp>
 
 #include <memory>
 #include <optional>
@@ -52,6 +53,16 @@ std::size_t utf16_to_byte(const std::string& line, std::size_t units);
 std::vector<grove::CodeSpan> walnut_unresolved_spans(const std::string& text, const std::vector<grove::CodeSpan>& covered);
 SemanticResult parse_walnut_highlight(const std::string& output, const std::string& text, const std::string& file, bool mark_unresolved = true);
 std::vector<std::string> walnut_highlight_command(const std::string& walnut, const std::string& file, const std::string& flags);
+std::vector<std::string> walnut_complete_command(const std::string& walnut, const std::string& file, const std::string& flags, std::size_t line, std::size_t column);
+
+struct WalnutCompletions {
+    bool ok = false;
+    std::size_t start = 0;
+    std::string mode;
+    std::vector<grove::CompletionItem> items;
+};
+
+WalnutCompletions parse_walnut_complete(const std::string& output);
 std::vector<std::string> text_lines(const std::string& text);
 std::string walnut_hover_markdown(const WalnutHover& hover, std::size_t page);
 const WalnutHover* walnut_hover_at(const std::vector<WalnutHover>& hovers, const std::vector<std::string>& lines, std::size_t line, std::size_t column);

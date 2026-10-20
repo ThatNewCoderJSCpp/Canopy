@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
-project(canopy VERSION 0.1.3 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
+project(canopy VERSION 0.1.4 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -11,8 +11,8 @@ option(CANOPY_WITH_WALNUT "Build Walnut alongside Canopy so .wal files work out 
 option(CANOPY_BUILD_TESTS "Build the Canopy tests" ON)
 option(CANOPY_PACKAGE "Build Canopy as a self-contained download and set up CPack" OFF)
 option(CANOPY_BUNDLE_WALNUT "With CANOPY_PACKAGE: put Walnut's release package for this platform inside Canopy's" ON)
-set(CANOPY_GROVE_TAG "v0.1.17" CACHE STRING "Grove git tag to fetch")
-set(CANOPY_WALNUT_VERSION "0.1.15" CACHE STRING "Walnut release bundled into packages")
+set(CANOPY_GROVE_TAG "v0.1.29" CACHE STRING "Grove git tag to fetch")
+set(CANOPY_WALNUT_VERSION "0.1.22" CACHE STRING "Walnut release bundled into packages")
 
 if(CANOPY_PACKAGE AND CANOPY_BUNDLE_WALNUT)
     set(CANOPY_WITH_WALNUT OFF CACHE BOOL "" FORCE)
@@ -72,6 +72,12 @@ add_library(canopy_core STATIC
     Source/workspace.cpp
     Source/shortcuts.cpp
     Source/desktop.cpp
+    Source/terminal.cpp
+    Source/markdown.cpp
+    Source/live_server.cpp
+    Source/git.cpp
+    Source/history.cpp
+    Source/tasks.cpp
     "${CANOPY_GENERATED_DIR}/defaults.cpp")
 add_library(canopy::core ALIAS canopy_core)
 target_compile_features(canopy_core PUBLIC cxx_std_17)
@@ -79,6 +85,11 @@ target_include_directories(canopy_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/Include"
     "${CANOPY_GENERATED_DIR}")
 target_link_libraries(canopy_core PUBLIC grove::core)
+if(TARGET fizmo::net)
+    target_link_libraries(canopy_core PUBLIC fizmo::net)
+else()
+    target_link_libraries(canopy_core PUBLIC fizmo::fizmo)
+endif()
 if(WIN32)
     target_link_libraries(canopy_core PUBLIC ole32 uuid shell32 advapi32 user32)
 endif()
@@ -90,11 +101,16 @@ canopy_warnings(canopy_core)
 add_library(canopy_app STATIC
     Source/shell.cpp
     Source/settings_page.cpp
+    Source/developer.cpp
+    Source/git_panel.cpp
     Source/walnut_semantic.cpp
     Source/viewers.cpp
     Source/code_intel.cpp
+    Source/literal_hover.cpp
+    Source/completion.cpp
     Source/language_docs.cpp
-    Source/cli.cpp)
+    Source/cli.cpp
+    Source/askpass.cpp)
 add_library(canopy::app ALIAS canopy_app)
 target_link_libraries(canopy_app PUBLIC canopy_core grove::runtime)
 if(NOT CANOPY_PACKAGE)

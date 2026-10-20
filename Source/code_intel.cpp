@@ -1,6 +1,8 @@
 #include <canopy/code_intel.hpp>
 #include <canopy/language_docs.hpp>
+#include <canopy/settings.hpp>
 
+#include <grove/bark/properties.hpp>
 #include <grove/input/input.hpp>
 
 #include <algorithm>
@@ -433,6 +435,19 @@ std::vector<std::string> split_text_lines(const std::string& text) {
     return lines;
 }
 
+std::optional<std::string> text_line_at(const std::string& text, std::size_t index) {
+    std::size_t start = 0;
+    for (std::size_t i = 0; i < index; ++i) {
+        const std::size_t end = text.find('\n', start);
+        if (end == std::string::npos) return std::nullopt;
+        start = end + 1;
+    }
+    const std::size_t end = text.find('\n', start);
+    std::string line = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    return line;
+}
+
 std::pair<std::size_t, std::size_t> word_bounds(const std::string& line, std::size_t column, bool dashes) {
     auto part = [&](char c) { return ident_char(c) || (dashes && c == '-'); };
     if (column >= line.size() || !part(line[column])) return { column, column };
@@ -441,6 +456,20 @@ std::pair<std::size_t, std::size_t> word_bounds(const std::string& line, std::si
     while (b > 0 && part(line[b - 1])) --b;
     while (e < line.size() && part(line[e])) ++e;
     return { b, e };
+}
+
+std::string mask_c_like_line(const std::string& text, std::size_t line) {
+    std::size_t start = 0;
+    for (std::size_t i = 0; i < line; ++i) {
+        const std::size_t end = text.find('\n', start);
+        if (end == std::string::npos) return std::string();
+        start = end + 1;
+    }
+    const std::size_t end = text.find('\n', start);
+    const std::string masked = mask_c_like(text.substr(0, end));
+    std::string out = masked.substr(std::min(start, masked.size()));
+    if (!out.empty() && out.back() == '\r') out.pop_back();
+    return out;
 }
 
 std::string mask_c_like(const std::string& text) {
@@ -1003,6 +1032,178 @@ std::string color_preview(const std::string& literal) {
 
 std::string hover_link(const std::string& label, const CodeLocation& where) { return "[" + label + "](" + open_action(where) + ")"; }
 
+namespace {
+
+std::string collapse_spaces(const std::string& text) {
+    std::string out;
+    char quote = 0;
+    bool space = false;
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        const char c = text[i];
+        if (quote) {
+            out += c;
+            if (c == '\\' && i + 1 < text.size()) out += text[++i];
+            else if (c == quote) quote = 0;
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            if (space && !out.empty()) out += ' ';
+            space = false;
+            quote = c;
+            out += c;
+            continue;
+        }
+        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+            space = true;
+            continue;
+        }
+        if (space && !out.empty() && out.back() != '(' && c != ')' && c != ',') out += ' ';
+        space = false;
+        out += c;
+    }
+    return out;
+}
+
+struct ParamSplit {
+    std::size_t open = std::string::npos;
+    std::size_t close = std::string::npos;
+    std::vector<std::string> params;
+};
+
+ParamSplit split_params(const std::string& s) {
+    ParamSplit out;
+    std::size_t search = 0;
+    while (true) {
+        const std::size_t open = s.find('(', search);
+        if (open == std::string::npos) return out;
+        std::string before = s.substr(0, open);
+        while (!before.empty() && before.back() == ' ') before.pop_back();
+        const bool call_operator = before.size() >= 8 && before.compare(before.size() - 8, 8, "operator") == 0;
+        if (call_operator && open + 1 < s.size() && s[open + 1] == ')') {
+            search = open + 2;
+            continue;
+        }
+        out.open = open;
+        break;
+    }
+    int round = 0;
+    int square = 0;
+    int curly = 0;
+    int angle = 0;
+    char quote = 0;
+    std::string current;
+    for (std::size_t i = out.open + 1; i < s.size(); ++i) {
+        const char c = s[i];
+        if (quote) {
+            current += c;
+            if (c == '\\' && i + 1 < s.size()) current += s[++i];
+            else if (c == quote) quote = 0;
+            continue;
+        }
+        if (c == '"' || c == '\'') quote = c;
+        else if (c == '(') ++round;
+        else if (c == '[') ++square;
+        else if (c == '{') ++curly;
+        else if (c == '<') ++angle;
+        else if (c == ']' && square > 0) --square;
+        else if (c == '}' && curly > 0) --curly;
+        else if (c == '>' && angle > 0 && !(i > 0 && s[i - 1] == '-')) --angle;
+        else if (c == ')') {
+            if (round == 0) {
+                out.close = i;
+                break;
+            }
+            --round;
+        } else if (c == ',' && round == 0 && square == 0 && curly == 0 && angle == 0) {
+            out.params.push_back(current);
+            current.clear();
+            continue;
+        }
+        current += c;
+    }
+    if (out.close == std::string::npos) {
+        out.open = std::string::npos;
+        out.params.clear();
+        return out;
+    }
+    if (!out.params.empty() || current.find_first_not_of(' ') != std::string::npos) out.params.push_back(current);
+    for (std::string& p : out.params) {
+        const std::size_t b = p.find_first_not_of(' ');
+        const std::size_t e = p.find_last_not_of(' ');
+        p = b == std::string::npos ? std::string() : p.substr(b, e - b + 1);
+    }
+    return out;
+}
+
+} // namespace
+
+std::string format_signature(const std::string& signature, std::size_t columns) {
+    const std::string s = collapse_spaces(signature);
+    if (s.size() <= columns) return s;
+    const ParamSplit split = split_params(s);
+    if (split.open == std::string::npos || split.params.empty()) return s;
+    const std::string indent = "    ";
+    std::string out = s.substr(0, split.open + 1);
+    std::string line;
+    for (std::size_t i = 0; i < split.params.size(); ++i) {
+        const std::string piece = split.params[i] + (i + 1 < split.params.size() ? "," : "");
+        if (line.empty()) {
+            line = indent + piece;
+        } else if (line.size() + 1 + piece.size() <= columns) {
+            line += " " + piece;
+        } else {
+            out += "\n" + line;
+            line = indent + piece;
+        }
+    }
+    if (!line.empty()) out += "\n" + line;
+    out += "\n" + s.substr(split.close);
+    return out;
+}
+
+std::string format_hover_signatures(const std::string& markdown, std::size_t columns) {
+    columns = std::max<std::size_t>(columns, 20);
+    std::istringstream in(markdown);
+    std::string out;
+    std::string line;
+    bool inside = false;
+    std::string fence;
+    std::vector<std::string> block;
+    auto flush = [&] {
+        std::string joined;
+        for (const std::string& b : block) joined += (joined.empty() ? "" : "\n") + b;
+        const std::string flat = collapse_spaces(joined);
+        const ParamSplit split = split_params(flat);
+        bool simple = split.open != std::string::npos;
+        if (simple) {
+            const std::string head = flat.substr(0, split.open);
+            const std::string tail = flat.substr(split.close + 1);
+            simple = head.find_first_of("{;") == std::string::npos && tail.find_first_of("{;(") == std::string::npos;
+        }
+        out += fence + "\n" + (simple ? format_signature(joined, columns) : joined) + "\n```\n";
+        block.clear();
+    };
+    while (std::getline(in, line)) {
+        if (line.rfind("```", 0) == 0) {
+            if (!inside) {
+                inside = true;
+                fence = line;
+            } else {
+                inside = false;
+                flush();
+            }
+            continue;
+        }
+        if (inside) block.push_back(line);
+        else out += line + "\n";
+    }
+    if (inside) {
+        out += fence + "\n";
+        for (const std::string& b : block) out += b + "\n";
+    }
+    return out;
+}
+
 std::optional<CodeLocation> parse_hover_link(const std::string& action) {
     if (action.rfind("open:", 0) != 0) return std::nullopt;
     const std::size_t a = action.find(':', 5);
@@ -1026,6 +1227,8 @@ void CodeIntel::set_workspace(const std::string& root) {
 void CodeIntel::set_open_texts(std::function<std::optional<std::string>(const std::string&)> provider) { m_open = std::move(provider); }
 
 void CodeIntel::set_include_dirs(std::vector<std::string> dirs) { m_include_dirs = std::move(dirs); }
+
+void CodeIntel::set_bark_settings(std::function<std::optional<std::string>(const std::string& section, const std::string& key, const std::string& file, const std::string& text)> provider) { m_bark_settings = std::move(provider); }
 
 void CodeIntel::set_system_include_dirs(std::function<std::vector<std::string>()> provider) {
     m_system_provider = std::move(provider);
@@ -1060,7 +1263,12 @@ std::vector<std::string> CodeIntel::workspace_files(const std::string& family) {
                 if (skipped.count(l) || l.rfind("build", 0) == 0 || l.rfind("cmake-build", 0) == 0) it.disable_recursion_pending();
                 continue;
             }
-            if (family_of_path(e.path().string()) != family) continue;
+            if (family == "walnut") {
+                const std::string ext = ext_of(e.path().string());
+                if (ext != ".wal" && ext != ".walh" && ext != ".hwal") continue;
+            } else if (family_of_path(e.path().string()) != family) {
+                continue;
+            }
             if (e.file_size(ec) > 2 * 1024 * 1024) continue;
             files.push_back(e.path().string());
         }
@@ -1075,7 +1283,16 @@ const std::vector<Symbol>& CodeIntel::symbols_in(const std::string& path, const 
     if (m_open) {
         if (auto t = m_open(path)) {
             FileEntry& e = m_files["open:" + path];
+            const std::size_t hash = std::hash<std::string>{}(*t);
+            if (e.scanned && e.hash == hash && e.size == t->size() && e.family == family) return e.symbols;
+            const auto now = std::chrono::steady_clock::now();
+            if (m_allow_stale && e.scanned && e.family == family && now - e.at < std::chrono::milliseconds(1500)) return e.symbols;
+            e.at = now;
             e.symbols = family == "c" ? scan_c_symbols(*t, path) : family == "cmake" ? scan_cmake_symbols(*t, path) : family == "bark" ? scan_bark_symbols(*t, path) : std::vector<Symbol>{};
+            e.hash = hash;
+            e.size = t->size();
+            e.family = family;
+            e.scanned = true;
             return e.symbols;
         }
     }
@@ -1112,25 +1329,80 @@ std::vector<std::string> CodeIntel::includes_of(const std::string& path, const s
     return out;
 }
 
-std::optional<std::string> CodeIntel::include_path(const std::string& from_file, const std::string& name, bool angled) {
+std::vector<std::string> CodeIntel::include_dirs_for(const std::string& from_file, bool angled) {
     std::vector<std::string> dirs;
-    if (!angled) dirs.push_back(fs::path(from_file).parent_path().string());
+    if (!angled && !from_file.empty()) dirs.push_back(fs::path(from_file).parent_path().string());
     for (const std::string& d : m_include_dirs) dirs.push_back(d);
     if (!m_root.empty()) {
         dirs.push_back(m_root);
         for (const char* sub : { "Include", "include", "src", "Source", "source" }) dirs.push_back((fs::path(m_root) / sub).string());
     }
-    if (angled) dirs.push_back(fs::path(from_file).parent_path().string());
+    if (angled && !from_file.empty()) dirs.push_back(fs::path(from_file).parent_path().string());
     if (!m_system_dirs && m_system_provider) m_system_dirs = m_system_provider();
     if (m_system_dirs) {
         for (const std::string& d : *m_system_dirs) dirs.push_back(d);
     }
+    return dirs;
+}
+
+std::optional<std::string> CodeIntel::include_path(const std::string& from_file, const std::string& name, bool angled) {
     std::error_code ec;
-    for (const std::string& d : dirs) {
+    for (const std::string& d : include_dirs_for(from_file, angled)) {
         const fs::path p = fs::path(d) / name;
         if (fs::is_regular_file(p, ec)) return fs::weakly_canonical(p, ec).string();
     }
     return std::nullopt;
+}
+
+std::vector<Symbol> CodeIntel::symbols_near(const std::string& near_file, const std::string& family) {
+    std::vector<Symbol> out;
+    std::vector<std::string> files;
+    const auto now = std::chrono::steady_clock::now();
+    auto cached = m_near_files.find(family + "|" + near_file);
+    if (cached != m_near_files.end() && now - cached->second.first < std::chrono::seconds(5)) {
+        files = cached->second.second;
+    } else {
+        std::set<std::string> visited;
+        auto take = [&](const std::string& path) {
+            if (path.empty() || !visited.insert(path).second) return false;
+            files.push_back(path);
+            return true;
+        };
+        take(near_file);
+        if (family == "c" && !near_file.empty()) {
+            std::vector<std::string> frontier = { near_file };
+            for (int depth = 0; depth < 3 && !frontier.empty(); ++depth) {
+                std::vector<std::string> next;
+                for (const std::string& f : frontier) {
+                    const std::optional<std::string> t = text_of(f);
+                    if (!t) continue;
+                    for (const std::string& inc : includes_of(f, *t)) {
+                        if (take(inc)) next.push_back(inc);
+                    }
+                }
+                frontier = std::move(next);
+            }
+            const std::string stem = fs::path(near_file).stem().string();
+            for (const std::string& f : workspace_files(family)) {
+                if (fs::path(f).stem().string() == stem) take(f);
+            }
+        } else {
+            for (const std::string& f : workspace_files(family)) take(f);
+        }
+        m_near_files[family + "|" + near_file] = { now, files };
+    }
+    const std::string root = m_root.empty() ? std::string() : fs::path(m_root).lexically_normal().string();
+    m_allow_stale = true;
+    for (const std::string& f : files) {
+        const bool own = f == near_file || root.empty() || fs::path(f).lexically_normal().string().rfind(root, 0) == 0;
+        for (const Symbol& s : symbols_in(f, family)) {
+            if (!own && !s.name.empty() && s.name[0] == '_') continue;
+            out.push_back(s);
+        }
+        if (out.size() > 60000) break;
+    }
+    m_allow_stale = false;
+    return out;
 }
 
 std::vector<Symbol> CodeIntel::find(const std::string& name, const std::string& family, const std::string& near_file) {
@@ -1191,7 +1463,10 @@ std::optional<std::string> CodeIntel::macro_value(const std::string& name, const
 
 std::optional<HoverResult> CodeIntel::hover(const IntelRequest& request) {
     const std::string family = family_of_language(request.language);
-    if (family == "c") return c_hover(request);
+    if (family == "c") {
+        if (auto literal = literal_hover(request.language, request.text, request.line, request.column)) return literal;
+        return c_hover(request);
+    }
     if (family == "cmake") return cmake_hover(request);
     if (family == "bark") return bark_hover(request);
     if (family == "grove") return grove_hover(request);
@@ -1666,6 +1941,25 @@ BarkWord bark_word_at(const std::string& line, std::size_t column) {
     return BarkWord{ line.substr(b, e - b), b, e };
 }
 
+std::string enclosing_selector(const std::vector<std::string>& raw, std::size_t line) {
+    int depth = 0;
+    for (std::size_t i = line + 1; i-- > 0;) {
+        const std::string& l = raw[i];
+        for (std::size_t k = l.size(); k-- > 0;) {
+            if (l[k] == '}') ++depth;
+            else if (l[k] == '{') {
+                if (depth == 0) {
+                    std::string head = trim(l.substr(0, k));
+                    for (std::size_t j = i; head.empty() && j-- > 0;) head = trim(raw[j]);
+                    return head;
+                }
+                --depth;
+            }
+        }
+    }
+    return std::string();
+}
+
 bool selector_line(const std::vector<std::string>& raw, std::size_t line) {
     const std::string& l = raw[line];
     const std::size_t brace = l.find('{');
@@ -1699,6 +1993,18 @@ std::optional<HoverResult> CodeIntel::bark_hover(const IntelRequest& r) {
         return std::nullopt;
     }
     const bool in_selector = selector_line(raw, r.line);
+    if (m_bark_settings && in_selector && w.text[0] != ':' && w.text[0] != '.' && w.text[0] != '#') {
+        std::size_t brace = line.find('{');
+        if (brace != std::string::npos && w.end <= brace && trim(line.substr(0, brace)).find(' ') == std::string::npos) {
+            const std::string section = trim(line.substr(0, brace));
+            if (auto md = m_bark_settings(section, std::string(), r.file, r.text)) {
+                h.column = line.find(section);
+                h.length = section.size();
+                h.markdown = *md;
+                return h;
+            }
+        }
+    }
     if (w.text[0] == ':' && in_selector) {
         if (const DocEntry* d = find_doc(bark_pseudo_docs(), w.text)) {
             h.markdown = code_block("bark", w.text) + d->text + "\n";
@@ -1726,12 +2032,31 @@ std::optional<HoverResult> CodeIntel::bark_hover(const IntelRequest& r) {
         }
     }
     if (!in_selector && after < line.size() && line[after] == ':') {
+        if (m_bark_settings) {
+            const std::string section = enclosing_selector(raw, r.line);
+            if (!section.empty()) {
+                if (auto md = m_bark_settings(section, w.text, r.file, r.text)) {
+                    h.markdown = *md + bark_property_places(w.text, r);
+                    return h;
+                }
+            }
+        }
         if (const DocEntry* d = find_doc(bark_property_docs(), w.text)) {
             h.markdown = code_block("bark", w.text + ":") + (d->on.empty() ? std::string() : "**On:** " + d->on + "\n") + d->text + "\n";
             return h;
         }
+        if (w.text.rfind("--", 0) == 0) {
+            h.markdown = code_block("bark", w.text + ":") + "A custom property: Grove keeps it, children inherit it, other properties can use it with " + inline_code("var(" + w.text + ")") + ", and scripts read it with " + inline_code("computed_style(\"" + w.text + "\")") + ", " + inline_code("computed_number") + ", " + inline_code("computed_color") + " or " + inline_code("computed_bool") + ".\n";
+            h.markdown += bark_property_places(w.text, r);
+            return h;
+        }
         if (w.text.rfind("code-", 0) != 0) {
-            h.markdown = inline_code(w.text) + " isn't a Bark property Grove knows.";
+            std::vector<std::string> known;
+            for (std::string_view k : grove::bark::known_properties()) known.emplace_back(k);
+            const std::string near = closest_name(w.text, known);
+            h.markdown = inline_code(w.text) + " isn't a property Grove knows" + (near.empty() ? std::string("") : " (did you mean " + inline_code(near) + "?)") + ". Grove still keeps it for scripts to read with " + inline_code("computed_style(\"" + w.text + "\")") + " or " + inline_code("computed_number") + "; name it " + inline_code("--" + w.text) + " to make it a custom property with no warning that children inherit and " + inline_code("var()") + " can use.\n";
+            const std::string places = bark_property_places(w.text, r);
+            h.markdown += places.empty() ? "---\nNothing else in the folder sets or reads it.\n" : places;
             return h;
         }
     }
@@ -1752,11 +2077,101 @@ std::optional<HoverResult> CodeIntel::bark_hover(const IntelRequest& r) {
     return std::nullopt;
 }
 
+std::vector<std::pair<CodeLocation, std::string>> CodeIntel::quoted_uses(const std::string& word, std::size_t most) {
+    std::vector<std::pair<CodeLocation, std::string>> out;
+    const std::string needle = "\"" + word + "\"";
+    for (const char* family : { "c", "walnut", "grove" }) {
+        for (const std::string& file : workspace_files(family)) {
+            const std::optional<std::string> text = text_of(file);
+            if (!text || text->find(needle) == std::string::npos) continue;
+            const std::vector<std::string> raw = split_text_lines(*text);
+            for (std::size_t i = 0; i < raw.size(); ++i) {
+                const std::size_t at = raw[i].find(needle);
+                if (at == std::string::npos) continue;
+                out.emplace_back(CodeLocation{ file, i, at + 1, word.size() }, trim(raw[i]));
+                if (out.size() >= most) return out;
+            }
+        }
+    }
+    return out;
+}
+
+std::vector<std::pair<CodeLocation, std::string>> CodeIntel::bark_property_uses(const std::string& property, const std::string& skip_file, std::size_t skip_line, std::size_t most) {
+    std::vector<std::pair<CodeLocation, std::string>> out;
+    for (const std::string& file : workspace_files("bark")) {
+        const std::optional<std::string> text = text_of(file);
+        if (!text || text->find(property) == std::string::npos) continue;
+        const std::vector<std::string> raw = split_text_lines(*text);
+        for (std::size_t i = 0; i < raw.size(); ++i) {
+            if (file == skip_file && i == skip_line) continue;
+            const std::string& l = raw[i];
+            const std::size_t b = l.find_first_not_of(" \t");
+            if (b == std::string::npos || l.compare(b, property.size(), property) != 0) continue;
+            std::size_t e = b + property.size();
+            while (e < l.size() && (l[e] == ' ' || l[e] == '\t')) ++e;
+            if (e >= l.size() || l[e] != ':') continue;
+            out.emplace_back(CodeLocation{ file, i, b, property.size() }, trim(l));
+            if (out.size() >= most) return out;
+        }
+    }
+    return out;
+}
+
+std::string CodeIntel::bark_property_places(const std::string& property, const IntelRequest& r) {
+    std::string md;
+    const auto readers = quoted_uses(property, 6);
+    const auto others = bark_property_uses(property, r.file, r.line, 6);
+    std::vector<std::pair<CodeLocation, std::string>> vars;
+    if (property.rfind("--", 0) == 0) {
+        const std::string needle = "var(" + property;
+        for (const std::string& file : workspace_files("bark")) {
+            const std::optional<std::string> text = text_of(file);
+            if (!text || text->find(needle) == std::string::npos) continue;
+            const std::vector<std::string> raw = split_text_lines(*text);
+            for (std::size_t i = 0; i < raw.size() && vars.size() < 6; ++i) {
+                const std::size_t at = raw[i].find(needle);
+                if (at != std::string::npos) vars.emplace_back(CodeLocation{ file, i, at + 4, property.size() }, trim(raw[i]));
+            }
+        }
+    }
+    auto list = [&](const std::string& title, const std::vector<std::pair<CodeLocation, std::string>>& uses) {
+        if (uses.empty()) return;
+        md += "**" + title + ":**\n";
+        for (std::size_t i = 0; i < uses.size() && i < 5; ++i) md += hover_link(location_label(m_root, uses[i].first), uses[i].first) + "  " + inline_code(shorten(uses[i].second, 70)) + "\n";
+        if (uses.size() > 5) md += "and more\n";
+    };
+    if (readers.empty() && others.empty() && vars.empty()) return md;
+    md += "---\n";
+    list("Read by", readers);
+    list("Used with var() in", vars);
+    list("Also set in", others);
+    if (!readers.empty()) md += "Ctrl+click goes to the first place that reads it.\n";
+    else md += "Ctrl+click goes to the next place that sets it.\n";
+    return md;
+}
+
 std::optional<CodeLocation> CodeIntel::bark_definition(const IntelRequest& r) {
     const std::vector<std::string> raw = split_text_lines(r.text);
     if (r.line >= raw.size()) return std::nullopt;
     const BarkWord w = bark_word_at(raw[r.line], r.column);
     if (w.text.empty()) return std::nullopt;
+    {
+        const std::string& line = raw[r.line];
+        std::size_t after = w.end;
+        while (after < line.size() && (line[after] == ' ' || line[after] == '\t')) ++after;
+        if (w.text.rfind("--", 0) == 0 && (after >= line.size() || line[after] != ':')) {
+            const auto setters = bark_property_uses(w.text, std::string(), static_cast<std::size_t>(-1), 1);
+            if (!setters.empty()) return setters.front().first;
+        }
+        const bool custom = !grove::bark::is_known_property(w.text) || (m_bark_settings && m_bark_settings(enclosing_selector(raw, r.line), w.text, r.file, r.text));
+        if (w.text[0] != '$' && !selector_line(raw, r.line) && after < line.size() && line[after] == ':' && custom) {
+            const auto readers = quoted_uses(w.text, 1);
+            if (!readers.empty()) return readers.front().first;
+            const auto others = bark_property_uses(w.text, r.file, r.line, 1);
+            if (!others.empty()) return others.front().first;
+            return std::nullopt;
+        }
+    }
     if (w.text[0] == '$') {
         for (const Symbol& s : find(w.text, "bark", r.file)) {
             if (s.file == r.file && s.line == r.line) continue;

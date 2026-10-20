@@ -3,6 +3,7 @@
 
 #include <grove/common/diagnostics.hpp>
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <string>
@@ -45,11 +46,17 @@ public:
     bool is_known(const std::string& section, const std::string& key) const;
     void allow(const std::string& section, const std::vector<std::string>& keys);
     std::vector<std::string> sections() const;
+    std::vector<std::string> known_sections() const;
+    std::vector<std::string> keys(const std::string& section) const;
     std::vector<Setting> all() const;
+    std::uint64_t revision() const noexcept { return m_revision; }
 
 private:
+    static std::uint64_t next_revision() noexcept;
+
     std::map<std::string, std::map<std::string, Setting>> m_values;
     std::map<std::string, std::vector<std::string>> m_schema;
+    std::uint64_t m_revision = next_revision();
 };
 
 struct ConfigFile {

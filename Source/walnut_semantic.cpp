@@ -584,10 +584,42 @@ std::vector<std::string> walnut_highlight_command(const std::string& walnut, con
     return command;
 }
 
+std::vector<std::string> walnut_complete_command(const std::string& walnut, const std::string& file, const std::string& flags, std::size_t line, std::size_t column) {
+    std::vector<std::string> command = walnut_highlight_command(walnut, file, flags);
+    if (command.size() > 1) command[1] = "complete";
+    command.push_back("--at");
+    command.push_back(std::to_string(line) + ":" + std::to_string(column));
+    return command;
+}
+
+WalnutCompletions parse_walnut_complete(const std::string& output) {
+    WalnutCompletions result;
+    const std::size_t start = output.find('{');
+    if (start == std::string::npos) return result;
+    Json root;
+    const std::string body = output.substr(start);
+    JsonReader reader(body);
+    if (!reader.read(root) || root.kind != Json::Kind::Object) return result;
+    result.ok = true;
+    if (const Json* s = root.get("start")) result.start = s->index();
+    if (const Json* m = root.get("mode")) result.mode = m->text;
+    if (const Json* items = root.get("items")) {
+        for (const Json& it : items->items) {
+            grove::CompletionItem item;
+            if (const Json* v = it.get("label")) item.label = v->text;
+            if (const Json* v = it.get("kind")) item.kind = v->text;
+            if (const Json* v = it.get("detail")) item.detail = v->text;
+            if (const Json* v = it.get("documentation")) item.documentation = v->text;
+            if (!item.label.empty()) result.items.push_back(std::move(item));
+        }
+    }
+    return result;
+}
+
 namespace {
 
 std::string shorten_text(std::string text) {
-    if (text.size() > 400) text = text.substr(0, 400) + "\xE2\x80\xA6";
+    if (text.size() > 2000) text = text.substr(0, 2000) + "\xE2\x80\xA6";
     return text;
 }
 

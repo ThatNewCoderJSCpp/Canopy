@@ -1,5 +1,6 @@
 #include <canopy/viewers.hpp>
 
+#include <canopy/markdown.hpp>
 #include <canopy/toolchain.hpp>
 
 #include <algorithm>
@@ -893,6 +894,7 @@ const char* to_string(ViewerKind kind) noexcept {
     case ViewerKind::Pdf: return "pdf";
     case ViewerKind::Latex: return "latex";
     case ViewerKind::Binary: return "binary";
+    case ViewerKind::Markdown: return "markdown";
     }
     return "text";
 }
@@ -904,6 +906,7 @@ std::optional<ViewerKind> viewer_kind_from_name(const std::string& name) {
     if (n == "pdf") return ViewerKind::Pdf;
     if (n == "latex" || n == "tex") return ViewerKind::Latex;
     if (n == "binary" || n == "hex") return ViewerKind::Binary;
+    if (n == "markdown" || n == "md") return ViewerKind::Markdown;
     return std::nullopt;
 }
 
@@ -968,6 +971,7 @@ bool looks_binary(std::string_view bytes) {
 ViewerKind viewer_kind_for(const std::string& path, std::string_view head) {
     if (is_pdf_path(path)) return ViewerKind::Pdf;
     if (is_latex_path(path)) return ViewerKind::Latex;
+    if (is_markdown_path(path) && !looks_binary(head)) return ViewerKind::Markdown;
     if (is_image_path(path)) return ViewerKind::Image;
     if (is_binary_path(path)) return ViewerKind::Binary;
     if (starts_with(head, "%PDF-")) return ViewerKind::Pdf;

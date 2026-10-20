@@ -5,6 +5,7 @@
 #include <grove/project.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -231,7 +232,13 @@ Settings Settings::defaults() {
     return settings;
 }
 
+std::uint64_t Settings::next_revision() noexcept {
+    static std::atomic<std::uint64_t> counter{ 0 };
+    return ++counter;
+}
+
 void Settings::allow(const std::string& section, const std::vector<std::string>& keys) {
+    m_revision = next_revision();
     std::vector<std::string>& known = m_schema[section];
     for (const std::string& k : keys) {
         if (std::find(known.begin(), known.end(), k) == known.end()) known.push_back(k);
@@ -239,6 +246,7 @@ void Settings::allow(const std::string& section, const std::vector<std::string>&
 }
 
 bool Settings::load_text(std::string_view text, const std::string& file, SettingSource source, grove::Diagnostics& diagnostics) {
+    m_revision = next_revision();
     grove::Diagnostics parsed;
     const grove::bark::Stylesheet sheet = grove::bark::parse_stylesheet(text, file, parsed);
     for (const grove::Diagnostic& d : parsed.items()) {
@@ -337,6 +345,17 @@ std::vector<std::string> Settings::sections() const {
     return out;
 }
 
+std::vector<std::string> Settings::known_sections() const {
+    std::vector<std::string> out;
+    for (const auto& entry : m_schema) out.push_back(entry.first);
+    return out;
+}
+
+std::vector<std::string> Settings::keys(const std::string& section) const {
+    const auto s = m_schema.find(section);
+    return s == m_schema.end() ? std::vector<std::string>{} : s->second;
+}
+
 std::vector<Setting> Settings::all() const {
     std::vector<Setting> out;
     for (const auto& section : m_values) {
@@ -413,7 +432,7 @@ std::string_view default_config_file(std::string_view name) noexcept {
 }
 
 const std::vector<std::string>& settings_file_names() {
-    static const std::vector<std::string> names = { "editor.bark", "compilers.bark", "build.bark", "highlighting.bark", "keys.bark" };
+    static const std::vector<std::string> names = { "editor.bark", "compilers.bark", "build.bark", "workbench.bark", "highlighting.bark", "keys.bark" };
     return names;
 }
 
@@ -421,6 +440,7 @@ std::string settings_file_for_section(const std::string& section) {
     if (section == "editor" || section == "viewer" || section == "gui") return "editor.bark";
     if (section == "toolchain" || starts_with(section, "language.")) return "compilers.bark";
     if (section == "build") return "build.bark";
+    if (section == "explorer" || section == "terminal" || section == "server" || section == "git" || section == "history" || section == "layout") return "workbench.bark";
     if (section == "keys") return "keys.bark";
     if (section == "highlight" || starts_with(section, "highlight.")) return "highlighting.bark";
     return "settings.bark";

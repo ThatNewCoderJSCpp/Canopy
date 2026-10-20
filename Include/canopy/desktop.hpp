@@ -52,6 +52,7 @@ struct IntegrationStatus {
 std::string canopy_executable();
 std::string canopy_app_executable();
 std::string canopy_icon(const std::string& file_name);
+std::string find_canopy_icon(const std::string& file_name);
 std::string desktop_entry(const std::string& exec, const std::string& icon);
 std::string desktop_folder();
 const std::vector<FileType>& canopy_file_types();
@@ -64,6 +65,10 @@ IntegrationStatus integration_status();
 
 bool has_display();
 bool launch_detached(const std::string& program, const std::vector<std::string>& args);
+bool move_to_trash(const std::string& path);
+bool reveal_in_file_manager(const std::string& path);
+bool open_in_browser(const std::string& url);
+std::string file_uri(const std::string& path);
 
 } // namespace canopy
 

@@ -36,10 +36,20 @@ std::vector<WorkspaceEntry> Workspace::list(const std::string& folder) const {
     return out;
 }
 
+std::string clean_folder_path(const std::string& folder) {
+    if (folder.empty()) return folder;
+    std::error_code ec;
+    fs::path p = fs::absolute(fs::path(folder), ec);
+    if (ec) p = fs::path(folder);
+    p = p.lexically_normal();
+    while (p.has_relative_path() && p.filename().empty()) p = p.parent_path();
+    return p.string();
+}
+
 std::string find_workspace_root(const std::string& start) {
     std::error_code ec;
     fs::path dir = fs::absolute(start.empty() ? fs::current_path(ec) : fs::path(start), ec);
-    if (!fs::is_regular_file(dir, ec)) return dir.string();
+    if (!fs::is_regular_file(dir, ec)) return clean_folder_path(dir.string());
     dir = dir.parent_path();
     for (fs::path p = dir; !p.empty(); p = p.parent_path()) {
         if (fs::is_directory(p / ".canopy", ec) || fs::exists(p / ".git", ec)) return p.string();
@@ -67,14 +77,17 @@ std::vector<std::string> recent_folders() {
     std::error_code ec;
     while (std::getline(in, line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
-        if (line.empty() || std::find(out.begin(), out.end(), line) != out.end()) continue;
+        if (line.empty()) continue;
+        line = clean_folder_path(line);
+        if (std::find(out.begin(), out.end(), line) != out.end()) continue;
         if (fs::is_directory(line, ec)) out.push_back(line);
     }
     return out;
 }
 
-void remember_folder(const std::string& folder) {
-    if (folder.empty()) return;
+void remember_folder(const std::string& raw) {
+    if (raw.empty()) return;
+    const std::string folder = clean_folder_path(raw);
     std::vector<std::string> list = recent_folders();
     list.erase(std::remove(list.begin(), list.end(), folder), list.end());
     list.insert(list.begin(), folder);
@@ -98,6 +111,27 @@ bool write_text_file(const std::string& path, const std::string& text) {
     if (!out) return false;
     out << text;
     return static_cast<bool>(out);
+}
+
+std::string create_workspace_entry(const std::string& folder, const std::string& name, bool directory) {
+    std::error_code ec;
+    if (!fs::is_directory(folder, ec)) return folder + " isn't a folder";
+    const fs::path dest = fs::path(folder) / name;
+    std::error_code exists_ec;
+    if (fs::exists(fs::symlink_status(dest, exists_ec))) return name + " is already there";
+    if (directory) {
+        if (!fs::create_directories(dest, ec) && ec) return ec.message();
+        return std::string();
+    }
+    if (name.find('/') != std::string::npos || name.find('\\') != std::string::npos) {
+        fs::create_directories(dest.parent_path(), ec);
+        if (ec) return ec.message();
+    }
+    std::ofstream out(dest, std::ios::out | std::ios::binary);
+    if (!out) return "the folder can't be written to";
+    out.close();
+    if (!fs::is_regular_file(dest, ec)) return "it wasn't created";
+    return std::string();
 }
 
 } // namespace canopy

@@ -25,12 +25,15 @@ struct Workspace {
     std::vector<WorkspaceEntry> list(const std::string& folder) const;
 };
 
+std::string clean_folder_path(const std::string& folder);
 std::string find_workspace_root(const std::string& start);
 Workspace open_workspace(const std::string& folder);
 
 std::string recent_folders_path();
 std::vector<std::string> recent_folders();
 void remember_folder(const std::string& folder);
+
+std::string create_workspace_entry(const std::string& folder, const std::string& name, bool directory);
 
 std::optional<std::string> read_text_file(const std::string& path);
 bool write_text_file(const std::string& path, const std::string& text);

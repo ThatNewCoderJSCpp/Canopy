@@ -9,6 +9,7 @@ keys {
     show-warnings: "none";
     show-output: "Ctrl+Shift+U";
     open-settings: "Ctrl+,";
+    open-developer: "Ctrl+Shift+I";
     definition: "F12";
     go-back: "Alt+Left";
     go-forward: "Alt+Right";
@@ -36,4 +37,5 @@ keys {
     go-to-definition: "Ctrl+Click";
     add-caret: "Alt+Click";
     column-select: "Shift+Click";
+    box-select: "Ctrl+Alt+Click";
 }

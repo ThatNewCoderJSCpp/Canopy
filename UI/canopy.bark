@@ -9,6 +9,9 @@ $accent = #a6e3a1;
 $blue = #89b4fa;
 $warn = #f9e2af;
 $error = #f38ba8;
+$git-yellow = #e2c08d;
+$git-green = #73c991;
+$git-red = #f14c4c;
 
 body {
     size: 75vwidth 80vheight;
@@ -25,11 +28,77 @@ body {
 }
 
 #sidebar {
-    width: 250px;
+    user-select: none;
     background: $surface;
-    padding: 8px 0 0 0;
+}
+
+.area {
+    gap: 0;
     border-color: $line;
     border-width: 1px;
+}
+
+#aside {
+    background: $surface;
+}
+
+#view-explorer {
+    padding: 6px 0 0 0;
+    overflow: hidden;
+    gap: 0;
+}
+
+.layout-box {
+    gap: 0;
+    flex: 1;
+}
+
+.layout-fill {
+    flex: 1;
+}
+
+.splitter-x {
+    width: 6px;
+    cursor: col-resize;
+    user-select: none;
+
+    &:hover {
+        background: $blue;
+    }
+}
+
+.splitter-y {
+    height: 6px;
+    cursor: row-resize;
+    user-select: none;
+
+    &:hover {
+        background: $blue;
+    }
+}
+
+.splitter-x.dragging,
+.splitter-y.dragging {
+    background: $blue;
+}
+
+body.resizing-x,
+body.resizing-x * {
+    cursor: col-resize !important;
+}
+
+body.resizing-y,
+body.resizing-y * {
+    cursor: row-resize !important;
+}
+
+body.moving-tab,
+body.moving-tab * {
+    cursor: move !important;
+}
+
+.area-tabs.drop-here {
+    background: $hover;
 }
 
 .sidebar-header {
@@ -106,6 +175,27 @@ body {
     background: $line;
 }
 
+#explorer item.selected {
+    background: $hover;
+    border-color: $blue;
+    border-width: 1px;
+}
+
+#explorer item.root {
+    color: $text;
+    font-weight: bold;
+}
+
+#explorer item.cut {
+    opacity: 0.5;
+}
+
+#explorer item.drop-target {
+    background: $hover;
+    border-color: $accent;
+    border-width: 1px;
+}
+
 #recent {
     max-height: 120px;
     overflow: auto;
@@ -128,9 +218,11 @@ body {
 
 #main {
     padding: 0;
+    gap: 0;
 }
 
 #tab-bar {
+    user-select: none;
     background: $surface;
     gap: 0;
     height: 36px;
@@ -155,6 +247,10 @@ body {
 .tab.active {
     background: $bg;
     color: $text;
+}
+
+.tab.preview .tab-name {
+    font-style: italic;
 }
 
 .tab-close {
@@ -214,21 +310,23 @@ input_code.editor {
 }
 
 #panel {
-    height: 230px;
     background: $panel;
-    border-color: $line;
-    border-width: 1px;
 }
 
+.area-tabs,
 #panel-tabs {
+    user-select: none;
     gap: 18px;
     padding: 6px 14px 0 14px;
     height: 30px;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .panel-tab {
     color: $muted;
     font-size: 11px;
+    white-space: nowrap;
     cursor: pointer;
     padding: 2px 0 4px 0;
 
@@ -258,6 +356,60 @@ input_code.editor {
     font-size: 12px;
 }
 
+.out-chunk {
+    margin: 0;
+    font-size: 12px;
+}
+
+#view-terminal {
+    padding: 0;
+    overflow: hidden;
+}
+
+#terminal {
+    height: 100%;
+    gap: 0;
+}
+
+#terminal-bar {
+    gap: 6px;
+    padding: 4px 10px;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+}
+
+.terminal-picker {
+    min-width: 160px;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+#terminal-views {
+    flex: 1;
+    gap: 0;
+    padding: 0;
+}
+
+#terminal-empty {
+    padding: 10px 14px;
+}
+
+terminal.terminal-view {
+    flex: 1;
+    margin: 0;
+    padding: 2px 0 0 10px;
+    background: $panel;
+    color: $text;
+    caret-color: $text;
+    accent-color: $blue;
+    font-size: 13px;
+}
+
 .problem {
     color: $warn;
     margin: 0 0 4px 0;
@@ -274,6 +426,7 @@ input_code.editor {
 }
 
 #status {
+    user-select: none;
     background: $line;
     padding: 3px 12px;
     font-size: 12px;
@@ -292,7 +445,7 @@ input_code.editor {
 }
 
 .status-select {
-    width: 150px;
+    min-width: 120px;
     padding: 0 8px;
     margin: 0;
     font-size: 12px;
@@ -315,6 +468,7 @@ input_code.editor {
 }
 
 .settings-nav {
+    user-select: none;
     width: 170px;
     background: $surface;
     padding: 14px 0 10px 0;
@@ -881,4 +1035,844 @@ input_code.dump {
 
 .font-select {
     width: 240px;
+}
+
+#output-log,
+.out-chunk,
+#problems,
+#warnings {
+    user-select: text;
+}
+
+.md-preview {
+    width: 50%;
+}
+
+.md-body {
+    background: $bg;
+    padding: 14px 22px 40px 22px;
+    gap: 0;
+    user-select: text;
+}
+
+.md-h {
+    color: $text;
+    margin: 18px 0 8px 0;
+}
+
+.md-h1 {
+    font-size: 26px;
+}
+
+.md-h2 {
+    font-size: 21px;
+}
+
+.md-h3 {
+    font-size: 17px;
+}
+
+.md-h4 {
+    font-size: 15px;
+}
+
+.md-h5 {
+    font-size: 13px;
+}
+
+.md-h6 {
+    font-size: 13px;
+    color: $muted;
+}
+
+.md-p {
+    margin: 0 0 10px 0;
+    line-height: 1.5;
+}
+
+.md-code {
+    background: $panel;
+    color: $text;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0 0 12px 0;
+    font-size: 12px;
+    overflow-x: auto;
+}
+
+.md-inline-code {
+    background: $panel;
+    color: $warn;
+    font-size: 12px;
+}
+
+.md-link {
+    color: $blue;
+    cursor: pointer;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.md-strike {
+    text-decoration: line-through;
+    color: $muted;
+}
+
+.md-quote {
+    background: $surface;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 4px;
+    padding: 8px 14px 0 14px;
+    margin: 0 0 12px 0;
+    color: $muted;
+    gap: 0;
+}
+
+.md-list {
+    margin: 0 0 10px 4px;
+    gap: 2px;
+}
+
+.md-item {
+    gap: 8px;
+}
+
+.md-marker {
+    width: 22px;
+    text-align: right;
+    color: $muted;
+}
+
+.md-task .md-marker {
+    color: $accent;
+}
+
+.md-item-body {
+    flex: 1;
+    gap: 0;
+}
+
+.md-item-body .md-p {
+    margin: 0 0 2px 0;
+}
+
+.md-item-body .md-list {
+    margin: 2px 0 2px 0;
+}
+
+.md-done .md-p {
+    color: $muted;
+}
+
+.md-rule {
+    margin: 10px 0 16px 0;
+}
+
+.md-table {
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 4px;
+    margin: 0 0 12px 0;
+    gap: 0;
+}
+
+.md-tr {
+    gap: 0;
+    border-color: $line;
+    border-width: 1px;
+}
+
+.md-th {
+    background: $surface;
+    font-weight: bold;
+}
+
+.md-cell {
+    flex: 1;
+    padding: 4px 10px;
+}
+
+.md-cell-text {
+    margin: 0;
+}
+
+.md-img {
+    margin: 4px 0;
+}
+
+.md-missing {
+    color: $error;
+}
+
+#ports {
+    gap: 0;
+    flex: 1;
+}
+
+#ports-bar {
+    gap: 8px;
+    padding: 4px 10px;
+    align-items: center;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+}
+
+.server-folder {
+    min-width: 180px;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.ports-label {
+    color: $muted;
+    font-size: 12px;
+}
+
+.server-port {
+    width: 80px;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+#servers {
+    flex: 1;
+    overflow: auto;
+    padding: 4px 10px;
+    gap: 4px;
+    user-select: text;
+}
+
+.server-row {
+    gap: 10px;
+    align-items: center;
+    padding: 4px 6px;
+    border-radius: 4px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.server-dot {
+    color: $muted;
+    font-size: 10px;
+}
+
+.server-dot.on {
+    color: $accent;
+}
+
+.server-url {
+    color: $blue;
+    cursor: pointer;
+}
+
+.server-folder-name {
+    color: $text;
+}
+
+.server-meta {
+    color: $muted;
+    font-size: 12px;
+}
+
+.md-block {
+    gap: 0;
+}
+
+#view-git,
+#view-history {
+    padding: 0;
+    overflow: hidden;
+}
+
+#git {
+    gap: 0;
+    height: 100%;
+}
+
+#git-main {
+    flex: 5;
+    gap: 4px;
+    padding: 4px 10px 0 10px;
+}
+
+#git-bar,
+#git-commit-row {
+    gap: 6px;
+    align-items: center;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+}
+
+.git-branch {
+    min-width: 110px;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.git-message-box,
+.git-sync-box {
+    flex: 1;
+    min-width: 40px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.git-message {
+    width: 100%;
+    margin: 0;
+    padding: 3px 8px;
+    font-size: 12px;
+}
+
+.git-note {
+    color: $muted;
+    font-size: 12px;
+}
+
+.git-state {
+    color: $blue;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#git-state-row {
+    gap: 10px;
+    height: 15px;
+}
+
+#git-changes,
+#git-tasks,
+#git-log,
+#git-branches,
+#git-tags,
+#history-list {
+    flex: 1;
+    overflow: auto;
+    gap: 1px;
+    padding: 0 0 6px 0;
+}
+
+#git-tasks-col {
+    width: 250px;
+    gap: 4px;
+    padding: 4px 10px 0 10px;
+    background: $surface;
+}
+
+#git-side {
+    flex: 4;
+    gap: 4px;
+    padding: 4px 10px 0 10px;
+}
+
+.git-heading,
+.git-section {
+    gap: 8px;
+    align-items: center;
+    height: 22px;
+}
+
+.git-section {
+    margin: 4px 0 0 0;
+}
+
+.git-title {
+    color: $muted;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.git-file,
+.git-commit,
+.git-task,
+.git-branch-row,
+.git-tag-row,
+.hist-row {
+    user-select: none;
+    gap: 8px;
+    align-items: center;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        background: $hover;
+    }
+
+    .view-button {
+        padding: 0 6px;
+        font-size: 11px;
+        white-space: nowrap;
+    }
+}
+
+.view-button.danger:hover {
+    color: $error;
+}
+
+.git-letter {
+    width: 12px;
+    font-weight: bold;
+    font-size: 12px;
+    color: $git-yellow;
+}
+
+.git-letter.git-added,
+.git-letter.git-untracked {
+    color: $git-green;
+}
+
+.git-letter.git-deleted,
+.git-letter.git-conflict {
+    color: $git-red;
+}
+
+.git-letter.git-renamed,
+.git-letter.git-copied {
+    color: $blue;
+}
+
+.git-name {
+    white-space: nowrap;
+    color: $git-yellow;
+}
+
+.git-name.git-added,
+.git-name.git-untracked {
+    color: $git-green;
+}
+
+.git-name.git-deleted {
+    color: $git-red;
+    text-decoration: line-through;
+}
+
+.git-name.git-conflict {
+    color: $git-red;
+}
+
+.git-name.git-renamed,
+.git-name.git-copied {
+    color: $blue;
+}
+
+.git-view-tab {
+    color: $muted;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover {
+        color: $text;
+    }
+}
+
+.git-view-tab.active {
+    color: $text;
+}
+
+.git-subtitle {
+    color: $muted;
+    font-size: 10px;
+    font-weight: bold;
+    margin: 4px 0 0 0;
+}
+
+.git-branch-dot {
+    width: 10px;
+    color: $accent;
+    font-size: 10px;
+}
+
+.git-branch-name,
+.git-tag-name {
+    white-space: nowrap;
+}
+
+.git-branch-row .git-meta,
+.git-tag-row .git-meta {
+    overflow: hidden;
+}
+
+.git-branch-row.current .git-branch-name {
+    font-weight: bold;
+}
+
+.git-branch-name.protected {
+    color: $warn;
+}
+
+.git-start {
+    gap: 8px;
+}
+
+#git-repo {
+    min-width: 110px;
+}
+
+#git-bar button {
+    white-space: nowrap;
+}
+
+#explorer item.git-modified {
+    color: $git-yellow;
+}
+
+#explorer item.git-added {
+    color: $git-green;
+}
+
+#explorer item.git-conflict,
+#explorer item.git-deleted {
+    color: $git-red;
+}
+
+#explorer item.git-ignored {
+    opacity: 0.5;
+}
+
+.git-dir,
+.git-meta,
+.git-task-summary {
+    color: $muted;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.git-task-text {
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.git-task-summary {
+    overflow: hidden;
+}
+
+.git-task-name {
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.view-button.git-run {
+    background: $blue;
+    color: $panel;
+    padding: 1px 10px;
+}
+
+.git-problem {
+    color: $error;
+    font-size: 11px;
+    margin: 0;
+}
+
+.git-hash,
+.hist-kind {
+    font-family: monospace;
+    font-size: 11px;
+    color: $blue;
+}
+
+.hist-kind.local {
+    color: $accent;
+}
+
+.git-refs {
+    font-size: 10px;
+    color: $panel;
+    background: $warn;
+    padding: 0 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.git-subject,
+.hist-label {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.git-init {
+    margin: 4px 0;
+}
+
+#history {
+    gap: 0;
+    height: 100%;
+    padding: 4px 10px 0 10px;
+}
+
+#history-bar {
+    gap: 10px;
+    align-items: center;
+    height: 24px;
+}
+
+.history-file {
+    font-weight: bold;
+}
+
+.status-git {
+    gap: 4px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.diff-view,
+.version-view {
+    height: 100%;
+    gap: 0;
+    background: $bg;
+}
+
+.diff-bar {
+    gap: 10px;
+    padding: 6px 12px;
+    height: 32px;
+    background: $surface;
+    border-color: $line;
+    border-width: 1px;
+    align-items: center;
+}
+
+.diff-title {
+    font-weight: bold;
+}
+
+.diff-sub {
+    color: $muted;
+    font-size: 12px;
+}
+
+.diff-count {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.diff-count.add {
+    color: $accent;
+}
+
+.diff-count.del {
+    color: $error;
+}
+
+.diff-body {
+    flex: 1;
+    overflow: auto;
+    overflow-x: auto;
+    gap: 0;
+    padding: 4px 0;
+}
+
+.diff-line {
+    margin: 0;
+    padding: 0 12px;
+    font-size: 12px;
+    white-space: pre;
+}
+
+.diff-add {
+    background: #a6e3a126;
+    color: $accent;
+}
+
+.diff-del {
+    background: #f38ba826;
+    color: $error;
+}
+
+.diff-hunk {
+    color: $blue;
+    background: $surface;
+    margin: 6px 0 0 0;
+}
+
+.diff-file {
+    font-weight: bold;
+    color: $text;
+    background: $line;
+    padding: 3px 12px;
+    margin: 10px 0 0 0;
+}
+
+.diff-meta {
+    color: $muted;
+}
+
+.version-view input_code.editor {
+    flex: 1;
+}
+
+.diff-hunk-row {
+    gap: 6px;
+    align-items: center;
+    background: $surface;
+    margin: 6px 0 0 0;
+    padding: 0 12px 0 0;
+
+    .diff-hunk {
+        margin: 0;
+        background: transparent;
+    }
+
+    .view-button {
+        padding: 0 8px;
+        font-size: 11px;
+    }
+}
+
+#git-pickers {
+    gap: 6px;
+    align-items: center;
+}
+
+#view-git.narrow #git {
+    display: block;
+}
+
+#view-git.narrow #git-main {
+    flex: 3;
+}
+
+#view-git.narrow #git-tasks-col {
+    width: 100%;
+    max-height: 140px;
+    overflow: auto;
+}
+
+#view-git.narrow #git-side {
+    flex: 3;
+}
+
+#view-git.narrow .view-button.minor {
+    display: none;
+}
+
+#status text {
+    white-space: nowrap;
+}
+
+#view-terminal.narrow .terminal-picker {
+    width: 140px;
+    min-width: 80px;
+}
+
+.drag-preview {
+    position: cursor;
+    left: 16px;
+    top: 14px;
+    max-width: 340px;
+    padding: 4px;
+    background: $surface;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 6px;
+}
+
+.drag-row {
+    display: row;
+    gap: 6px;
+    padding: 2px 6px;
+    white-space: nowrap;
+}
+
+.drag-more,
+.drag-hint {
+    color: $muted;
+    padding: 2px 6px;
+    white-space: nowrap;
+}
+
+.drag-hint {
+    font-size: 11px;
+}
+
+#status-version {
+    cursor: pointer;
+}
+
+.dev-view {
+    height: 100%;
+    gap: 0;
+    background: $bg;
+}
+
+.dev-body {
+    flex: 1;
+    height: 100%;
+    overflow: auto;
+    padding: 14px 24px;
+}
+
+.dev-grid {
+    gap: 16px;
+    align-items: start;
+}
+
+.dev-column {
+    flex: 1;
+    min-width: 0;
+}
+
+.dev-card {
+    background: $surface;
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 0 0 14px 0;
+}
+
+.dev-card-title {
+    color: $blue;
+    font-weight: bold;
+    margin: 0 0 6px 0;
+}
+
+.dev-row {
+    gap: 12px;
+    padding: 3px 0;
+}
+
+.dev-label {
+    width: 150px;
+    color: $muted;
+}
+
+.dev-value-box {
+    flex: 1;
+    gap: 3px;
+}
+
+.dev-bar {
+    height: 4px;
+    background: $line;
+    border-radius: 2px;
+}
+
+.dev-bar-fill {
+    height: 4px;
+    background: $accent;
+    border-radius: 2px;
 }

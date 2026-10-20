@@ -1,22 +1,38 @@
+#include <canopy/askpass.hpp>
 #include <canopy/build.hpp>
+#include <canopy/desktop.hpp>
+#include <canopy/git.hpp>
+#include <canopy/history.hpp>
+#include <canopy/tasks.hpp>
 #include <canopy/code_intel.hpp>
+#include <canopy/completion.hpp>
 #include <canopy/language_docs.hpp>
 #include <canopy/languages.hpp>
+#include <canopy/live_server.hpp>
+#include <canopy/markdown.hpp>
 #include <canopy/settings.hpp>
 #include <canopy/settings_page.hpp>
 #include <canopy/shortcuts.hpp>
+#include <canopy/terminal.hpp>
 #include <canopy/toolchain.hpp>
 #include <canopy/viewers.hpp>
 #include <canopy/walnut_semantic.hpp>
 #include <canopy/workspace.hpp>
 
+#include <grove/bark/parser.hpp>
+#include <grove/bark/value.hpp>
+#include <grove/input/code_buffer.hpp>
+
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -452,6 +468,17 @@ void test_viewers() {
     fs::remove_all(root, ec);
 }
 
+void test_line_masking() {
+    const std::string text = "int a; // note \"x\"\r\n/* start\nstill */ int b = 'c';\nauto s = R\"(raw\nraw)\"; int d;\nlast";
+    const std::vector<std::string> masked = canopy::split_text_lines(canopy::mask_c_like(text));
+    const std::vector<std::string> raw = canopy::split_text_lines(text);
+    for (std::size_t i = 0; i < raw.size(); ++i) {
+        check(canopy::text_line_at(text, i) == raw[i], "text_line_at matches split_text_lines");
+        check(canopy::mask_c_like_line(text, i) == masked[i], "mask_c_like_line matches mask_c_like");
+    }
+    check(!canopy::text_line_at(text, raw.size()), "text_line_at past the end");
+}
+
 void test_code_intel() {
     namespace fs = std::filesystem;
     const fs::path root = fs::temp_directory_path() / "canopy-intel-test";
@@ -610,6 +637,820 @@ void test_shortcuts() {
     check(fixed >= 4 && canopy::find_shortcut("column-select") && canopy::find_shortcut("column-select")->mouse, "mouse shortcuts are listed too");
 }
 
+bool has_label(const grove::CompletionList& list, const std::string& label) {
+    for (const grove::CompletionItem& item : list.items) {
+        if (item.label == label) return true;
+    }
+    return false;
+}
+
+const grove::CompletionItem* find_label(const grove::CompletionList& list, const std::string& label) {
+    for (const grove::CompletionItem& item : list.items) {
+        if (item.label == label) return &item;
+    }
+    return nullptr;
+}
+
+grove::CompletionList complete_at(const std::string& language, const std::string& text, std::size_t line, std::size_t column, const canopy::CompletionSources& sources = {}) {
+    canopy::CompletionRequest r;
+    r.language = language;
+    r.path = "/tmp/x";
+    r.text = text;
+    r.line = line;
+    r.column = column;
+    return canopy::complete_code(r, sources);
+}
+
+void test_completion_index() {
+    canopy::CompletionIndex index;
+    grove::CompletionItem a;
+    a.label = "vector";
+    index.add(a, 1);
+    a.label = "Vec";
+    index.add(a, 0);
+    a.label = "value";
+    index.add(a, 0);
+    a.label = "getValue";
+    index.add(a, 0);
+    check(!index.add(a, 0), "the index keeps one entry per label");
+    check(index.count_prefix("ve") == 2, "the trie counts words by prefix, ignoring case");
+    const std::vector<grove::CompletionItem> got = index.query("ve");
+    check(got.size() >= 2 && got[0].label == "vector" && got[1].label == "Vec", "a prefix with the same case comes first, then other cases, then looser matches");
+    const std::vector<grove::CompletionItem> fuzzy = index.query("gv");
+    check(!fuzzy.empty() && fuzzy[0].label == "getValue", "word starts match when no prefix does");
+    check(index.query("").size() == 4, "an empty prefix lists everything");
+}
+
+void test_code_completion() {
+    const std::string cpp = "#include <vector>\nstruct Point { int xpos; int ypos; };\nint total_count = 0;\nint main() {\n    Point p;\n    tot\n    p.\n    // tot\n    ret\n}\n";
+    canopy::CompletionSources sources;
+    sources.symbols = canopy::scan_c_symbols(cpp, "/tmp/x");
+    grove::CompletionList list = complete_at("cpp", cpp, 5, 7, sources);
+    check(list.column == 4 && !list.items.empty() && list.items[0].label == "total_count", "C++ names complete from the file's symbols");
+    list = complete_at("cpp", cpp, 6, 6, sources);
+    check(list.items.size() >= 2 && list.items[0].label == "xpos" && list.items[1].label == "ypos" && !has_label(list, "return"), "after a dot members come first and keywords aren't offered");
+    list = complete_at("cpp", cpp, 7, 10, sources);
+    check(list.items.empty(), "nothing is offered inside a comment");
+    list = complete_at("cpp", cpp, 8, 7, sources);
+    check(has_label(list, "return") && find_label(list, "return")->kind == "keyword", "keywords are offered");
+    list = complete_at("cpp", "#inc\n", 0, 4);
+    check(has_label(list, "include"), "preprocessor directives complete after #");
+
+    const std::string bark = "$accent = #fff;\nbutton:ho {\n    backg\n    color: $ac\n}\n";
+    list = complete_at("bark", bark, 2, 9);
+    const grove::CompletionItem* bg = find_label(list, "background");
+    check(bg && bg->insert == "background: $0;", "Bark properties complete with a colon and semicolon");
+    list = complete_at("bark", bark, 1, 9);
+    check(has_label(list, ":hover") && list.column == 6, "pseudo-classes complete after a colon");
+    canopy::CompletionSources bark_sources;
+    bark_sources.symbols = canopy::scan_bark_symbols(bark, "/tmp/x");
+    list = complete_at("bark", bark, 3, 14, bark_sources);
+    check(has_label(list, "$accent"), "Bark variables complete in values");
+
+    const std::string grove_text = "<body>\n  <but\n  <button ali\n  <row>\n  </\n</body>\n";
+    list = complete_at("grove", grove_text, 1, 6);
+    check(has_label(list, "button"), "Grove tags complete after <");
+    list = complete_at("grove", grove_text, 2, 13);
+    const grove::CompletionItem* align = find_label(list, "align");
+    check(align && align->insert == "align=\"$0\"", "Grove attributes complete with =\"\"");
+    list = complete_at("grove", "<body>\n  <row>\n  </\n</body>\n", 2, 4);
+    check(!list.items.empty() && list.items[0].label == "row" && list.items[0].insert == "row>", "</ offers to close the open tag first");
+
+    const std::string cmake = "set(MY_FLAGS -O2)\nadd_exec\nmessage(${MY_F)\n";
+    canopy::CompletionSources cmake_sources;
+    cmake_sources.symbols = canopy::scan_cmake_symbols(cmake, "/tmp/x");
+    list = complete_at("cmake", cmake, 1, 8, cmake_sources);
+    const grove::CompletionItem* exe = find_label(list, "add_executable");
+    check(exe && exe->insert == "add_executable($0)", "CMake commands complete with parentheses");
+    list = complete_at("cmake", cmake, 2, 14, cmake_sources);
+    check(has_label(list, "MY_FLAGS") && find_label(list, "MY_FLAGS")->insert == "MY_FLAGS}", "CMake variables complete inside ${ } and close the brace");
+
+    canopy::CompletionSources walnut_sources;
+    walnut_sources.pending = true;
+    list = complete_at("walnut", "let c = Counter{};\nc.\n", 1, 2, walnut_sources);
+    check(list.items.empty() && list.column == 2, "Walnut member lists wait for the compiler");
+    grove::CompletionItem bump;
+    bump.label = "bump";
+    bump.kind = "method";
+    walnut_sources.extra = { bump };
+    walnut_sources.pending = false;
+    list = complete_at("walnut", "let c = Counter{};\nc.b\n", 1, 3, walnut_sources);
+    check(list.items.size() == 1 && list.items[0].label == "bump", "Walnut members come from the compiler");
+    const canopy::WalnutCompletions parsed = canopy::parse_walnut_complete("{\"start\":2,\"mode\":\"member\",\"items\":[{\"label\":\"total\",\"kind\":\"field\",\"detail\":\"int\"}]}");
+    check(parsed.ok && parsed.start == 2 && parsed.mode == "member" && parsed.items.size() == 1 && parsed.items[0].detail == "int", "walnut complete output is read");
+    const std::vector<std::string> command = canopy::walnut_complete_command("walnut", "a.wal", "-I inc", 3, 7);
+    check(command.size() >= 7 && command[1] == "complete" && command[command.size() - 1] == "3:7", "the walnut complete command has --at");
+}
+
+void test_create_entries() {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "canopy-create-test";
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    check(canopy::create_workspace_entry(dir.string(), "random.tex", false).empty() && fs::is_regular_file(dir / "random.tex"), "New File makes the file and reports no error");
+    check(canopy::create_workspace_entry(dir.string(), "random.tex", false) == "random.tex is already there", "New File refuses a name that's taken");
+    check(canopy::create_workspace_entry(dir.string(), "sub", true).empty() && fs::is_directory(dir / "sub"), "New Folder makes the folder");
+    check(!canopy::create_workspace_entry((dir / "missing").string(), "x.txt", false).empty(), "New File in a folder that's gone reports it");
+    fs::remove_all(dir, ec);
+}
+
+void test_signature_layout() {
+    check(canopy::format_signature("function add(a: int, b: int) -> int", 80) == "function add(a: int, b: int) -> int", "a short signature stays on one line");
+    const std::string sig = "function name(param1: int, param2: int, param3: string, param4: float, param5: bool) -> int";
+    const std::string wrapped = canopy::format_signature(sig, 40);
+    check(wrapped == "function name(\n    param1: int, param2: int,\n    param3: string, param4: float,\n    param5: bool\n) -> int", "a long signature breaks after whole parameters: " + wrapped);
+    const std::string templated = canopy::format_signature("std::map<int, std::string> lookup(const std::map<int, std::string>& table, int key, bool strict)", 50);
+    check(templated.find("const std::map<int, std::string>& table,") != std::string::npos, "commas inside <> don't split a parameter: " + templated);
+    check(templated.substr(templated.rfind('\n') + 1) == ")", "the closing parenthesis gets its own last line: " + templated);
+    const std::string spread = canopy::format_signature("void f(\n    int a,\n    int b\n)", 80);
+    check(spread == "void f(int a, int b)", "a signature that fits is pulled onto one line: " + spread);
+    const std::string md = canopy::format_hover_signatures("```walnut\n" + sig + "\n```\nSome docs.\n", 40);
+    check(md.find("    param5: bool\n) -> int\n```\nSome docs.") != std::string::npos, "hovers lay out signatures inside code blocks: " + md);
+    const std::string body = canopy::format_hover_signatures("```cpp\nstruct S { int a; };\n```\n", 10);
+    check(body == "```cpp\nstruct S { int a; };\n```\n", "code that isn't a signature is left alone");
+}
+
+void test_terminal_screen() {
+    canopy::TerminalScreen s;
+    canopy::terminal_feed(s, "user@host:~$ ls\r\n\x1b[01;34mSource\x1b[0m  README.md\r\nuser@host:~$ ");
+    check(s.text == "user@host:~$ ls\nSource  README.md\nuser@host:~$ ", "colors are stripped and CRLF becomes a newline: " + s.text);
+    check(canopy::terminal_last_line(s) == "user@host:~$ ", "the prompt is the last unfinished line");
+    check(canopy::terminal_finished_lines(s) == "user@host:~$ ls\nSource  README.md", "finished lines leave the prompt out");
+    canopy::TerminalScreen p;
+    canopy::terminal_feed(p, "10%\r20%\r");
+    canopy::terminal_feed(p, "\n");
+    check(p.text == "20%\n", "carriage returns overwrite progress and a split CRLF still ends the line: " + p.text);
+    canopy::TerminalScreen q;
+    canopy::terminal_feed(q, "ab\x1b[");
+    canopy::terminal_feed(q, "31mc\x1b]0;title\x07" "d\bx\r\r\n");
+    check(q.text == "abcx\n", "escape codes split across reads are dropped and backspace erases: " + q.text);
+    canopy::TerminalScreen t;
+    t.text = "one\ntwo\nthree\n";
+    canopy::terminal_trim(t, 8);
+    check(t.text == "three\n", "trimming keeps whole lines from the end: " + t.text);
+    for (const char* section : { "editor", "gui", "viewer", "toolchain", "language.cpp", "build", "explorer", "terminal", "keys", "highlight", "highlight.cpp" }) {
+        const std::string file = canopy::settings_file_for_section(section);
+        const auto& names = canopy::settings_file_names();
+        check(std::find(names.begin(), names.end(), file) != names.end(), std::string("settings written for [") + section + "] go to " + file + ", which Canopy loads");
+    }
+    check(canopy::file_uri("/home/me/My Dir/a,b#c.txt") == "file:///home/me/My%20Dir/a%2Cb%23c.txt", "file URIs are percent-encoded: " + canopy::file_uri("/home/me/My Dir/a,b#c.txt"));
+    check(canopy::settings_file_for_section("terminal") == "workbench.bark" && canopy::settings_file_for_section("explorer") == "workbench.bark", "explorer and terminal settings live in workbench.bark");
+}
+
+void test_workspace_paths() {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "canopy-root-test";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    const std::string plain = canopy::clean_folder_path(dir.string());
+    check(canopy::clean_folder_path(dir.string() + "/") == plain, "a trailing slash doesn't change a folder's path");
+    check(canopy::clean_folder_path(dir.string() + "//") == plain, "nor do two");
+    check(canopy::find_workspace_root(dir.string() + "/") == plain, "opening a folder with a trailing slash gives the same root");
+    check(fs::path(canopy::find_workspace_root(dir.string() + "/")).filename() == "canopy-root-test", "so the folder keeps its short name");
+    check(canopy::clean_folder_path("/") == fs::path("/").lexically_normal().string() || canopy::clean_folder_path("/").size() <= 3, "the filesystem root stays itself");
+    fs::remove_all(dir, ec);
+}
+
+void test_markdown() {
+    using canopy::MdBlock;
+    check(canopy::is_markdown_path("README.md") && canopy::is_markdown_path("notes.Markdown") && !canopy::is_markdown_path("md/file.txt"), "markdown extensions");
+    const std::vector<MdBlock> doc = canopy::parse_markdown(
+        "---\ntitle: x\n---\n# Title *here*\n\nSome **bold** and `code` with a [link](docs/a.md).\n\n"
+        "Setext\n---\n\n- one\n- two\n  - nested\n\n1. first\n2. second\n\n- [x] done\n- [ ] todo\n\n"
+        "> quoted\n\n```cpp\nint main() {}\n```\n\n| a | b |\n|:--|--:|\n| 1 | 2 |\n\n***\n");
+    check(doc.size() == 10, "markdown splits into blocks (front matter skipped)");
+    if (doc.size() == 10) {
+        check(doc[0].kind == MdBlock::Kind::Heading && doc[0].level == 1 && canopy::markdown_plain_text(doc[0].spans) == "Title here", "ATX heading");
+        check(doc[0].spans.size() == 2 && doc[0].spans[1].italic, "emphasis in a heading");
+        const std::vector<canopy::MdSpan>& p = doc[1].spans;
+        bool bold = false, code = false, link = false;
+        for (const canopy::MdSpan& s : p) {
+            bold = bold || (s.bold && s.text == "bold");
+            code = code || (s.code && s.text == "code");
+            link = link || (s.href == "docs/a.md" && s.text == "link");
+        }
+        check(doc[1].kind == MdBlock::Kind::Paragraph && bold && code && link, "bold, code spans and links");
+        check(doc[2].kind == MdBlock::Kind::Heading && doc[2].level == 2, "setext heading");
+        check(doc[3].kind == MdBlock::Kind::List && doc[3].items.size() == 2 && !doc[3].ordered, "bullet list");
+        check(doc[3].items.size() == 2 && doc[3].items[1].blocks.size() == 2 && doc[3].items[1].blocks[1].kind == MdBlock::Kind::List, "nested list");
+        check(doc[4].ordered && doc[4].start == 1 && doc[4].items.size() == 2, "ordered list");
+        check(doc[5].items.size() == 2 && doc[5].items[0].task && doc[5].items[0].checked && !doc[5].items[1].checked, "task list");
+        check(doc[6].kind == MdBlock::Kind::Quote && doc[6].children.size() == 1, "block quote");
+        check(doc[7].kind == MdBlock::Kind::Code && doc[7].language == "cpp" && doc[7].code == "int main() {}", "fenced code");
+        check(doc[8].kind == MdBlock::Kind::Table && doc[8].rows.size() == 2 && doc[8].align[0] == canopy::MdAlign::Left && doc[8].align[1] == canopy::MdAlign::Right, "table with alignment");
+        check(doc[9].kind == MdBlock::Kind::Rule, "thematic break");
+    }
+    const std::vector<canopy::MdSpan> spans = canopy::parse_markdown_inline("a\\*b\\* ~~gone~~ https://x.org/p. snake_case_name");
+    check(!spans.empty() && spans[0].text == "a*b* " && !spans[0].italic, "escaped asterisks stay literal");
+    bool strike = false, url = false, snake = false;
+    for (const canopy::MdSpan& sp : spans) {
+        strike = strike || (sp.strike && sp.text == "gone");
+        url = url || sp.href == "https://x.org/p";
+        snake = snake || sp.text.find("snake_case_name") != std::string::npos;
+    }
+    check(strike && url && snake, "strikethrough, bare links without trailing dots, and underscores inside words");
+    check(canopy::markdown_anchor("Hello, World!") == "hello-world", "heading anchors");
+}
+
+void test_live_server() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "canopy-serve-test";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root / "sub", ec);
+    fs::create_directories(root / "pages", ec);
+    std::ofstream(root / "index.html") << "<html><body>hi</body></html>";
+    std::ofstream(root / "sub" / "a b.css") << "body{}";
+    std::ofstream(root / "about.html") << "about";
+    check(canopy::mime_type_for("x.HTML").rfind("text/html", 0) == 0 && canopy::mime_type_for("a.js").rfind("text/javascript", 0) == 0 && canopy::mime_type_for("z.unknown") == "application/octet-stream", "content types");
+    check(canopy::url_decode("a%20b%2Fc") == "a b/c" && canopy::url_encode_path("sub/a b.css") == "sub/a%20b.css", "URL escapes");
+    const std::string r = root.string();
+    check(canopy::resolve_served(r, "/").file == (root / "index.html").string(), "/ serves index.html");
+    check(canopy::resolve_served(r, "/sub/a%20b.css?v=2").file == (root / "sub" / "a b.css").string(), "escaped names and queries resolve");
+    check(canopy::resolve_served(r, "/about").file == (root / "about.html").string(), "clean URLs find .html files");
+    check(canopy::resolve_served(r, "/sub").status == 301 && canopy::resolve_served(r, "/sub").redirect == "/sub/", "folders without a slash redirect");
+    check(canopy::resolve_served(r, "/pages/").listing, "folders without an index get a listing");
+    check(canopy::resolve_served(r, "/../../etc/passwd").status != 200 || canopy::resolve_served(r, "/../../etc/passwd").file.rfind(r, 0) == 0, "paths can't climb out of the folder");
+    check(canopy::resolve_served(r, "/%2e%2e/%2e%2e/secret").status != 200, "escaped .. can't climb out either");
+    check(canopy::resolve_served(r, "/missing.png").status == 404, "missing files are 404");
+    const std::string page = canopy::inject_live_reload("<html><body>x</body></html>");
+    check(page.find("<script>") < page.find("</body>") && page.find("__canopy/reload") != std::string::npos, "live reload goes before </body>");
+    check(canopy::folder_listing_html(r, (root / "sub").string(), "/sub/").find("a%20b.css") != std::string::npos, "listings link escaped names");
+
+    canopy::LiveServer a;
+    canopy::LiveServer b;
+    std::string error;
+    const bool started = a.start(r, 5590, "127.0.0.1", true, error);
+    check(started, "a local server starts: " + error);
+    if (started) {
+        check(b.start(r, a.port(), "127.0.0.1", false, error) && b.port() != a.port(), "a busy port moves on to the next free one");
+        check(a.url() == "http://localhost:" + std::to_string(a.port()) + "/", "server URL");
+        check(a.url((root / "sub" / "a b.css").string()) == a.url() + "sub/a%20b.css", "URL of a file in the folder");
+        check(a.contains((root / "sub").string()) && !a.contains(root.parent_path().string()), "contains only its folder");
+        a.stop();
+        b.stop();
+        check(!a.running(), "servers stop");
+    }
+    fs::remove_all(root, ec);
+}
+
+void test_git_parsers() {
+    std::string porcelain;
+    porcelain += "# branch.oid 1234abcd";
+    porcelain += '\0';
+    porcelain += "# branch.head dev";
+    porcelain += '\0';
+    porcelain += "# branch.upstream origin/dev";
+    porcelain += '\0';
+    porcelain += "# branch.ab +2 -1";
+    porcelain += '\0';
+    porcelain += "1 .M N... 100644 100644 100644 aaa bbb Source/my file.cpp";
+    porcelain += '\0';
+    porcelain += "1 A. N... 000000 100644 100644 000 ccc new.hpp";
+    porcelain += '\0';
+    porcelain += "2 R. N... 100644 100644 100644 ddd eee R100 renamed.txt";
+    porcelain += '\0';
+    porcelain += "old.txt";
+    porcelain += '\0';
+    porcelain += "u UU N... 100644 100644 100644 100644 f1 f2 f3 both.txt";
+    porcelain += '\0';
+    porcelain += "? untracked dir/x.txt";
+    porcelain += '\0';
+    const canopy::GitStatus st = canopy::parse_git_status(porcelain);
+    check(st.repo && st.branch == "dev" && st.upstream == "origin/dev" && st.head == "1234abcd", "status reads the branch header");
+    check(st.ahead == 2 && st.behind == 1, "status reads ahead and behind");
+    check(st.files.size() == 5, "status lists every file");
+    if (st.files.size() == 5) {
+        check(st.files[0].path == "Source/my file.cpp" && st.files[0].changed() && !st.files[0].staged(), "paths keep their spaces");
+        check(st.files[1].staged() && canopy::git_status_letter(st.files[1]) == 'A', "staged additions");
+        check(st.files[2].path == "renamed.txt" && st.files[2].old_path == "old.txt", "renames keep the old path");
+        check(st.files[3].conflicted && canopy::git_status_word(st.files[3]) == "conflict", "conflicts");
+        check(st.files[4].untracked && st.files[4].path == "untracked dir/x.txt", "untracked files");
+    }
+    check(!canopy::parse_git_status("").repo, "no output means no repo");
+
+    const std::string log = "\x1e" "abc123\x1f" "abc\x1f" "p1 p2\x1f" "Ann\x1f" "a@x\x1f" "1700000000\x1f" "HEAD -> dev, tag: v1.0, origin/dev\x1f" "Merge things\n"
+                            "\x1e" "def456\x1f" "def\x1f\x1f" "Bob\x1f" "b@x\x1f" "1600000000\x1f\x1f" "First\n\nR100\told.txt\tnew.txt\n";
+    const std::vector<canopy::GitCommit> commits = canopy::parse_git_log(log);
+    check(commits.size() == 2, "log has two commits");
+    if (commits.size() == 2) {
+        check(commits[0].parents.size() == 2 && commits[0].subject == "Merge things" && commits[0].time == 1700000000, "log fields");
+        check(canopy::short_ref_names(commits[0].refs) == "dev, v1.0, origin/dev", "ref names are shortened");
+        check(commits[1].parents.empty() && commits[1].path == "new.txt" && commits[1].status == "R", "file history reads name-status");
+    }
+
+    const std::vector<canopy::GitBranch> branches = canopy::parse_git_branches("refs/heads/dev\x1f*\x1forigin/dev\x1f" "5\nrefs/heads/main\x1f \x1f\x1f" "4\nrefs/remotes/origin/HEAD\x1f \x1f\x1f\nrefs/remotes/origin/dev\x1f \x1f\x1f" "3\n");
+    check(branches.size() == 3, "remote HEAD is skipped");
+    if (branches.size() == 3) {
+        check(branches[0].current && branches[0].upstream == "origin/dev", "current branch");
+        check(branches[2].remote && branches[2].name == "origin/dev", "remote branches");
+    }
+
+    const std::vector<canopy::DiffLine> parsed = canopy::parse_unified_diff("diff --git a/x.txt b/x.txt\nindex 1..2 100644\n--- a/x.txt\n+++ b/x.txt\n@@ -1,3 +1,3 @@\n one\n-two\n+TWO\n three\n");
+    std::size_t added = 0, removed = 0;
+    for (const canopy::DiffLine& d : parsed) {
+        if (d.kind == canopy::DiffLine::Kind::Added) {
+            ++added;
+            check(d.new_line == 2 && d.text == "TWO", "added line numbers");
+        }
+        if (d.kind == canopy::DiffLine::Kind::Removed) {
+            ++removed;
+            check(d.old_line == 2, "removed line numbers");
+        }
+    }
+    check(added == 1 && removed == 1 && parsed.front().kind == canopy::DiffLine::Kind::File && parsed.front().text == "x.txt", "unified diff parses");
+
+    check(canopy::diff_texts("a\nb\n", "a\nb\n").empty(), "equal texts have no diff");
+    std::string before, after;
+    for (int i = 1; i <= 40; ++i) {
+        before += "line " + std::to_string(i) + "\n";
+        after += (i == 5 ? std::string("changed five") : i == 30 ? std::string("changed thirty") : "line " + std::to_string(i)) + "\n";
+    }
+    after += "extra\n";
+    const std::vector<canopy::DiffLine> d = canopy::diff_texts(before, after);
+    std::size_t hunks = 0, adds = 0, dels = 0;
+    for (const canopy::DiffLine& l : d) {
+        if (l.kind == canopy::DiffLine::Kind::Hunk) ++hunks;
+        if (l.kind == canopy::DiffLine::Kind::Added) ++adds;
+        if (l.kind == canopy::DiffLine::Kind::Removed) ++dels;
+    }
+    check(hunks == 3 && adds == 3 && dels == 2, "line diff finds separate hunks");
+    check(!d.empty() && d.front().text == "@@ -2,7 +2,7 @@", "hunk headers count lines");
+    const std::vector<canopy::DiffLine> fresh = canopy::diff_texts("", "a\nb\n");
+    check(fresh.size() == 3 && fresh[1].kind == canopy::DiffLine::Kind::Added, "diff from empty");
+
+    check(canopy::relative_time(1000, 1010) == "just now", "just now");
+    check(canopy::relative_time(1000, 1000 + 3 * 3600) == "3 hours ago", "hours ago");
+    check(canopy::relative_time(1000, 1000 + 90000) == "yesterday", "yesterday");
+    check(canopy::relative_to("/a/b/c.txt", "/a") == "b/c.txt", "relative paths");
+    check(canopy::relative_to("/x/c.txt", "/a") == "/x/c.txt", "outside paths stay absolute");
+}
+
+void test_local_history() {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    const fs::path base = fs::temp_directory_path(ec) / "canopy-history-test";
+    fs::remove_all(base, ec);
+    canopy::LocalHistory h(base.string());
+    h.set_limit(3);
+    const std::string file = (base / "work" / "a.txt").string();
+    check(h.record(file, "one"), "first snapshot");
+    check(!h.record(file, "one"), "duplicates are skipped");
+    check(h.record(file, "two"), "second snapshot");
+    check(h.record(file, "three"), "third snapshot");
+    check(h.record(file, "four"), "fourth snapshot");
+    const std::vector<canopy::HistoryEntry> e = h.entries(file);
+    check(e.size() == 3, "history keeps its limit");
+    check(!e.empty() && h.read(e.front()).value_or("") == "four" && e.front().size == 4, "newest first");
+    check(h.latest(file).value_or("") == "four", "latest snapshot");
+    if (e.size() == 3) {
+        check(h.remove(file, e[1].time_ms) && h.entries(file).size() == 2, "entries can be removed");
+    }
+    check(h.entries((base / "other.txt").string()).empty(), "other files have no history");
+    h.set_max_bytes(2);
+    check(!h.record(file, "too big"), "big files are skipped");
+    check(h.clear(file) && h.entries(file).empty(), "history can be cleared");
+    fs::remove_all(base, ec);
+}
+
+void test_tasks_file() {
+    const canopy::TaskFile tf = canopy::parse_tasks(canopy::tasks_template(), "tasks.bark");
+    check(tf.problems.empty(), "the template has no problems");
+    const canopy::Task* release = tf.find("release");
+    check(release != nullptr, "the template has a release task");
+    if (release) {
+        check(release->asks.size() == 2 && release->asks[1].name == "version" && release->asks[1].value == "{next-patch}", "asks keep name, prompt and default");
+        check(release->steps.size() == 10 && release->steps[0].kind == canopy::TaskStep::Kind::SetVersion && release->steps[2].kind == canopy::TaskStep::Kind::Try, "steps keep their order");
+        check(!release->confirm.empty() && release->title() == "Release", "label and confirm");
+    }
+    const canopy::TaskFile odd = canopy::parse_tasks("go {\n  run: cmake \"--build\" build;\n  on-build: before;\n  bogus: 1;\n  keep-going: true;\n}\n", "t.bark");
+    check(odd.tasks.size() == 1 && odd.tasks[0].on_build == canopy::TaskHook::Before && odd.tasks[0].keep_going, "hooks and flags");
+    check(odd.problems.size() == 1 && odd.problems[0].find("bogus") != std::string::npos, "unknown properties are reported");
+    check(odd.hooked_build(canopy::TaskHook::Before) == &odd.tasks[0], "find the before-build task");
+    check(!odd.tasks.empty() && canopy::tokenize_command(odd.tasks[0].steps[0].text) == std::vector<std::string>{ "cmake", "--build", "build" }, "bare values join into a command");
+
+    check(canopy::tokenize_command("git commit -m \"a \\\"b\\\"\" 'c d' e") == std::vector<std::string>{ "git", "commit", "-m", "a \"b\"", "c d", "e" }, "commands tokenize with quotes");
+    check(canopy::tokenize_command("x \"\"").size() == 2, "empty quoted arguments are kept");
+    const std::map<std::string, std::string> values{ { "message", "fix: it's \"done\"" }, { "version", "1.2.3" } };
+    check(canopy::substitute("v{version} {unknown}", values) == "v1.2.3 {unknown}", "placeholders are replaced");
+    check(canopy::substitute_quoted("echo {message}", values) == "echo " + canopy::quote_argument("fix: it's \"done\""), "shell placeholders are quoted");
+
+    const std::string cmake = "cmake_minimum_required(VERSION 3.20)\nproject(Canopy\n    VERSION 0.1.4\n    LANGUAGES CXX)\n";
+    check(canopy::find_version(cmake).value_or("") == "0.1.4", "CMake project version");
+    check(canopy::find_version(canopy::replace_version(cmake, "v0.1.5").value_or("")).value_or("") == "0.1.5", "CMake version is replaced");
+    check(canopy::replace_version(cmake, "0.1.5").value_or("").find("VERSION 3.20") != std::string::npos, "cmake_minimum_required is left alone");
+    check(canopy::find_version("{\n  \"name\": \"x\",\n  \"version\": \"2.0.1\"\n}").value_or("") == "2.0.1", "package.json version");
+    check(canopy::find_version("[package]\nname = \"x\"\nversion = \"0.3.0\"\n").value_or("") == "0.3.0", "Cargo version");
+    check(canopy::find_version("1.4.2\n").value_or("") == "1.4.2", "VERSION file");
+    check(!canopy::find_version("hello").has_value(), "no version");
+    check(canopy::bump_version("0.1.9", "patch") == "0.1.10", "patch bump");
+    check(canopy::bump_version("v1.2.3-beta", "minor") == "v1.3.0", "minor bump keeps the v");
+    check(canopy::bump_version("1.2", "major") == "2.0.0", "major bump");
+}
+
+void test_git_run() {
+    namespace fs = std::filesystem;
+    if (canopy::run_in_folder({ "git", "--version" }, std::string(), true).code != 0) return;
+    std::error_code ec;
+    const fs::path base = fs::temp_directory_path(ec) / "canopy-git-test";
+    fs::remove_all(base, ec);
+    fs::create_directories(base / "remote.git", ec);
+    fs::create_directories(base / "work", ec);
+    const std::string remote = (base / "remote.git").string();
+    const std::string work = (base / "work").string();
+    auto git = [&](std::vector<std::string> args) {
+        args.insert(args.begin(), "git");
+        return canopy::run_in_folder(args, work, true);
+    };
+    canopy::run_in_folder({ "git", "init", "--bare", "-b", "main" }, remote, true);
+    check(git({ "init", "-b", "main" }).code == 0, "git init");
+    git({ "config", "user.email", "t@example.com" });
+    git({ "config", "user.name", "Tester" });
+    git({ "remote", "add", "origin", remote });
+    canopy::write_text_file((base / "work" / "CMakeLists.txt").string(), "project(T VERSION 0.1.0)\n");
+    git({ "add", "-A" });
+    git({ "commit", "-m", "start" });
+    git({ "push", "-u", "origin", "main" });
+    git({ "checkout", "-b", "dev" });
+    git({ "push", "-u", "origin", "dev" });
+
+    canopy::write_text_file((base / "work" / "a file.txt").string(), "hello\n");
+    const canopy::GitStatus st = canopy::parse_git_status(canopy::run_in_folder({ "git", "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all" }, work, false).text);
+    check(st.repo && st.branch == "dev" && st.upstream == "origin/dev" && st.files.size() == 1 && st.files[0].untracked, "status of a real repo");
+
+    const canopy::TaskFile tf = canopy::parse_tasks(canopy::tasks_template(), "tasks.bark");
+    const canopy::Task* release = tf.find("release");
+    check(release != nullptr, "release task");
+    if (release) {
+        canopy::TaskContext ctx;
+        ctx.root = work;
+        ctx.branch = "dev";
+        const std::map<std::string, std::string> base_values = canopy::task_values(*release, ctx);
+        check(base_values.at("current-version") == "0.1.0" && base_values.at("next-patch") == "0.1.1", "task values read the version");
+        ctx.values["message"] = "Add \"a file\"; rm -rf nothing";
+        ctx.values["version"] = canopy::substitute(release->asks[1].value, base_values);
+        canopy::CommandBatch batch;
+        check(batch.start(canopy::task_steps(*release, ctx), work, true, true), "batch starts");
+        while (batch.running()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        const std::optional<std::vector<canopy::CommandOutput>> results = batch.take_results();
+        const std::string output = batch.take_output();
+        bool all_ok = results && results->size() == 10;
+        if (results) {
+            for (const canopy::CommandOutput& r : *results) all_ok = all_ok && r.code == 0;
+        }
+        check(all_ok, "the release task runs every step: " + output);
+        check(canopy::run_in_folder({ "git", "ls-remote", "--tags", remote }, work, true).text.find("refs/tags/v0.1.1") != std::string::npos, "the tag reached the remote");
+        check(canopy::run_in_folder({ "git", "log", "-1", "--format=%s", "main" }, work, true).text == "Add \"a file\"; rm -rf nothing\n", "messages pass through untouched");
+        check(canopy::run_in_folder({ "git", "rev-parse", "--abbrev-ref", "HEAD" }, work, true).text == "dev\n", "back on dev");
+        check(canopy::find_version(canopy::read_text_file((base / "work" / "CMakeLists.txt").string()).value_or("")).value_or("") == "0.1.1", "the version was bumped");
+    }
+    const std::vector<canopy::GitCommit> history = canopy::parse_git_log(canopy::run_in_folder({ "git", "log", "--follow", "--format=" + canopy::git_log_format(), "--name-status", "--", "CMakeLists.txt" }, work, true).text);
+    check(history.size() == 2 && history[0].status == "M" && history[1].status == "A", "file history from git");
+    fs::remove_all(base, ec);
+}
+
+void test_git_extras() {
+    std::string porcelain = "! build/";
+    porcelain += '\0';
+    porcelain += "! secret.txt";
+    porcelain += '\0';
+    const canopy::GitStatus st = canopy::parse_git_status(porcelain);
+    check(st.ignored.size() == 2 && st.ignored[0] == "build" && st.ignored[1] == "secret.txt", "ignored entries are kept without the slash");
+    const std::vector<canopy::GitTag> tags = canopy::parse_git_tags("v0.1.5\x1f" "b874cc9\x1f" "1700000000\x1f" "Release\nv0.1.4\x1f" "583473f\x1f" "1600000000\x1f\n");
+    check(tags.size() == 2 && tags[0].name == "v0.1.5" && tags[0].hash == "b874cc9" && tags[0].time == 1700000000 && tags[0].subject == "Release", "tags parse");
+    const std::vector<canopy::GitBranch> b = canopy::parse_git_branches("refs/heads/dev\x1f*\x1forigin/dev\x1f" "5\x1f[ahead 2]\n");
+    check(b.size() == 1 && b[0].track == "[ahead 2]", "branch tracking info");
+    check(canopy::repo_name_from_url("https://github.com/ThatNewCoderJSCpp/Grove.git") == "Grove", "repo name from https");
+    check(canopy::repo_name_from_url("git@github.com:me/walnut") == "walnut", "repo name from ssh");
+    check(canopy::askpass_secret("Password for 'https://me@github.com': ") && !canopy::askpass_secret("Username for 'https://github.com': "), "askpass hides passwords only");
+    check(canopy::askpass_secret("Enter passphrase for key '/home/me/.ssh/id_ed25519': "), "askpass hides passphrases");
+
+    std::string before, after;
+    for (int i = 1; i <= 30; ++i) {
+        before += "line " + std::to_string(i) + "\n";
+        after += (i == 3 ? std::string("three") : i == 25 ? std::string("twenty-five") : "line " + std::to_string(i)) + "\n";
+    }
+    const std::vector<canopy::DiffLine> lines = canopy::diff_texts(before, after);
+    check(canopy::diff_hunk_count(lines) == 2, "two hunks");
+    const std::optional<std::string> reverted = canopy::revert_hunk(lines, 1, before, after);
+    check(reverted && reverted->find("twenty-five") == std::string::npos && reverted->find("three") != std::string::npos, "reverting one hunk keeps the other");
+    const std::string crlf_after = "a\r\nB\r\nc\r\n";
+    const std::vector<canopy::DiffLine> crlf_lines = canopy::diff_texts("a\r\nb\r\nc\r\n", crlf_after);
+    const std::optional<std::string> crlf_back = canopy::revert_hunk(crlf_lines, 0, "a\r\nb\r\nc\r\n", crlf_after);
+    check(crlf_back && *crlf_back == "a\r\nb\r\nc\r\n", "reverting keeps CRLF line ends");
+    const std::optional<std::string> no_eol = canopy::revert_hunk(canopy::diff_texts("x\ny", "x\nz"), 0, "x\ny", "x\nz");
+    check(no_eol && *no_eol == "x\ny", "reverting keeps a missing final newline");
+
+    namespace fs = std::filesystem;
+    if (canopy::run_in_folder({ "git", "--version" }, std::string(), true).code != 0) return;
+    std::error_code ec;
+    const fs::path repo = fs::temp_directory_path(ec) / "canopy-hunk-test";
+    fs::remove_all(repo, ec);
+    fs::create_directories(repo, ec);
+    const std::string r = repo.string();
+    auto git = [&](std::vector<std::string> args) {
+        args.insert(args.begin(), "git");
+        return canopy::run_in_folder(args, r, true);
+    };
+    git({ "init", "-q" });
+    git({ "config", "user.email", "t@example.com" });
+    git({ "config", "user.name", "Tester" });
+    canopy::write_text_file((repo / "f.txt").string(), before);
+    git({ "add", "-A" });
+    git({ "commit", "-q", "-m", "start" });
+    canopy::write_text_file((repo / "f.txt").string(), after);
+    const std::string index_text = git({ "show", ":f.txt" }).text;
+    const std::vector<canopy::DiffLine> work = canopy::diff_texts(index_text, after);
+    const std::string patch = canopy::hunk_patch("f.txt", work, 0, index_text, after);
+    canopy::write_text_file((repo / "p.patch").string(), patch);
+    const canopy::CommandOutput applied = git({ "apply", "--cached", "--recount", "p.patch" });
+    check(applied.code == 0, "a hunk patch applies to the index: " + applied.text);
+    const std::string staged = git({ "diff", "--cached" }).text;
+    check(staged.find("+three") != std::string::npos && staged.find("twenty-five") == std::string::npos, "only the chosen hunk is staged");
+    const std::string staged_index = git({ "show", ":f.txt" }).text;
+    const std::string head_text = git({ "show", "HEAD:f.txt" }).text;
+    const std::vector<canopy::DiffLine> cached = canopy::diff_texts(head_text, staged_index);
+    canopy::write_text_file((repo / "u.patch").string(), canopy::hunk_patch("f.txt", cached, 0, head_text, staged_index));
+    check(git({ "apply", "--cached", "-R", "--recount", "u.patch" }).code == 0 && git({ "diff", "--cached" }).text.empty(), "a hunk can be unstaged again");
+    canopy::write_text_file((repo / "n.txt").string(), "one\ntwo");
+    git({ "add", "n.txt" });
+    git({ "commit", "-q", "-m", "n" });
+    canopy::write_text_file((repo / "n.txt").string(), "one\nTWO");
+    const std::string n_index = git({ "show", ":n.txt" }).text;
+    const std::vector<canopy::DiffLine> nd = canopy::diff_texts(n_index, "one\nTWO");
+    canopy::write_text_file((repo / "nn.patch").string(), canopy::hunk_patch("n.txt", nd, 0, n_index, "one\nTWO"));
+    const canopy::CommandOutput n_applied = git({ "apply", "--cached", "--recount", "nn.patch" });
+    check(n_applied.code == 0 && git({ "show", ":n.txt" }).text == "one\nTWO", "hunks without a final newline stage: " + n_applied.text);
+    fs::remove_all(repo, ec);
+}
+
+std::string enter_after(grove::CodeLanguage language, const std::string& text, grove::CodePos at) {
+    grove::CodeBuffer b(text);
+    b.set_caret(at);
+    b.new_line(4, true, language, true);
+    return b.text();
+}
+
+std::string enter_at_end(grove::CodeLanguage language, const std::string& line) {
+    return enter_after(language, line, grove::CodePos{ 0, line.size() });
+}
+
+void test_block_closing() {
+    using grove::CodeLanguage;
+    using grove::code_block_closer;
+    check(code_block_closer(CodeLanguage::Walnut, "function main() -> int {") == "} end function main", "Walnut functions end with their name");
+    check(code_block_closer(CodeLanguage::Walnut, "static function opened_with(int: amount) -> Account {") == "} end function opened_with", "qualifiers are skipped");
+    check(code_block_closer(CodeLanguage::Walnut, "function Account::deposit(int: amount) -> Account& {") == "} end function Account::deposit", "methods defined outside keep the class");
+    check(code_block_closer(CodeLanguage::Walnut, "class Counter : Base {") == "} end class Counter", "Walnut classes");
+    check(code_block_closer(CodeLanguage::Walnut, "struct Point {") == "} end struct Point", "Walnut structs");
+    check(code_block_closer(CodeLanguage::Walnut, "union Number {") == "} end union Number", "Walnut unions");
+    check(code_block_closer(CodeLanguage::Walnut, "namespace geo::flat {") == "} end namespace geo::flat", "Walnut namespaces");
+    check(code_block_closer(CodeLanguage::Walnut, "extern \"C\" {") == "} end extern", "Walnut extern blocks");
+    check(code_block_closer(CodeLanguage::Walnut, "template <typename T>\nfunction biggest(T: a, T: b) -> T {") == "} end function biggest", "templates");
+    check(code_block_closer(CodeLanguage::Walnut, "if (a > b) then {") == "}", "Walnut if");
+    check(code_block_closer(CodeLanguage::Walnut, "} else then {") == "}", "Walnut else");
+    check(code_block_closer(CodeLanguage::Walnut, "enum Color {") == "}", "Walnut enum");
+    check(code_block_closer(CodeLanguage::Walnut, "operator(string) function() const {") == "}", "Walnut operators");
+    check(code_block_closer(CodeLanguage::Walnut, "Counter(int: start) {") == "}", "Walnut constructors");
+    check(code_block_closer(CodeLanguage::Walnut, "var twice = [](int: n) -> int {") == "};", "Walnut lambdas");
+    check(code_block_closer(CodeLanguage::Walnut, "items.each([](int: n) {") == "});", "a lambda passed to a call");
+    check(code_block_closer(CodeLanguage::Cpp, "class Widget : public Base {") == "};", "C++ classes");
+    check(code_block_closer(CodeLanguage::Cpp, "enum class Mode : int {") == "};", "C++ enums");
+    check(code_block_closer(CodeLanguage::Cpp, "template <typename T> struct Box {") == "};", "C++ templates");
+    check(code_block_closer(CodeLanguage::Cpp, "namespace canopy {") == "} // namespace canopy", "C++ namespaces");
+    check(code_block_closer(CodeLanguage::Cpp, "int main() {") == "}", "C++ functions");
+    check(code_block_closer(CodeLanguage::Cpp, "if (a == b) {") == "}", "C++ if with ==");
+    check(code_block_closer(CodeLanguage::Cpp, "auto f = [&](int x) {") == "};", "C++ lambdas");
+    check(code_block_closer(CodeLanguage::Cpp, "std::vector<int> v = {") == "};", "C++ initializers");
+    check(code_block_closer(CodeLanguage::Cpp, "Foo& operator=(const Foo& o) {") == "}", "operator= is a function");
+    check(code_block_closer(CodeLanguage::C, "struct point {") == "};", "C structs");
+    check(code_block_closer(CodeLanguage::Bark, "editor {") == "}", "Bark blocks");
+
+    std::string out = enter_at_end(CodeLanguage::Walnut, "function main() -> int {");
+    check(out == "function main() -> int {\n    \n} end function main", "Enter closes a Walnut function: " + out);
+    {
+        grove::CodeBuffer b("class A {\n    function f() -> int {\n} end class A");
+        b.set_caret(grove::CodePos{ 1, b.line(1).size() });
+        b.new_line(4, true, CodeLanguage::Walnut, true);
+        check(b.text() == "class A {\n    function f() -> int {\n        \n    } end function f\n} end class A" && b.caret() == grove::CodePos{ 2, 8 }, "nested blocks keep the indentation: " + b.text());
+    }
+    out = enter_after(CodeLanguage::Walnut, "function main() -> int {\n    return 0;\n} end function main", grove::CodePos{ 0, 24 });
+    check(out == "function main() -> int {\n    \n    return 0;\n} end function main", "a closed block only gets a new line: " + out);
+    out = enter_after(CodeLanguage::Walnut, "function main() -> int {}", grove::CodePos{ 0, 24 });
+    check(out == "function main() -> int {\n    \n} end function main", "a typed } is completed: " + out);
+    out = enter_at_end(CodeLanguage::Cpp, "struct Point {");
+    check(out == "struct Point {\n    \n};", "C++ structs get a semicolon: " + out);
+    out = enter_at_end(CodeLanguage::Cpp, "// see {");
+    check(out == "// see {\n    ", "braces in comments are left alone: " + out);
+    out = enter_at_end(CodeLanguage::Cpp, "call(");
+    check(out == "call(\n    \n)", "parentheses close too: " + out);
+    out = enter_at_end(CodeLanguage::Grove, "<column class=\"a\">");
+    check(out == "<column class=\"a\">\n    \n</column>", "Grove tags close: " + out);
+    out = enter_after(CodeLanguage::Grove, "<row></row>", grove::CodePos{ 0, 5 });
+    check(out == "<row>\n    \n</row>", "Enter between tags splits them: " + out);
+    out = enter_at_end(CodeLanguage::Grove, "<br>");
+    check(out == "<br>\n", "void tags are not closed: " + out);
+    grove::CodeBuffer off("int main() {");
+    off.set_caret(grove::CodePos{ 0, 12 });
+    off.new_line(4, true, CodeLanguage::Cpp, false);
+    check(off.text() == "int main() {\n    ", "turned off it only indents");
+}
+
+void test_bark_properties() {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "canopy-bark-props-test";
+    std::error_code ec;
+    fs::remove_all(root, ec);
+    fs::create_directories(root, ec);
+    auto write = [&](const fs::path& p, const std::string& text) {
+        std::ofstream out(p, std::ios::binary);
+        out << text;
+    };
+    const std::string app = ".card {\n    glow: 4px;\n    colr: red;\n    padding: 3px;\n}\n";
+    write(root / "app.bark", app);
+    write(root / "other.bark", ".panel {\n    glow: 8px;\n}\n");
+    write(root / "main.cpp", "float glow_of(const Style& s) { return s.length(\"glow\").value_or(0); }\n");
+    const std::string settings = "editor {\n    tab-size: 4;\n    tab-sise: 2;\n}\n";
+    write(root / "editor.bark", settings);
+
+    canopy::CodeIntel intel;
+    intel.set_workspace(root.string());
+    const std::string app_path = (root / "app.bark").string();
+    auto has = [](const std::optional<canopy::HoverResult>& h, const std::string& text) { return h && h->markdown.find(text) != std::string::npos; };
+    const auto glow = intel.hover(canopy::IntelRequest{ app_path, "bark", app, 1, 5 });
+    check(has(glow, "isn't a property Grove knows") && has(glow, "main.cpp:1") && has(glow, "other.bark:2"), "a custom property shows what reads and sets it");
+    check(has(intel.hover(canopy::IntelRequest{ app_path, "bark", app, 2, 5 }), "did you mean `color`?"), "a misspelled property suggests the real one");
+    check(has(intel.hover(canopy::IntelRequest{ app_path, "bark", app, 3, 5 }), "padding"), "known properties keep their docs");
+    const auto reader = intel.definition(canopy::IntelRequest{ app_path, "bark", app, 1, 5 });
+    check(reader && fs::path(reader->file).filename() == "main.cpp", "Ctrl+click on a custom property goes to what reads it");
+
+    std::string asked;
+    intel.set_bark_settings([&](const std::string& section, const std::string& key, const std::string& file, const std::string&) -> std::optional<std::string> {
+        if (fs::path(file).filename() != "editor.bark") return std::nullopt;
+        asked = section + "." + key;
+        const auto doc = canopy::find_setting_doc(section, key);
+        return doc ? "**" + doc->label + "**\n" : std::string("no such setting\n");
+    });
+    const std::string settings_path = (root / "editor.bark").string();
+    check(has(intel.hover(canopy::IntelRequest{ settings_path, "bark", settings, 1, 5 }), "**Tab size**") && asked == "editor.tab-size", "settings files show the setting's description");
+    check(has(intel.hover(canopy::IntelRequest{ settings_path, "bark", settings, 2, 5 }), "no such setting"), "unknown settings are reported by the settings hover");
+    check(has(intel.hover(canopy::IntelRequest{ settings_path, "bark", settings, 0, 1 }), "") && asked == "editor.", "section names ask about the section");
+    check(has(intel.hover(canopy::IntelRequest{ app_path, "bark", app, 1, 5 }), "isn't a property Grove knows"), "app stylesheets are left alone");
+
+    {
+        grove::Diagnostics d;
+        const auto sheet = grove::bark::parse_stylesheet(".a {\n    --gap: 6px;\n    padding: var(--gap, 2px);\n    margin: calc(var(--gap) * 2);\n}\n", "t.bark", d);
+        check(d.items().empty(), "custom properties and var() parse without warnings");
+        const auto& decls = sheet.rules().front().declarations;
+        check(decls.size() == 3 && decls[0].property == "--gap", "a --name declaration keeps its name");
+        grove::bark::ValueList gap = { grove::bark::Value::make_number(6, "px") };
+        grove::bark::ValueList padding = decls[1].values;
+        grove::bark::substitute_vars(padding, [&](const std::string& name) -> const grove::bark::ValueList* { return name == "--gap" ? &gap : nullptr; });
+        check(grove::bark::to_string(padding) == "6px", "var() takes the custom property's value: " + grove::bark::to_string(padding));
+        grove::bark::ValueList fallback = decls[1].values;
+        grove::bark::substitute_vars(fallback, [](const std::string&) -> const grove::bark::ValueList* { return nullptr; });
+        check(grove::bark::to_string(fallback) == "2px", "var() falls back when nothing sets it");
+    }
+    const std::string custom = ".card {\n    --glow: 4px;\n    padding: var(--glow);\n}\n";
+    write(root / "custom.bark", custom);
+    const std::string custom_path = (root / "custom.bark").string();
+    canopy::CodeIntel fresh;
+    fresh.set_workspace(root.string());
+    check(has(fresh.hover(canopy::IntelRequest{ custom_path, "bark", custom, 1, 6 }), "A custom property"), "--name hovers explain custom properties");
+    const auto setter = fresh.definition(canopy::IntelRequest{ custom_path, "bark", custom, 2, 18 });
+    check(setter && setter->line == 1, "Ctrl+click on var(--name) goes to where it's set");
+    {
+        canopy::CompletionRequest req;
+        req.language = "walnut";
+        req.text = "import module.ma";
+        req.line = 0;
+        req.column = req.text.size();
+        const canopy::CompletionContext ctx = canopy::completion_context(req);
+        check(ctx.site == canopy::CompletionSite::Module && ctx.typed == "ma" && ctx.module_prefix.empty(), "import module. completes module names");
+        req.text = "import module.shapes.ci";
+        req.column = req.text.size();
+        const canopy::CompletionContext nested = canopy::completion_context(req);
+        check(nested.site == canopy::CompletionSite::Module && nested.module_prefix == "shapes.", "dotted module paths complete inside folders");
+        req.text = "import module.io as x";
+        req.column = req.text.size();
+        check(canopy::completion_context(req).site != canopy::CompletionSite::Module, "after 'as' it's not a module name");
+    }
+    check(canopy::find_setting_doc("editor", "close-blocks").has_value(), "setting docs cover the editor settings");
+    check(canopy::find_setting_doc("language.walnut", "flags").has_value(), "language flags share one description");
+    check(canopy::find_setting_doc("layout", "git").has_value(), "every view in the layout section is described");
+    const canopy::Settings defaults = canopy::Settings::defaults();
+    const std::vector<std::string> keys = defaults.keys("explorer");
+    check(std::find(keys.begin(), keys.end(), "confirm-replace") != keys.end(), "explorer has a confirm-replace setting");
+    for (const std::string& section : defaults.known_sections()) {
+        if (section.rfind("highlight", 0) == 0 || section == "keys") continue;
+        for (const std::string& key : defaults.keys(section)) {
+            check(canopy::find_setting_doc(section, key).has_value(), "setting " + section + "." + key + " has a description");
+        }
+    }
+    fs::remove_all(root, ec);
+}
+
+void test_literal_hovers() {
+    auto hover_on = [](const std::string& language, const std::string& line, const std::string& find) {
+        const std::size_t at = line.find(find);
+        const auto h = canopy::literal_hover(language, line + "\n", 0, at == std::string::npos ? 0 : at + 1);
+        return h ? h->markdown : std::string();
+    };
+    auto has = [](const std::string& md, const std::string& part) { return md.find(part) != std::string::npos; };
+    std::string md = hover_on("walnut", "string: s = \"herllo\";", "\"herllo");
+    check(has(md, "`string`") && has(md, "6 characters") && has(md, "herllo"), "Walnut strings show type, length and content: " + md);
+    md = hover_on("walnut", "string: s = \"a\\tb\\u00e9\";", "\"a");
+    check(has(md, "4 characters") && has(md, "5 bytes") && has(md, "is tab") && has(md, "U+00E9"), "escapes are decoded and listed: " + md);
+    md = hover_on("walnut", "char: c = '\\u00e9';", "'");
+    check(has(md, "233") && has(md, "U+00E9") && has(md, "C3 A9"), "Walnut chars show their code: " + md);
+    md = hover_on("walnut", "char: c = '\\n';", "'");
+    check(has(md, "10 (0x0A") && has(md, "newline"), "control characters are named: " + md);
+    md = hover_on("walnut", "int: x = 0xFF_FF;", "0x");
+    check(has(md, "`int`") && has(md, "65_535") && has(md, "0o177777"), "Walnut hex integers: " + md);
+    md = hover_on("walnut", "var x = 7ULL;", "7");
+    check(has(md, "`unsigned long long int`"), "Walnut suffixes pick the type: " + md);
+    md = hover_on("walnut", "var x = 2.5sd;", "2");
+    check(has(md, "`short double`") && has(md, "256 bits"), "Walnut float families: " + md);
+    md = hover_on("walnut", "var x = 0x1Fd;", "0x");
+    check(has(md, "`int`") && has(md, "509"), "d is a hex digit in hex literals: " + md);
+    md = hover_on("walnut", "var x = 017;", "017");
+    check(has(md, "`0o17`"), "Walnut warns that 017 isn't octal: " + md);
+    md = hover_on("walnut", "var x = 1'000'000;", "1'");
+    check(has(md, "1_000_000"), "digit separators: " + md);
+    md = hover_on("walnut", "text: t = `a${x}b`;", "`a");
+    check(has(md, "`text`") && has(md, "depends"), "interpolated text: " + md);
+    md = hover_on("walnut", "char: c = '\\q';", "'");
+    check(has(md, "doesn't know"), "unknown escapes are reported: " + md);
+    md = hover_on("cpp", "auto s = \"abc\";", "\"abc");
+    check(has(md, "`const char[4]`") && has(md, "3 characters"), "C++ strings are char arrays: " + md);
+    md = hover_on("cpp", "auto s = u\"a\\U0001F600\";", "u\"");
+    check(has(md, "`const char16_t[4]`"), "u\"\" counts UTF-16 units: " + md);
+    md = hover_on("cpp", "auto x = 0x10u;", "0x");
+    check(has(md, "`unsigned int`") && has(md, "16"), "C++ unsigned hex: " + md);
+    md = hover_on("cpp", "auto x = 017;", "017");
+    check(has(md, "`15`") && has(md, "octal"), "C octal: " + md);
+    md = hover_on("cpp", "auto x = 1.5f;", "1.5");
+    check(has(md, "`float`") && has(md, "1.5"), "C++ float suffix: " + md);
+    md = hover_on("cpp", "auto x = 3000000000;", "3000");
+    check(has(md, "`long`") || has(md, "`long long`"), "C++ decimal literals grow to long: " + md);
+    md = hover_on("cpp", "auto c = 'ab';", "'ab");
+    check(has(md, "multi-character"), "multi-character literals are flagged: " + md);
+    md = hover_on("cpp", "auto r = R\"(a\\n)\";", "R\"");
+    check(has(md, "Raw string") && has(md, "3 characters"), "raw strings keep backslashes: " + md);
+    md = hover_on("cpp", "#include \"game.hpp\"", "\"game");
+    check(md.empty(), "#include paths aren't string literals");
+    md = hover_on("cpp", "// \"quoted\" in a comment", "\"quoted");
+    check(md.empty(), "comments are skipped");
+}
+
+void test_editor_editing() {
+    grove::CodeBuffer b("//     highlight {\n//     }\n");
+    b.set_caret(grove::CodePos{ 0, 7 });
+    b.outdent(4);
+    check(b.line(0) == "//  highlight {" && b.caret().column == 4, "Shift+Tab after a comment takes spaces back to the tab stop");
+    b.outdent(4);
+    check(b.line(0) == "//highlight {" && b.caret().column == 2, "Shift+Tab again takes the rest of the run");
+    grove::CodeBuffer c("        x");
+    c.set_caret(grove::CodePos{ 0, 8 });
+    c.outdent(4);
+    check(c.line(0) == "    x", "leading indentation still outdents first");
+
+    grove::CodeBuffer d("      x");
+    d.set_caret(grove::CodePos{ 0, 6 });
+    d.backspace_to_tab_stop(4);
+    check(d.line(0) == "     x" && d.caret().column == 5, "Backspace between tab stops deletes one space");
+    d.backspace_to_tab_stop(4);
+    check(d.line(0) == "    x" && d.caret().column == 4, "one at a time until the tab stop");
+    d.backspace_to_tab_stop(4);
+    check(d.line(0) == "x", "then a whole tab level at once");
+    grove::CodeBuffer g("    return 0;");
+    g.set_caret(grove::CodePos{ 0, 13 });
+    g.indent(4, true);
+    g.outdent(4);
+    check(g.line(0) == "    return 0;" && g.caret().column == 13, "Shift+Tab after Tab at the end of a line takes back those spaces, not the indentation: " + g.line(0));
+    g.set_caret(grove::CodePos{ 0, 0 });
+    g.indent(4, true);
+    check(g.line(0) == "        return 0;", "Tab at the start indents a level");
+    g.outdent(4);
+    check(g.line(0) == "    return 0;", "Shift+Tab goes back exactly one level");
+    g.indent(4, true);
+    check(g.line(0) == "        return 0;", "and Tab goes forward exactly one");
+    grove::CodeBuffer e("ab c");
+    e.set_caret(grove::CodePos{ 0, 3 });
+    e.backspace_to_tab_stop(4);
+    check(e.line(0) == "abc", "a single space is just one backspace");
+
+    grove::CodeBuffer f("abcdef\nab\nabcdefgh\n");
+    f.box_select(0, 1, 2, 4, 4);
+    const std::string picked = f.selected_texts();
+    check(picked == "bcd\nb\nbcd", "box selection takes the same columns on every line: " + picked);
+    f.box_select(0, 2, 2, 2, 4);
+    check(f.cursor_count() == 3 && !f.any_selection(), "a straight box is a caret per line");
+
+    test_block_closing();
+}
+
 int main() {
     test_defaults();
     test_override();
@@ -624,10 +1465,27 @@ int main() {
     test_themes();
     test_theme_files();
     test_walnut_semantic();
+    test_line_masking();
     test_code_intel();
     test_viewers();
     test_sizes_and_messages();
     test_shortcuts();
+    test_create_entries();
+    test_completion_index();
+    test_code_completion();
+    test_signature_layout();
+    test_terminal_screen();
+    test_workspace_paths();
+    test_markdown();
+    test_live_server();
+    test_git_parsers();
+    test_local_history();
+    test_tasks_file();
+    test_git_run();
+    test_git_extras();
+    test_editor_editing();
+    test_bark_properties();
+    test_literal_hovers();
     if (failures == 0) std::cout << "all canopy tests passed\n";
     return failures == 0 ? 0 : 1;
 }
