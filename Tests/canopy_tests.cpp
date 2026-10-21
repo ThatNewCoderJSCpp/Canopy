@@ -31,6 +31,7 @@
 #include <grove/input/code_buffer.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cstdlib>
 #include <filesystem>
@@ -1127,7 +1128,13 @@ void test_git_run() {
         ctx.values["version"] = canopy::substitute(release->asks[1].value, base_values);
         canopy::CommandBatch batch;
         check(batch.start(canopy::task_steps(*release, ctx), work, true, true), "batch starts");
-        while (batch.running()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        const auto give_up = std::chrono::steady_clock::now() + std::chrono::seconds(90);
+        while (batch.running() && std::chrono::steady_clock::now() < give_up) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (batch.running()) {
+            check(false, "the release task finished within 90 s; what it printed so far:\n" + batch.take_output());
+            std::cout.flush();
+            std::_Exit(4);
+        }
         const std::optional<std::vector<canopy::CommandOutput>> results = batch.take_results();
         const std::string output = batch.take_output();
         bool all_ok = results && results->size() == 10;
@@ -2032,56 +2039,91 @@ void test_editor_editing() {
     test_block_closing();
 }
 
+std::atomic<std::size_t> g_test_serial{ 0 };
+std::atomic<const char*> g_test_name{ "" };
+
+void start_watchdog() {
+    long limit = 120;
+    if (const char* v = std::getenv("CANOPY_TEST_TIMEOUT"); v && *v) limit = std::max(1L, std::strtol(v, nullptr, 10));
+    std::thread([limit] {
+        std::size_t seen = g_test_serial.load();
+        auto since = std::chrono::steady_clock::now();
+        for (;;) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            const std::size_t now = g_test_serial.load();
+            if (now != seen) {
+                seen = now;
+                since = std::chrono::steady_clock::now();
+                continue;
+            }
+            if (std::chrono::steady_clock::now() - since > std::chrono::seconds(limit)) {
+                std::cout.flush();
+                std::cerr << "FAIL: " << g_test_name.load() << " is still running after " << limit << " s, so it's stuck; stopping the tests here\n";
+                std::cerr.flush();
+                std::_Exit(3);
+            }
+        }
+    }).detach();
+}
+
+void run_test(const char* name, void (*test)()) {
+    g_test_name = name;
+    ++g_test_serial;
+    std::cout << "running " << name << std::endl;
+    test();
+}
+
 int main() {
-    test_defaults();
-    test_override();
-    test_typos();
-    test_languages();
-    test_plans();
-    test_flags();
-    test_compiler_messages();
-    test_recent_and_files();
-    test_config_files();
-    test_setting_writer();
-    test_themes();
-    test_theme_files();
-    test_walnut_semantic();
-    test_line_masking();
-    test_code_intel();
-    test_viewers();
-    test_sizes_and_messages();
-    test_shortcuts();
-    test_create_entries();
-    test_completion_index();
-    test_code_completion();
-    test_signature_layout();
-    test_terminal_screen();
-    test_workspace_paths();
-    test_markdown();
-    test_live_server();
-    test_git_parsers();
-    test_local_history();
-    test_tasks_file();
-    test_git_run();
-    test_git_extras();
-    test_editor_editing();
-    test_bark_properties();
-    test_literal_hovers();
-    test_web_completion();
-    test_personal_tasks();
-    test_task_values();
-    test_github_auth();
-    test_remote_urls();
-    test_github_repos();
-    test_run_stats();
-    test_walnut_safety_settings();
-    test_more_language_builds();
-    test_more_language_messages();
-    test_more_language_completion();
-    test_elements_tree();
-    test_web_problems();
-    test_special_names();
-    test_project_names();
+    start_watchdog();
+    run_test("test_defaults", test_defaults);
+    run_test("test_override", test_override);
+    run_test("test_typos", test_typos);
+    run_test("test_languages", test_languages);
+    run_test("test_plans", test_plans);
+    run_test("test_flags", test_flags);
+    run_test("test_compiler_messages", test_compiler_messages);
+    run_test("test_recent_and_files", test_recent_and_files);
+    run_test("test_config_files", test_config_files);
+    run_test("test_setting_writer", test_setting_writer);
+    run_test("test_themes", test_themes);
+    run_test("test_theme_files", test_theme_files);
+    run_test("test_walnut_semantic", test_walnut_semantic);
+    run_test("test_line_masking", test_line_masking);
+    run_test("test_code_intel", test_code_intel);
+    run_test("test_viewers", test_viewers);
+    run_test("test_sizes_and_messages", test_sizes_and_messages);
+    run_test("test_shortcuts", test_shortcuts);
+    run_test("test_create_entries", test_create_entries);
+    run_test("test_completion_index", test_completion_index);
+    run_test("test_code_completion", test_code_completion);
+    run_test("test_signature_layout", test_signature_layout);
+    run_test("test_terminal_screen", test_terminal_screen);
+    run_test("test_workspace_paths", test_workspace_paths);
+    run_test("test_markdown", test_markdown);
+    run_test("test_live_server", test_live_server);
+    run_test("test_git_parsers", test_git_parsers);
+    run_test("test_local_history", test_local_history);
+    run_test("test_tasks_file", test_tasks_file);
+    run_test("test_git_run", test_git_run);
+    run_test("test_git_extras", test_git_extras);
+    run_test("test_editor_editing", test_editor_editing);
+    run_test("test_bark_properties", test_bark_properties);
+    run_test("test_literal_hovers", test_literal_hovers);
+    run_test("test_web_completion", test_web_completion);
+    run_test("test_personal_tasks", test_personal_tasks);
+    run_test("test_task_values", test_task_values);
+    run_test("test_github_auth", test_github_auth);
+    run_test("test_remote_urls", test_remote_urls);
+    run_test("test_github_repos", test_github_repos);
+    run_test("test_run_stats", test_run_stats);
+    run_test("test_walnut_safety_settings", test_walnut_safety_settings);
+    run_test("test_more_language_builds", test_more_language_builds);
+    run_test("test_more_language_messages", test_more_language_messages);
+    run_test("test_more_language_completion", test_more_language_completion);
+    run_test("test_elements_tree", test_elements_tree);
+    run_test("test_web_problems", test_web_problems);
+    run_test("test_special_names", test_special_names);
+    run_test("test_project_names", test_project_names);
     if (failures == 0) std::cout << "all canopy tests passed\n";
     return failures == 0 ? 0 : 1;
 }
