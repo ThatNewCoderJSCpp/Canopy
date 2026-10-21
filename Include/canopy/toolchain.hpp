@@ -3,6 +3,7 @@
 
 #include "settings.hpp"
 
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -42,6 +43,8 @@ struct Toolchain {
     std::optional<Tool> cpp;
     std::optional<Tool> walnut;
     std::optional<Tool> grove;
+    std::optional<Tool> node;
+    std::map<std::string, Tool> more;
     std::vector<ToolProblem> problems;
 
     const Tool* get(const std::string& key) const;
@@ -55,6 +58,9 @@ std::vector<std::string> known_tool_folders();
 CompilerFamily compiler_family(const std::string& path);
 
 std::vector<std::string> tool_candidates(const std::string& key);
+std::vector<std::string> tool_folders(const std::string& key);
+const std::vector<std::string>& optional_tool_keys();
+std::string tool_install_hint(const std::string& key);
 Toolchain detect_toolchain(const Settings& settings);
 
 } // namespace canopy

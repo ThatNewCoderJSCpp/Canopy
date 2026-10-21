@@ -81,6 +81,7 @@ public:
     SemanticJob& operator=(const SemanticJob&) = delete;
 
     bool start(const std::string& path, std::vector<std::string> command, std::string text);
+    bool start_with_errors(const std::string& path, std::vector<std::string> command, std::string text);
     bool running() const;
 
     struct Done {

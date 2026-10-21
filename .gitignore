@@ -3,3 +3,4 @@ build*/
 compile_commands.json
 .grove-cache/
 .canopy/cache/
+.canopy/*.local.*

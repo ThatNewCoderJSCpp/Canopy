@@ -1,0 +1,160 @@
+java-keyword|keyword|class|class Name extends Base implements I { … }|Defines a class.
+java-keyword|keyword|interface|interface Name { … }|Defines an interface.
+java-keyword|keyword|record|record Point(int x, int y) {}|A class that just holds data.
+java-keyword|keyword|enum|enum Color { RED, GREEN }|Defines an enum.
+java-keyword|keyword|public|public|Visible everywhere.
+java-keyword|keyword|private|private|Visible only in this class.
+java-keyword|keyword|protected|protected|Visible to subclasses and the package.
+java-keyword|keyword|static|static|Belongs to the class, not to instances.
+java-keyword|keyword|final|final|Can't be reassigned, overridden or extended.
+java-keyword|keyword|abstract|abstract|Has no body; subclasses provide it.
+java-keyword|keyword|new|new Type(args)|Creates an object.
+java-keyword|keyword|var|var name = value;|A local variable with an inferred type.
+java-keyword|keyword|import|import java.util.List;|Uses a class from another package.
+java-keyword|keyword|package|package com.example;|This file's package; it must match the folders.
+java-keyword|keyword|extends|class A extends B|Inherits from a class.
+java-keyword|keyword|implements|class A implements I|Implements interfaces.
+java-keyword|keyword|throws|void f() throws IOException|The checked exceptions a method can throw.
+java-keyword|keyword|try|try { … } catch (Exception e) { … } finally { … }|Catches exceptions.
+java-keyword|keyword|throw|throw new IllegalArgumentException("…");|Throws an exception.
+java-keyword|keyword|synchronized|synchronized (lock) { … }|Runs with a lock held.
+java-keyword|keyword|instanceof|x instanceof Type t|Whether x is a Type, binding it to t.
+java-keyword|keyword|switch|switch (x) { case 1 -> …; default -> …; }|Picks a branch.
+java-keyword|keyword|this|this|The current object.
+java-keyword|keyword|super|super|The parent class.
+java-keyword|constant|null||No object.
+java-keyword|constant|true||The boolean true.
+java-keyword|constant|false||The boolean false.
+java-type|class|String|String|Immutable text.
+java-type|class|System|System|System.out, System.in, System.exit, currentTimeMillis.
+java-type|class|Math|Math|Math functions.
+java-type|class|List|List<E>|An ordered collection (java.util).
+java-type|class|ArrayList|ArrayList<E>|A resizable list (java.util).
+java-type|class|Map|Map<K, V>|Key/value pairs (java.util).
+java-type|class|HashMap|HashMap<K, V>|A hash map (java.util).
+java-type|class|Scanner|Scanner|Reads typed input: new Scanner(System.in) (java.util).
+java-type|class|Integer|Integer|An int as an object; Integer.parseInt.
+java-type|class|Arrays|Arrays|Array helpers: sort, toString, asList (java.util).
+java:System|variable|out||Standard output (a PrintStream).
+java:System|variable|in||Standard input.
+java:System|variable|err||Standard error.
+java:System|method|exit|System.exit(status)|Ends the program.
+java:System|method|currentTimeMillis|System.currentTimeMillis() -> long|Milliseconds since 1970.
+java:System|method|nanoTime|System.nanoTime() -> long|A precise timer.
+java:PrintStream|method|println|System.out.println(x)|Prints x and a newline.
+java:PrintStream|method|print|System.out.print(x)|Prints x.
+java:PrintStream|method|printf|System.out.printf(format, args...)|Prints formatted text.
+java:Math|method|abs|Math.abs(x)|The absolute value.
+java:Math|method|max|Math.max(a, b)|The larger.
+java:Math|method|min|Math.min(a, b)|The smaller.
+java:Math|method|pow|Math.pow(a, b) -> double|a to the power b.
+java:Math|method|sqrt|Math.sqrt(x) -> double|The square root.
+java:Math|method|random|Math.random() -> double|A random number from 0 up to 1.
+java:Math|method|round|Math.round(x) -> long|Rounds to the nearest.
+java:Math|method|floor|Math.floor(x) -> double|Rounds down.
+java:Math|constant|PI||π.
+java:String|method|length|s.length() -> int|How many chars.
+java:String|method|charAt|s.charAt(i) -> char|The char at an index.
+java:String|method|substring|s.substring(begin, end) -> String|Part of the string.
+java:String|method|equals|s.equals(other) -> boolean|Whether the text is the same (don't use == for strings).
+java:String|method|split|s.split(regex) -> String[]|Splits on a regular expression.
+java:String|method|trim|s.trim() -> String|Without whitespace at both ends.
+java:String|method|toUpperCase|s.toUpperCase() -> String|Upper case.
+java:String|method|toLowerCase|s.toLowerCase() -> String|Lower case.
+java:String|method|contains|s.contains(text) -> boolean|Whether it contains the text.
+java:String|method|indexOf|s.indexOf(text) -> int|Where the text is, or -1.
+java:String|method|replace|s.replace(a, b) -> String|Replaces text.
+java:String|method|isEmpty|s.isEmpty() -> boolean|Whether it's "".
+java:String|method|format|String.format(format, args...) -> String|Formats text.
+java:List|method|add|list.add(item) -> boolean|Adds an item.
+java:List|method|get|list.get(index)|The item at an index.
+java:List|method|set|list.set(index, item)|Replaces an item.
+java:List|method|remove|list.remove(index or item)|Removes an item.
+java:List|method|size|list.size() -> int|How many items.
+java:List|method|isEmpty|list.isEmpty() -> boolean|Whether it has no items.
+java:List|method|contains|list.contains(item) -> boolean|Whether it holds the item.
+java:List|method|forEach|list.forEach(item -> …)|Runs the action for each item.
+java:List|method|stream|list.stream()|A stream for map/filter/collect.
+java:Map|method|put|map.put(key, value)|Adds or replaces a pair.
+java:Map|method|get|map.get(key)|The value, or null.
+java:Map|method|getOrDefault|map.getOrDefault(key, fallback)|The value, or the fallback.
+java:Map|method|containsKey|map.containsKey(key) -> boolean|Whether the key is there.
+java:Map|method|remove|map.remove(key)|Removes a pair.
+java:Map|method|keySet|map.keySet()|The keys.
+java:Map|method|values|map.values()|The values.
+java:Map|method|entrySet|map.entrySet()|The pairs.
+java:Scanner|method|nextLine|sc.nextLine() -> String|Reads a line.
+java:Scanner|method|nextInt|sc.nextInt() -> int|Reads an int.
+java:Scanner|method|hasNext|sc.hasNext() -> boolean|Whether there's more input.
+csharp-keyword|keyword|class|class Name : Base { … }|Defines a class.
+csharp-keyword|keyword|struct|struct Name { … }|A value type.
+csharp-keyword|keyword|record|record Point(int X, int Y);|A class that just holds data.
+csharp-keyword|keyword|interface|interface IName { … }|Defines an interface.
+csharp-keyword|keyword|namespace|namespace Name;|Groups types.
+csharp-keyword|keyword|using|using System; / using var x = …;|Imports a namespace, or disposes a value at the end of the scope.
+csharp-keyword|keyword|var|var name = value;|A local with an inferred type.
+csharp-keyword|keyword|new|new Type(args)|Creates an object.
+csharp-keyword|keyword|public|public|Visible everywhere.
+csharp-keyword|keyword|private|private|Visible only in this type.
+csharp-keyword|keyword|static|static|Belongs to the type, not to instances.
+csharp-keyword|keyword|async|async Task Name()|A method that can await.
+csharp-keyword|keyword|await|await task|Waits for a task.
+csharp-keyword|keyword|foreach|foreach (var item in items) { … }|Loops over a collection.
+csharp-keyword|keyword|get|get;|A property getter.
+csharp-keyword|keyword|set|set;|A property setter.
+csharp-keyword|keyword|null|null|No object.
+csharp-keyword|keyword|this|this|The current object.
+csharp-keyword|keyword|base|base|The parent class.
+csharp-keyword|constant|true||The boolean true.
+csharp-keyword|constant|false||The boolean false.
+csharp-type|class|Console|Console|Console input and output.
+csharp-type|class|Math|Math|Math functions.
+csharp-type|class|List|List<T>|A growable list (System.Collections.Generic).
+csharp-type|class|Dictionary|Dictionary<TKey, TValue>|A hash map (System.Collections.Generic).
+csharp-type|class|string|string|Immutable text.
+csharp-type|class|Task|Task|An async operation.
+csharp:Console|method|WriteLine|Console.WriteLine(value)|Prints a line.
+csharp:Console|method|Write|Console.Write(value)|Prints without a newline.
+csharp:Console|method|ReadLine|Console.ReadLine() -> string?|Reads a line.
+csharp:Console|method|ReadKey|Console.ReadKey()|Reads one key.
+csharp:Console|method|Clear|Console.Clear()|Clears the console.
+csharp:Math|method|Abs|Math.Abs(x)|The absolute value.
+csharp:Math|method|Max|Math.Max(a, b)|The larger.
+csharp:Math|method|Min|Math.Min(a, b)|The smaller.
+csharp:Math|method|Pow|Math.Pow(a, b)|a to the power b.
+csharp:Math|method|Sqrt|Math.Sqrt(x)|The square root.
+csharp:Math|method|Round|Math.Round(x)|Rounds to the nearest.
+csharp:Math|method|Floor|Math.Floor(x)|Rounds down.
+csharp:Math|constant|PI||π.
+csharp:string|property|Length||How many chars.
+csharp:string|method|Split|s.Split(separator)|Splits into an array.
+csharp:string|method|Trim|s.Trim()|Without whitespace at both ends.
+csharp:string|method|ToUpper|s.ToUpper()|Upper case.
+csharp:string|method|ToLower|s.ToLower()|Lower case.
+csharp:string|method|Contains|s.Contains(text)|Whether it contains the text.
+csharp:string|method|Replace|s.Replace(a, b)|Replaces text.
+csharp:string|method|Substring|s.Substring(start, length)|Part of the string.
+csharp:string|method|StartsWith|s.StartsWith(text)|Whether it starts with the text.
+csharp:string|method|IndexOf|s.IndexOf(text)|Where the text is, or -1.
+csharp:string|method|Join|string.Join(separator, values)|Joins values with a separator.
+csharp:string|method|IsNullOrEmpty|string.IsNullOrEmpty(s)|Whether it's null or "".
+csharp:string|method|Format|string.Format(format, args)|Fills in {0} fields.
+csharp:List|method|Add|list.Add(item)|Adds an item.
+csharp:List|method|Remove|list.Remove(item)|Removes an item.
+csharp:List|method|RemoveAt|list.RemoveAt(index)|Removes at an index.
+csharp:List|method|Contains|list.Contains(item)|Whether it holds the item.
+csharp:List|method|Clear|list.Clear()|Removes everything.
+csharp:List|method|Sort|list.Sort()|Sorts in place.
+csharp:List|method|Insert|list.Insert(index, item)|Inserts at an index.
+csharp:List|property|Count||How many items.
+csharp:List|method|ForEach|list.ForEach(item => …)|Runs the action for each item.
+csharp:List|method|Where|list.Where(x => …)|LINQ: the items that pass.
+csharp:List|method|Select|list.Select(x => …)|LINQ: transforms each item.
+csharp:List|method|ToList|seq.ToList()|LINQ: a new list.
+csharp:Dictionary|method|Add|dict.Add(key, value)|Adds a pair; throws if the key exists.
+csharp:Dictionary|method|TryGetValue|dict.TryGetValue(key, out var value)|Gets a value without throwing.
+csharp:Dictionary|method|ContainsKey|dict.ContainsKey(key)|Whether the key is there.
+csharp:Dictionary|method|Remove|dict.Remove(key)|Removes a pair.
+csharp:Dictionary|property|Keys||The keys.
+csharp:Dictionary|property|Values||The values.
+csharp:Dictionary|property|Count||How many pairs.

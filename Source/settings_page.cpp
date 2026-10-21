@@ -1,4 +1,7 @@
 #include <canopy/settings_page.hpp>
+#include <canopy/build.hpp>
+#include <canopy/special_names.hpp>
+#include <canopy/input_text.hpp>
 #include <canopy/shortcuts.hpp>
 #include <canopy/viewers.hpp>
 #include <canopy/walnut_semantic.hpp>
@@ -208,7 +211,11 @@ const std::vector<SettingDoc>& setting_docs() {
         { "server", "port", "Port", "The port a new local server tries first. If it's busy, the next free one is used." },
         { "server", "host", "Address", "127.0.0.1 keeps the server on this computer; 0.0.0.0 lets other devices on your network open it too." },
         { "server", "live-reload", "Live reload", "Reload pages the server sent when you save a file in the folder it serves." },
+        { "server", "console", "Page console", "Send what served pages log (console.log, JavaScript errors, files that fail to load) to the Console tab, and let the Console run JavaScript in them." },
+        { "server", "proxy-node", "Open Node apps through Canopy", "When a Node or Express app you ran starts listening, open it through a Canopy server in front of it, so the Console, Elements, bundled jQuery and live reload work with it." },
+        { "server", "restart-node", "Restart Node apps on save", "Restart a running Node app when you save a .js or .json file in its folder." },
         { "git", "refresh-seconds", "Git refresh", "How often, in seconds, the Git tab checks for changes made outside Canopy while it's showing (three times slower while it's hidden)." },
+        { "git", "github-client-id", "GitHub app client ID", "The client ID of a GitHub OAuth app with Device Flow turned on. With one, Sign in to GitHub (More in the Git tab) signs in through the browser; without one, it asks you to paste a token." },
         { "git", "protected-branches", "Protected branches", "Branches that need their name typed before Canopy deletes them or undoes a pushed commit on them, separated by spaces. Real protection belongs on the server (GitHub's branch rules); this guards against slips." },
         { "history", "enabled", "Local history", "Keep a copy of a file each time you save it, so the History tab can compare and restore older versions." },
         { "history", "limit", "Versions kept", "How many saved copies of each file to keep; the oldest go first." },
@@ -219,6 +226,29 @@ const std::vector<SettingDoc>& setting_docs() {
         { "toolchain", "cpp", "C++ compiler", "The C++ compiler builds use. auto finds one for you; or give a path." },
         { "toolchain", "walnut", "Walnut", "The Walnut compiler. auto finds it for you; or give a path." },
         { "toolchain", "grove", "Grove", "The Grove tool that runs .grove apps. auto finds it for you; or give a path." },
+        { "toolchain", "zig", "Zig", "Builds and runs .zig files (zig build when there's a build.zig). auto finds it, also in ~/.zig and /opt/zig; or give a path." },
+        { "toolchain", "rustc", "Rust compiler", "Builds single .rs files. auto finds it, also in ~/.cargo/bin; or give a path." },
+        { "toolchain", "cargo", "Cargo", "Builds and runs .rs files inside a Cargo project (a folder with Cargo.toml). auto finds it, also in ~/.cargo/bin; or give a path." },
+        { "toolchain", "python", "Python", "Checks and runs .py files, and checks them as you type. auto finds python3 (py on Windows); or give a path." },
+        { "toolchain", "lua", "Lua", "Runs .lua files. auto finds lua, lua5.4 or luajit; or give a path." },
+        { "toolchain", "luac", "Lua checker", "Checks .lua files for syntax errors as you type. Optional; without it Canopy checks with lua itself." },
+        { "toolchain", "java", "Java", "Runs Java programs. auto finds it on PATH, under JAVA_HOME and in the usual JDK folders; or give a path." },
+        { "toolchain", "javac", "Java compiler", "Compiles .java files. auto finds it next to java; or give a path." },
+        { "toolchain", "dotnet", ".NET SDK", "Builds and runs C# in a .csproj project (and single .cs files with .NET 10 or newer). auto finds it; or give a path." },
+        { "toolchain", "mcs", "Mono C# compiler", "Builds a single .cs file when there's no .csproj and .NET can't. mcs from Mono, or csc." },
+        { "toolchain", "mono", "Mono runtime", "Runs what mcs builds on Linux and macOS." },
+        { "toolchain", "nasm", "NASM", "Assembles NASM-syntax .asm files for x86 and x86-64." },
+        { "toolchain", "yasm", "YASM", "A NASM-compatible assembler, used when NASM isn't installed." },
+        { "toolchain", "fasm", "FASM", "The flat assembler, for FASM-syntax files." },
+        { "toolchain", "masm", "MASM", "Microsoft's assembler (ml64 or ml), for MASM-syntax files on Windows. It comes with Visual Studio's C++ tools." },
+        { "language.walnut", "checks", "Runtime checks", "Stop the program with the .wal line on an index outside memory from new[], a null or deleted pointer, a pointer to a local of a function that already returned, or integer overflow. Pick any of them; each one makes the program slower, so they're all off until you do." },
+        { "language.walnut", "leak-check", "Leak check", "When the program ends, list the memory from new that was never deleted. error also makes the program exit with code 3." },
+        { "language.walnut", "gc", "Garbage collector", "Free objects made with new automatically once nothing points to them. delete still works. Slower, and memory hidden in C or C++ code doesn't count as a pointer." },
+        { "language.walnut", "ownership", "Ownership checks", "While compiling, report use after move or delete, deleting twice, pointers and references to variables that no longer exist, and memory from new that's never deleted. Also shows them in Problems as you type." },
+        { "language.rust", "edition", "Edition", "The Rust edition single .rs files build with. Cargo projects use the one in Cargo.toml." },
+        { "language.asm", "dialect", "Syntax", "Which assembler syntax .asm and .s files use. auto works it out from the file: NASM, GAS (AT&T or Intel), MASM or FASM." },
+        { "language.asm", "arch", "CPU", "Which processor the assembly is for. auto works it out from the registers and instructions: x86-64, x86, ARM64, ARM, RISC-V or MIPS. Code for another CPU builds with a cross compiler and runs through QEMU." },
+        { "toolchain", "node", "Node.js", "Runs JavaScript files and Express apps. auto finds an installed Node (also under nvm and Volta); or give a path. Only needed for JavaScript." },
         { "viewer", "pdf", "PDF renderer", "The program that draws PDF pages: pdftoppm, mutool, pdftocairo or Ghostscript. auto picks the first one installed." },
         { "viewer", "latex", "LaTeX", "The program that builds .tex files: latexmk, tectonic, pdflatex, xelatex or lualatex. auto picks the first one installed." },
         { "layout", "sidebar", "Sidebar side", "Where the sidebar sits: left, right, top or bottom." },
@@ -608,7 +638,14 @@ grove::Node* SettingsPage::create() {
     m_root->set_attribute("class", "settings-page hidden");
     m_doc.events().add_listener(m_root, "click", [this](grove::Event& e) { on_click(e); });
     m_doc.events().add_listener(m_root, "change", [this](grove::Event& e) { on_change(e); });
-    m_doc.events().add_listener(m_root, "input", [this](grove::Event& e) { on_color_input(e); });
+    m_doc.events().add_listener(m_root, "input", [this](grove::Event& e) {
+        if (e.target && e.target->is_element() && e.target->has_attribute("data-char-search")) {
+            m_char_search = live_input_text(e);
+            if (grove::Node* results = m_doc.find_by_id("char-results")) fill_character_search(*results, m_char_search);
+            return;
+        }
+        on_color_input(e);
+    });
     m_doc.events().add_listener(m_root, "cursor", [this](grove::Event& e) { on_preview_cursor(e); });
     return m_root;
 }
@@ -643,11 +680,18 @@ void SettingsPage::refresh() {
 
 void SettingsPage::rebuild() {
     if (!m_root) return;
-    clear_children(m_doc, *m_root);
     m_preview = nullptr;
-    grove::Node* nav = add(*m_root, "column", "", "settings-nav");
-    build_nav(*nav);
-    m_body = add(*m_root, "column", "", "settings-body");
+    const bool keep = m_body && m_nav && m_body_page == m_page && m_body->parent() == m_root && m_nav->parent() == m_root;
+    if (keep) {
+        clear_children(m_doc, *m_nav);
+        clear_children(m_doc, *m_body);
+    } else {
+        clear_children(m_doc, *m_root);
+        m_nav = add(*m_root, "column", "", "settings-nav");
+        m_body = add(*m_root, "column", "", "settings-body");
+        m_body_page = m_page;
+    }
+    build_nav(*m_nav);
     if (m_page == "highlighting") build_highlighting(*m_body);
     else if (m_page == "compilers") build_compilers(*m_body);
     else if (m_page == "build") build_build(*m_body);
@@ -655,6 +699,7 @@ void SettingsPage::rebuild() {
     else if (m_page == "viewers") build_viewers(*m_body);
     else if (m_page == "gui") build_gui(*m_body);
     else if (m_page == "shortcuts") build_shortcuts(*m_body);
+    else if (m_page == "characters") build_characters(*m_body);
     else build_editor(*m_body);
     m_doc.touch();
 }
@@ -662,7 +707,7 @@ void SettingsPage::rebuild() {
 void SettingsPage::build_nav(grove::Node& nav) {
     add(nav, "div", "SETTINGS", "settings-nav-title");
     const std::vector<std::pair<std::string, std::string>> pages = {
-        { "editor", "Editor" }, { "gui", "GUI" }, { "highlighting", "Highlighting" }, { "compilers", "Compilers" }, { "build", "Build and Run" }, { "workbench", "Explorer, Terminal and Git" }, { "viewers", "Viewers" }, { "shortcuts", "Shortcuts" },
+        { "editor", "Editor" }, { "gui", "GUI" }, { "highlighting", "Highlighting" }, { "compilers", "Compilers" }, { "build", "Build and Run" }, { "workbench", "Explorer, Terminal and Git" }, { "viewers", "Viewers" }, { "shortcuts", "Shortcuts" }, { "characters", "Special Characters" },
     };
     for (const auto& [id, label] : pages) {
         grove::Node* item = add(nav, "p", label, id == m_page ? "settings-nav-item active" : "settings-nav-item");
@@ -670,6 +715,13 @@ void SettingsPage::build_nav(grove::Node& nav) {
     }
     grove::Node* spacer = add(nav, "div", "", "settings-nav-spacer");
     (void)spacer;
+    if (m_page == "characters") {
+        const std::string file = character_file();
+        grove::Node* open = add(nav, "p", "Open walnut.bark", "settings-nav-file");
+        open->set_attribute("data-char-open", file);
+        add(nav, "p", file.empty() ? std::string("Open a folder first") : fs::path(file).parent_path().string(), "settings-nav-path");
+        return;
+    }
     grove::Node* files = add(nav, "p", "Open the settings file", "settings-nav-file");
     files->set_attribute("data-open-file", m_page == "highlighting" ? "highlighting.bark" : m_page == "compilers" ? "compilers.bark" : m_page == "build" ? "build.bark" : m_page == "shortcuts" ? "keys.bark" : m_page == "workbench" ? "workbench.bark" : "editor.bark");
     add(nav, "p", user_config_dir(), "settings-nav-path");
@@ -731,6 +783,331 @@ void SettingsPage::build_shortcuts(grove::Node& body) {
             record->set_attribute("title", recording ? (s.mouse ? "Hold Ctrl, Shift or Alt and click here. Escape cancels." : "Press the keys you want. Escape cancels.") : "Record a new shortcut");
         }
     }
+}
+
+std::string SettingsPage::character_file() const {
+    return m_hooks.project_file ? m_hooks.project_file() : std::string();
+}
+
+namespace {
+
+ProjectNameEntry typed_project_name(const std::string& name, const std::string& typed) {
+    ProjectNameEntry entry;
+    std::string trimmed = name;
+    const std::size_t a = trimmed.find_first_not_of(" \t");
+    const std::size_t b = trimmed.find_last_not_of(" \t");
+    entry.name = a == std::string::npos ? std::string() : trimmed.substr(a, b - a + 1);
+    const std::string text = project_name_value_text(typed);
+    if (text.size() >= 2 && (text.front() == '"' || text.front() == '\'') && text.back() == text.front()) {
+        entry.quoted = true;
+        entry.value = text.substr(1, text.size() - 2);
+    } else {
+        entry.value = text;
+    }
+    return entry;
+}
+
+std::string code_label(std::uint32_t code) {
+    char hex[16];
+    std::snprintf(hex, sizeof hex, "U+%04X", static_cast<unsigned>(code));
+    return hex;
+}
+
+} // namespace
+
+void SettingsPage::build_characters(grove::Node& body) {
+    heading(body, "Special Characters", "Every character Walnut's \\s{...} escape knows, by type, and your own spellings for them. Your names are added alongside the built-in ones, so \\s{alpha} keeps working next to yours. They're saved in walnut.bark in the project folder, which the Walnut compiler reads too, so the project builds the same anywhere it goes.");
+    const std::string file = character_file();
+    if (file.empty()) {
+        add(body, "p", "Open a folder first; its names go in walnut.bark at the top of the folder.", "settings-note");
+        return;
+    }
+    std::error_code ec;
+    const bool exists = fs::exists(file, ec);
+    const ProjectNames names = exists ? read_project_names(file) : ProjectNames{};
+    add(body, "p", exists ? "Saved in " + file : "Will be saved in " + file, "setting-source char-where");
+    if (!names.problems.empty()) {
+        grove::Node* banner = add(body, "column", "", "shortcut-banner");
+        const std::size_t n = names.problems.size();
+        add(*banner, "div", std::to_string(n) + (n == 1 ? " error" : " errors") + " in walnut.bark. Walnut won't build the project until " + (n == 1 ? "it's" : "they're") + " fixed. " + (n == 1 ? "It's" : "They're") + " also in the Problems tab.", "shortcut-banner-title");
+        for (const ProjectNameProblem& problem : names.problems) {
+            grove::Node* item = add(*banner, "p", (problem.line > 0 ? "Line " + std::to_string(problem.line) + ": " : std::string()) + problem.message, "shortcut-banner-item");
+            item->set_attribute("data-char-open", file);
+        }
+    }
+    add(body, "p", "Your names", "settings-group");
+    if (names.entries.empty()) add(body, "p", "No names yet. Type one next to a character in the list below, or add one here: a name you'll type in \\s{...}, and the character it stands for.", "settings-note");
+    for (std::size_t i = 0; i < names.entries.size(); ++i) {
+        const ProjectNameEntry& entry = names.entries[i];
+        const bool bad = !entry.ok || !entry.problem.empty();
+        grove::Node* row = add(body, "row", "", bad ? "setting char-row clash" : "setting char-row");
+        grove::Node* name = m_doc.create_element("input_string");
+        name->set_attribute("id", "char-name-" + std::to_string(i));
+        name->set_attribute("class", bad ? "setting-control char-name bad" : "setting-control char-name");
+        name->set_attribute("value", entry.name);
+        name->set_attribute("title", "What you type in \\s{...}");
+        name->set_attribute("data-char-part", "name");
+        name->set_attribute("data-char-index", std::to_string(i));
+        m_doc.append_child(*row, *name);
+        add(*row, "text", "\xE2\x86\x92", "char-arrow");
+        grove::Node* value = m_doc.create_element("input_string");
+        value->set_attribute("id", "char-value-" + std::to_string(i));
+        value->set_attribute("class", "setting-control char-value");
+        value->set_attribute("value", entry.value);
+        value->set_attribute("title", "A built-in name (alpha), a character (\xC2\xB0 or \\u{B0}) or a code (U+00B0)");
+        value->set_attribute("data-char-part", "value");
+        value->set_attribute("data-char-index", std::to_string(i));
+        m_doc.append_child(*row, *value);
+        grove::Node* text = add(*row, "column", "", "setting-text");
+        if (entry.ok) {
+            const std::string glyph = special_character_text(entry.code);
+            add(*text, "div", (glyph.empty() ? std::string() : glyph + "  ") + code_label(entry.code) + "   \\s{" + entry.name + "}", "char-preview");
+        }
+        if (!entry.problem.empty()) add(*text, "div", entry.problem, "shortcut-clash");
+        grove::Node* remove = add(*row, "button", "Remove", "char-button");
+        remove->set_attribute("data-char-remove", std::to_string(i));
+        remove->set_attribute("title", "Remove \\s{" + entry.name + "}");
+    }
+    grove::Node* row = add(body, "row", "", "setting char-row char-add");
+    grove::Node* name = m_doc.create_element("input_string");
+    name->set_attribute("id", "char-new-name");
+    name->set_attribute("class", "setting-control char-name");
+    name->set_attribute("placeholder", "name, like deg");
+    m_doc.append_child(*row, *name);
+    add(*row, "text", "\xE2\x86\x92", "char-arrow");
+    grove::Node* value = m_doc.create_element("input_string");
+    value->set_attribute("id", "char-new-value");
+    value->set_attribute("class", "setting-control char-value");
+    value->set_attribute("placeholder", "\xC2\xB0, U+00B0 or deg");
+    m_doc.append_child(*row, *value);
+    add(*row, "div", "", "setting-text");
+    grove::Node* button = add(*row, "button", "Add", "char-button");
+    button->set_attribute("data-char-add", "1");
+
+    add(body, "p", "All characters", "settings-group");
+    add(body, "p", "Click a type to open it. Type your own name for a character in its last column (several with commas) and press Enter. Search by name, by U+ code or by pasting the character.", "settings-note");
+    grove::Node* search = m_doc.create_element("input_string");
+    search->set_attribute("class", "setting-control char-search");
+    search->set_attribute("placeholder", "arrow, U+2192, \xCE\xB1\xE2\x80\xA6");
+    search->set_attribute("value", m_char_search);
+    search->set_attribute("data-char-search", "1");
+    m_doc.append_child(body, *search);
+    grove::Node* results = add(body, "column", "", "char-results");
+    results->set_attribute("id", "char-results");
+    fill_character_search(*results, m_char_search);
+}
+
+void SettingsPage::fill_character_search(grove::Node& results, const std::string& query) {
+    clear_children(m_doc, results);
+    std::string q = query;
+    const std::size_t a = q.find_first_not_of(" \t");
+    const std::size_t b = q.find_last_not_of(" \t");
+    q = a == std::string::npos ? std::string() : q.substr(a, b - a + 1);
+    std::string low = q;
+    std::transform(low.begin(), low.end(), low.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::uint32_t wanted_code = 0;
+    bool code_query = false;
+    if (low.size() > 2 && (low.rfind("u+", 0) == 0 || low.rfind("0x", 0) == 0)) {
+        char* end = nullptr;
+        const unsigned long v = std::strtoul(low.c_str() + 2, &end, 16);
+        if (end && *end == '\0') {
+            wanted_code = static_cast<std::uint32_t>(v);
+            code_query = true;
+        }
+    }
+
+    const std::string file = character_file();
+    std::error_code ec;
+    const ProjectNames names = !file.empty() && fs::exists(file, ec) ? read_project_names(file) : ProjectNames{};
+    std::map<std::uint32_t, std::vector<std::string>> yours;
+    std::map<std::string, std::size_t> taken;
+    for (const ProjectNameEntry& entry : names.entries) {
+        std::uint32_t builtin = 0;
+        if (builtin_special_character(entry.name, builtin)) taken[entry.name] = entry.line;
+        if (entry.ok) yours[entry.code].push_back(entry.name);
+    }
+
+    std::map<std::string, std::vector<std::uint32_t>> groups;
+    for (const std::uint32_t code : builtin_special_codes()) groups[special_character_category(code)].push_back(code);
+    for (const auto& [code, list] : yours) {
+        if (builtin_names_for(code).empty()) groups[special_character_category(code)].push_back(code);
+    }
+
+    grove::Node* header = add(results, "row", "", "char-table-head");
+    for (const auto& [label, cls] : std::vector<std::pair<std::string, std::string>>{ { "Symbol", "char-col-symbol" }, { "UTF Code", "char-col-code" }, { "Default Special Name", "char-col-names" }, { "Your name (overrides)", "char-col-yours" } }) {
+        grove::Node* cell = add(*header, "column", "", cls);
+        add(*cell, "text", label, "");
+    }
+
+    std::size_t shown_total = 0;
+    for (const std::string& category : special_character_categories()) {
+        const auto group = groups.find(category);
+        if (group == groups.end()) continue;
+        std::vector<std::uint32_t> codes = group->second;
+        std::sort(codes.begin(), codes.end());
+        std::vector<std::uint32_t> matching;
+        bool clash_inside = false;
+        for (const std::uint32_t code : codes) {
+            const std::vector<std::string_view> defaults = builtin_names_for(code);
+            for (const std::string_view n : defaults) clash_inside = clash_inside || taken.count(std::string(n));
+            if (q.empty()) {
+                matching.push_back(code);
+                continue;
+            }
+            bool hit = special_character_text(code) == q || (code_query && code == wanted_code);
+            for (const std::string_view n : defaults) {
+                std::string ln(n);
+                std::transform(ln.begin(), ln.end(), ln.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                hit = hit || ln.find(low) != std::string::npos;
+            }
+            const auto mine = yours.find(code);
+            if (mine != yours.end()) {
+                for (const std::string& n : mine->second) {
+                    std::string ln = n;
+                    std::transform(ln.begin(), ln.end(), ln.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                    hit = hit || ln.find(low) != std::string::npos;
+                }
+            }
+            if (hit) matching.push_back(code);
+        }
+        if (matching.empty()) continue;
+        const bool open = !q.empty() || clash_inside || m_char_open.count(category) > 0;
+        grove::Node* title = add(results, "row", "", clash_inside ? "char-category clash" : "char-category");
+        title->set_attribute("data-char-category", category);
+        add(*title, "text", open ? "\xE2\x96\xBE" : "\xE2\x96\xB8", "char-category-arrow");
+        add(*title, "text", category, "char-category-name");
+        add(*title, "text", std::to_string(matching.size()) + (q.empty() ? std::string() : " found"), "char-category-count");
+        if (!open) continue;
+        const std::size_t limit = q.empty() ? matching.size() : std::min<std::size_t>(matching.size(), 200);
+        for (std::size_t i = 0; i < limit; ++i) {
+            const std::uint32_t code = matching[i];
+            const std::vector<std::string_view> defaults = builtin_names_for(code);
+            std::string clash;
+            for (const std::string_view n : defaults) {
+                const auto t = taken.find(std::string(n));
+                if (t != taken.end()) clash = "Your walnut.bark also uses '" + t->first + "' as a name, on line " + std::to_string(t->second) + "; built-in names can't be reused";
+            }
+            grove::Node* row = add(results, "row", "", clash.empty() ? "char-item" : "char-item clash");
+            if (!clash.empty()) row->set_attribute("title", clash);
+            const std::string glyph = special_character_text(code);
+            grove::Node* symbol = add(*row, "column", "", "char-col-symbol");
+            add(*symbol, "text", glyph.empty() ? std::string("\xE2\x90\xA3") : glyph, glyph.empty() ? "char-glyph invisible" : "char-glyph");
+            grove::Node* code_cell = add(*row, "column", "", "char-col-code");
+            add(*code_cell, "text", code_label(code), "char-result-code");
+            grove::Node* cell = add(*row, "column", "", "char-col-names");
+            std::string main_names;
+            for (std::size_t k = 0; k < defaults.size(); ++k) main_names += (k ? ", " : "") + std::string(defaults[k]);
+            if (main_names.empty()) main_names = "(none; only your names)";
+            add(*cell, "div", main_names, clash.empty() ? "char-result-name" : "char-result-name bad");
+            if (!clash.empty()) add(*cell, "div", clash, "shortcut-clash");
+            grove::Node* mine = m_doc.create_element("input_string");
+            mine->set_attribute("class", "setting-control char-col-yours char-yours");
+            std::string current;
+            const auto have = yours.find(code);
+            if (have != yours.end()) {
+                for (std::size_t k = 0; k < have->second.size(); ++k) current += (k ? ", " : "") + have->second[k];
+            }
+            mine->set_attribute("value", current);
+            mine->set_attribute("placeholder", "your name");
+            mine->set_attribute("data-char-code", std::to_string(code));
+            mine->set_attribute("title", "Your own name for " + (glyph.empty() ? code_label(code) : glyph) + "; several with commas");
+            m_doc.append_child(*row, *mine);
+            ++shown_total;
+        }
+        if (limit < matching.size()) add(results, "p", std::to_string(matching.size() - limit) + " more; type more of the name to narrow it down.", "settings-note");
+    }
+    if (!q.empty() && shown_total == 0) add(results, "p", "Nothing matches \"" + q + "\".", "settings-note");
+    m_doc.touch();
+}
+
+void SettingsPage::set_names_for_code(std::uint32_t code, const std::string& typed) {
+    const std::string file = character_file();
+    if (file.empty()) return;
+    std::vector<std::string> wanted;
+    std::size_t start = 0;
+    while (start <= typed.size()) {
+        std::size_t end = typed.find(',', start);
+        if (end == std::string::npos) end = typed.size();
+        std::string part = typed.substr(start, end - start);
+        const std::size_t a = part.find_first_not_of(" \t");
+        const std::size_t b = part.find_last_not_of(" \t");
+        part = a == std::string::npos ? std::string() : part.substr(a, b - a + 1);
+        if (!part.empty() && std::find(wanted.begin(), wanted.end(), part) == wanted.end()) wanted.push_back(part);
+        start = end + 1;
+    }
+    std::error_code ec;
+    ProjectNames names = fs::exists(file, ec) ? read_project_names(file) : ProjectNames{};
+    std::vector<ProjectNameEntry> kept;
+    std::vector<std::string> already;
+    for (const ProjectNameEntry& entry : names.entries) {
+        if (entry.ok && entry.code == code) {
+            if (std::find(wanted.begin(), wanted.end(), entry.name) == wanted.end()) continue;
+            already.push_back(entry.name);
+        }
+        kept.push_back(entry);
+    }
+    const std::vector<std::string_view> defaults = builtin_names_for(code);
+    for (const std::string& name : wanted) {
+        if (std::find(already.begin(), already.end(), name) != already.end()) continue;
+        ProjectNameEntry entry;
+        entry.name = name;
+        entry.value = defaults.empty() ? code_label(code) : std::string(defaults.front());
+        kept.push_back(entry);
+    }
+    if (kept.size() == names.entries.size()) {
+        bool same = true;
+        for (std::size_t i = 0; i < kept.size() && same; ++i) same = kept[i].name == names.entries[i].name && kept[i].value == names.entries[i].value;
+        if (same) return;
+    }
+    write_project_names(file, kept);
+    if (m_hooks.project_names_changed) m_hooks.project_names_changed(file);
+    rebuild();
+}
+
+void SettingsPage::edit_project_name(std::size_t index, const std::string& name, const std::string& value) {
+    const std::string file = character_file();
+    if (file.empty()) return;
+    ProjectNames names = read_project_names(file);
+    if (index >= names.entries.size()) return;
+    const ProjectNameEntry typed = typed_project_name(name, value);
+    if (typed.name.empty()) {
+        names.entries.erase(names.entries.begin() + static_cast<std::ptrdiff_t>(index));
+    } else {
+        ProjectNameEntry& entry = names.entries[index];
+        if (entry.name == typed.name && entry.value == typed.value && entry.quoted == typed.quoted) return;
+        entry.name = typed.name;
+        entry.value = typed.value;
+        entry.quoted = typed.quoted;
+    }
+    write_project_names(file, names.entries);
+    if (m_hooks.project_names_changed) m_hooks.project_names_changed(file);
+    rebuild();
+}
+
+void SettingsPage::remove_project_name(std::size_t index) {
+    const std::string file = character_file();
+    if (file.empty()) return;
+    ProjectNames names = read_project_names(file);
+    if (index >= names.entries.size()) return;
+    names.entries.erase(names.entries.begin() + static_cast<std::ptrdiff_t>(index));
+    write_project_names(file, names.entries);
+    if (m_hooks.project_names_changed) m_hooks.project_names_changed(file);
+    rebuild();
+}
+
+void SettingsPage::add_project_name() {
+    const std::string file = character_file();
+    const grove::Node* name_box = m_doc.find_by_id("char-new-name");
+    const grove::Node* value_box = m_doc.find_by_id("char-new-value");
+    if (file.empty() || !name_box || !value_box) return;
+    const ProjectNameEntry typed = typed_project_name(grove::input_string(*name_box).value_or(""), grove::input_string(*value_box).value_or(""));
+    if (typed.name.empty()) return;
+    std::error_code ec;
+    ProjectNames names = fs::exists(file, ec) ? read_project_names(file) : ProjectNames{};
+    names.entries.push_back(typed);
+    write_project_names(file, names.entries);
+    if (m_hooks.project_names_changed) m_hooks.project_names_changed(file);
+    rebuild();
 }
 
 void SettingsPage::write_shortcut(const std::string& id, const std::string& text) {
@@ -843,6 +1220,22 @@ void SettingsPage::choice_control(grove::Node& row, const std::string& section, 
         radio->set_attribute("data-key", key);
         radio->set_inner_text(choice);
         m_doc.append_child(*group, *radio);
+    }
+}
+
+void SettingsPage::multi_control(grove::Node& row, const std::string& section, const std::string& key, const std::vector<std::string>& choices) {
+    grove::Node* group = add(row, "row", "", "setting-choices");
+    const std::vector<std::string> picked = split_flags(m_ws.settings.get_or(section, key, ""));
+    const bool all = std::find(picked.begin(), picked.end(), "all") != picked.end();
+    for (const std::string& choice : choices) {
+        grove::Node* box = m_doc.create_element("input_bool");
+        box->set_attribute("style", "appearance: checkbox");
+        if (all || std::find(picked.begin(), picked.end(), choice) != picked.end()) box->set_attribute("checked", "");
+        box->set_attribute("data-section", section);
+        box->set_attribute("data-key", key);
+        box->set_attribute("data-choice", choice);
+        box->set_inner_text(choice);
+        m_doc.append_child(*group, *box);
     }
 }
 
@@ -1006,6 +1399,22 @@ void SettingsPage::build_compilers(grove::Node& body) {
     tool_row(body, "cpp", "C++ compiler");
     tool_row(body, "walnut", "Walnut");
     tool_row(body, "grove", "Grove");
+    tool_row(body, "node", "Node.js");
+    tool_row(body, "zig", "Zig");
+    tool_row(body, "rustc", "Rust compiler (rustc)");
+    tool_row(body, "cargo", "Cargo");
+    tool_row(body, "python", "Python");
+    tool_row(body, "lua", "Lua");
+    tool_row(body, "luac", "Lua checker (luac)");
+    tool_row(body, "java", "Java");
+    tool_row(body, "javac", "Java compiler (javac)");
+    tool_row(body, "dotnet", ".NET SDK (dotnet)");
+    tool_row(body, "mcs", "Mono C# compiler (mcs or csc)");
+    tool_row(body, "mono", "Mono runtime");
+    tool_row(body, "nasm", "NASM");
+    tool_row(body, "yasm", "YASM");
+    tool_row(body, "fasm", "FASM");
+    tool_row(body, "masm", "MASM (ml64)");
 
     auto flags = [&](const std::string& section, bool debug_release) {
         grove::Node* row = setting_row(body, section, "flags");
@@ -1026,8 +1435,34 @@ void SettingsPage::build_compilers(grove::Node& body) {
     flags("language.cpp", true);
     add(body, "h3", "Walnut", "settings-group");
     flags("language.walnut", true);
+    row = setting_row(body, "language.walnut", "checks");
+    multi_control(*row, "language.walnut", "checks", { "bounds", "null", "dangling", "overflow" });
+    row = setting_row(body, "language.walnut", "leak-check");
+    choice_control(*row, "language.walnut", "leak-check", { "off", "warn", "error" });
+    row = setting_row(body, "language.walnut", "gc");
+    bool_control(*row, "language.walnut", "gc");
+    row = setting_row(body, "language.walnut", "ownership");
+    bool_control(*row, "language.walnut", "ownership");
     add(body, "h3", "Grove", "settings-group");
     flags("language.grove", false);
+    add(body, "h3", "Rust", "settings-group");
+    row = setting_row(body, "language.rust", "edition");
+    choice_control(*row, "language.rust", "edition", { "2015", "2018", "2021", "2024" });
+    flags("language.rust", true);
+    add(body, "h3", "Zig", "settings-group");
+    flags("language.zig", true);
+    add(body, "h3", "Python", "settings-group");
+    flags("language.python", false);
+    add(body, "h3", "Java", "settings-group");
+    flags("language.java", true);
+    add(body, "h3", "C#", "settings-group");
+    flags("language.csharp", false);
+    add(body, "h3", "Assembly", "settings-group");
+    row = setting_row(body, "language.asm", "dialect");
+    choice_control(*row, "language.asm", "dialect", { "auto", "nasm", "gas", "gas-intel", "masm", "fasm" });
+    row = setting_row(body, "language.asm", "arch");
+    choice_control(*row, "language.asm", "arch", { "auto", "x86-64", "x86", "arm64", "arm", "riscv64", "mips" });
+    flags("language.asm", true);
 }
 
 void SettingsPage::viewer_tool_row(grove::Node& body, const std::string& key, const std::string& label, const std::string& kinds) {
@@ -1103,11 +1538,19 @@ void SettingsPage::build_workbench(grove::Node& body) {
     text_control(*row, "server", "host", "160px");
     row = setting_row(body, "server", "live-reload");
     bool_control(*row, "server", "live-reload");
+    row = setting_row(body, "server", "console");
+    bool_control(*row, "server", "console");
+    row = setting_row(body, "server", "proxy-node");
+    bool_control(*row, "server", "proxy-node");
+    row = setting_row(body, "server", "restart-node");
+    bool_control(*row, "server", "restart-node");
     add(body, "h3", "Git and file history", "settings-group");
     row = setting_row(body, "git", "refresh-seconds");
     integer_control(*row, "git", "refresh-seconds", 1, 600);
     row = setting_row(body, "git", "protected-branches");
     text_control(*row, "git", "protected-branches", "260px");
+    row = setting_row(body, "git", "github-client-id");
+    text_control(*row, "git", "github-client-id", "260px");
     row = setting_row(body, "history", "enabled");
     bool_control(*row, "history", "enabled");
     row = setting_row(body, "history", "limit");
@@ -1540,6 +1983,39 @@ void SettingsPage::on_click(grove::Event& e) {
         if (m_hooks.open_file) m_hooks.open_file(n->attribute_or("data-open-path", ""));
         return;
     }
+    if (const grove::Node* n = with_attribute(e.target, "data-char-open")) {
+        const std::string file = n->attribute_or("data-char-open", "");
+        if (file.empty()) return;
+        std::error_code ec;
+        if (!fs::exists(file, ec)) {
+            write_project_names(file, {});
+            if (m_hooks.project_names_changed) m_hooks.project_names_changed(file);
+        }
+        if (m_hooks.open_file) m_hooks.open_file(file);
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-char-remove")) {
+        remove_project_name(static_cast<std::size_t>(std::strtoul(n->attribute_or("data-char-remove", "0").c_str(), nullptr, 10)));
+        return;
+    }
+    if (with_attribute(e.target, "data-char-add")) {
+        add_project_name();
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-char-category")) {
+        const std::string category = n->attribute_or("data-char-category", "");
+        if (m_char_open.count(category)) m_char_open.erase(category);
+        else m_char_open.insert(category);
+        if (grove::Node* results = m_doc.find_by_id("char-results")) fill_character_search(*results, m_char_search);
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-char-use")) {
+        if (grove::Node* box = m_doc.find_by_id("char-new-value")) {
+            grove::set_input_string(m_doc, *box, n->attribute_or("data-char-use", ""));
+            if (grove::Node* name = m_doc.find_by_id("char-new-name"); name && m_doc.host().focus) m_doc.host().focus(name);
+        }
+        return;
+    }
     if (const grove::Node* n = with_attribute(e.target, "data-reset-key")) {
         reset(n->attribute_or("data-reset-section", ""), n->attribute_or("data-reset-key", ""));
         return;
@@ -1618,6 +2094,18 @@ void SettingsPage::on_change(grove::Event& e) {
         on_size_change(*target);
         return;
     }
+    if (target->has_attribute("data-char-part")) {
+        const std::size_t index = static_cast<std::size_t>(std::strtoul(target->attribute_or("data-char-index", "0").c_str(), nullptr, 10));
+        const grove::Node* name = m_doc.find_by_id("char-name-" + std::to_string(index));
+        const grove::Node* value = m_doc.find_by_id("char-value-" + std::to_string(index));
+        if (name && value) edit_project_name(index, grove::input_string(*name).value_or(""), grove::input_string(*value).value_or(""));
+        return;
+    }
+    if (target->has_attribute("data-char-search")) return;
+    if (target->has_attribute("data-char-code")) {
+        set_names_for_code(static_cast<std::uint32_t>(std::strtoul(target->attribute_or("data-char-code", "0").c_str(), nullptr, 10)), grove::input_string(*target).value_or(""));
+        return;
+    }
     if (!target->has_attribute("data-key")) return;
     const std::string section = target->attribute_or("data-section", "");
     const std::string key = target->attribute_or("data-key", "");
@@ -1633,6 +2121,15 @@ void SettingsPage::on_change(grove::Event& e) {
         value = std::to_string(static_cast<long long>(grove::input_integer(*target).value_or(0)));
         if (key == "font-size") value += "px";
         quoted = false;
+    } else if (tag == "input_bool" && target->has_attribute("data-choice") && target->parent()) {
+        for (const auto& child : target->parent()->children()) {
+            if (!child->is_element() || !child->has_attribute("data-choice")) continue;
+            if (!grove::input_bool(*child).value_or(false)) continue;
+            if (!value.empty()) value += ' ';
+            value += child->attribute_or("data-choice", "");
+        }
+        if (value.empty()) value = "off";
+        quoted = true;
     } else if (tag == "input_bool") {
         value = grove::input_bool(*target).value_or(false) ? "true" : "false";
         quoted = false;

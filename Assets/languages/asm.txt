@@ -1,0 +1,141 @@
+asm:x86|instruction|mov|mov dest, src|Copies src into dest.
+asm:x86|instruction|lea|lea dest, [address]|Loads the address itself, not what's there; also handy for arithmetic.
+asm:x86|instruction|add|add dest, src|dest = dest + src; sets the flags.
+asm:x86|instruction|sub|sub dest, src|dest = dest - src; sets the flags.
+asm:x86|instruction|inc|inc dest|Adds 1.
+asm:x86|instruction|dec|dec dest|Subtracts 1.
+asm:x86|instruction|imul|imul dest, src|Signed multiply.
+asm:x86|instruction|mul|mul src|Unsigned multiply of rax by src into rdx:rax.
+asm:x86|instruction|idiv|idiv src|Signed divide of rdx:rax by src: quotient in rax, remainder in rdx (sign-extend first with cqo).
+asm:x86|instruction|div|div src|Unsigned divide of rdx:rax by src (zero rdx first).
+asm:x86|instruction|neg|neg dest|Negates.
+asm:x86|instruction|and|and dest, src|Bitwise and.
+asm:x86|instruction|or|or dest, src|Bitwise or.
+asm:x86|instruction|xor|xor dest, src|Bitwise xor; xor reg, reg sets it to 0.
+asm:x86|instruction|not|not dest|Bitwise not.
+asm:x86|instruction|shl|shl dest, count|Shifts left.
+asm:x86|instruction|shr|shr dest, count|Shifts right, filling with zeros.
+asm:x86|instruction|sar|sar dest, count|Shifts right, keeping the sign.
+asm:x86|instruction|cmp|cmp a, b|Compares a with b (a - b) and sets the flags for a jump.
+asm:x86|instruction|test|test a, b|a AND b, only setting the flags; test reg, reg checks for zero.
+asm:x86|instruction|jmp|jmp label|Jumps.
+asm:x86|instruction|je|je label|Jumps if equal (ZF=1); same as jz.
+asm:x86|instruction|jne|jne label|Jumps if not equal; same as jnz.
+asm:x86|instruction|jg|jg label|Jumps if greater (signed).
+asm:x86|instruction|jge|jge label|Jumps if greater or equal (signed).
+asm:x86|instruction|jl|jl label|Jumps if less (signed).
+asm:x86|instruction|jle|jle label|Jumps if less or equal (signed).
+asm:x86|instruction|ja|ja label|Jumps if above (unsigned).
+asm:x86|instruction|jb|jb label|Jumps if below (unsigned).
+asm:x86|instruction|call|call label|Pushes the return address and jumps.
+asm:x86|instruction|ret|ret|Pops the return address and jumps back.
+asm:x86|instruction|push|push src|Pushes onto the stack.
+asm:x86|instruction|pop|pop dest|Pops from the stack.
+asm:x86|instruction|syscall|syscall|Calls the kernel: Linux takes the number in rax and arguments in rdi, rsi, rdx, r10, r8, r9.
+asm:x86|instruction|int|int 0x80|A software interrupt; int 0x80 is the 32-bit Linux system call.
+asm:x86|instruction|nop|nop|Does nothing.
+asm:x86|instruction|movzx|movzx dest, src|Copies a smaller value, filling with zeros.
+asm:x86|instruction|movsx|movsx dest, src|Copies a smaller value, keeping the sign.
+asm:x86|instruction|cqo|cqo|Sign-extends rax into rdx:rax before idiv.
+asm:x86|instruction|loop|loop label|Decrements rcx and jumps while it isn't zero.
+asm:x86|instruction|cmove|cmove dest, src|Copies if equal; other conditions work the same way.
+asm:x86|instruction|movq|movq src, dest|AT&T: copies 64 bits (operands are source first).
+asm:x86|instruction|leave|leave|Restores the stack frame: mov rsp, rbp then pop rbp.
+asm:x86|instruction|hlt|hlt|Halts until the next interrupt.
+asm:x86|register|rax||Return value and syscall number; the accumulator.
+asm:x86|register|rbx||Callee-saved general register.
+asm:x86|register|rcx||Counter; 4th argument on Linux.
+asm:x86|register|rdx||3rd argument on Linux; high half of mul/div.
+asm:x86|register|rsi||2nd argument on Linux.
+asm:x86|register|rdi||1st argument on Linux.
+asm:x86|register|rbp||Frame pointer (callee-saved).
+asm:x86|register|rsp||Stack pointer.
+asm:x86|register|rip||Instruction pointer; [rel label] addresses relative to it.
+asm:x86|register|r8||5th argument on Linux.
+asm:x86|register|r9||6th argument on Linux.
+asm:x86|register|eax||The low 32 bits of rax; writing it clears the high half.
+asm:x86|register|al||The low 8 bits of rax.
+asm:arm64|instruction|mov|mov xd, xn or #imm|Copies a register or a small immediate.
+asm:arm64|instruction|add|add xd, xn, xm or #imm|xd = xn + xm.
+asm:arm64|instruction|sub|sub xd, xn, xm or #imm|xd = xn - xm.
+asm:arm64|instruction|mul|mul xd, xn, xm|xd = xn * xm.
+asm:arm64|instruction|sdiv|sdiv xd, xn, xm|Signed divide.
+asm:arm64|instruction|ldr|ldr xd, [xn, #off] or ldr xd, =label|Loads from memory, or a constant/address.
+asm:arm64|instruction|str|str xd, [xn, #off]|Stores to memory.
+asm:arm64|instruction|ldp|ldp x1, x2, [sp], #16|Loads a pair.
+asm:arm64|instruction|stp|stp x29, x30, [sp, #-16]!|Stores a pair; used to save the frame and link registers.
+asm:arm64|instruction|adr|adr xd, label|The address of a nearby label.
+asm:arm64|instruction|adrp|adrp xd, label|The 4 KB page of a label; add the :lo12: offset after it.
+asm:arm64|instruction|cmp|cmp xn, xm or #imm|Compares and sets the flags.
+asm:arm64|instruction|b|b label|Branches.
+asm:arm64|instruction|bl|bl label|Calls: branches and puts the return address in x30.
+asm:arm64|instruction|ret|ret|Returns to x30.
+asm:arm64|instruction|cbz|cbz xn, label|Branches if xn is zero.
+asm:arm64|instruction|cbnz|cbnz xn, label|Branches if xn isn't zero.
+asm:arm64|instruction|svc|svc #0|System call: Linux takes the number in x8 and arguments in x0-x5.
+asm:arm64|register|x0||1st argument and return value.
+asm:arm64|register|x8||System call number on Linux.
+asm:arm64|register|x29||Frame pointer.
+asm:arm64|register|x30||Link register (return address).
+asm:arm64|register|sp||Stack pointer; keep it 16-byte aligned.
+asm:arm64|register|xzr||Always zero.
+asm:riscv|instruction|li|li rd, imm|Loads an immediate (pseudo-instruction).
+asm:riscv|instruction|la|la rd, label|Loads an address (pseudo-instruction).
+asm:riscv|instruction|mv|mv rd, rs|Copies a register.
+asm:riscv|instruction|add|add rd, rs1, rs2|rd = rs1 + rs2.
+asm:riscv|instruction|addi|addi rd, rs1, imm|rd = rs1 + imm.
+asm:riscv|instruction|sub|sub rd, rs1, rs2|rd = rs1 - rs2.
+asm:riscv|instruction|ld|ld rd, off(rs)|Loads 64 bits.
+asm:riscv|instruction|sd|sd rs2, off(rs1)|Stores 64 bits.
+asm:riscv|instruction|lw|lw rd, off(rs)|Loads 32 bits.
+asm:riscv|instruction|sw|sw rs2, off(rs1)|Stores 32 bits.
+asm:riscv|instruction|beq|beq rs1, rs2, label|Branches if equal.
+asm:riscv|instruction|bne|bne rs1, rs2, label|Branches if not equal.
+asm:riscv|instruction|jal|jal rd, label|Jumps and links.
+asm:riscv|instruction|ret|ret|Returns (jalr x0, ra, 0).
+asm:riscv|instruction|ecall|ecall|System call: Linux takes the number in a7 and arguments in a0-a5.
+asm:riscv|register|a0||1st argument and return value.
+asm:riscv|register|a7||System call number on Linux.
+asm:riscv|register|ra||Return address.
+asm:riscv|register|sp||Stack pointer.
+asm:riscv|register|zero||Always zero.
+asm:nasm|directive|section|section .text|Starts a section: .text code, .data initialized data, .bss zeroed data, .rodata constants.
+asm:nasm|directive|global|global _start|Exports a label so the linker sees it.
+asm:nasm|directive|extern|extern printf|Uses a label defined elsewhere.
+asm:nasm|directive|bits|bits 64|The code size: 16, 32 or 64.
+asm:nasm|directive|default|default rel|Makes [label] addresses RIP-relative.
+asm:nasm|directive|db|name db "text", 10, 0|Defines bytes.
+asm:nasm|directive|dw|dw 1, 2|Defines 16-bit words.
+asm:nasm|directive|dd|dd 1.5|Defines 32-bit values.
+asm:nasm|directive|dq|dq 0|Defines 64-bit values.
+asm:nasm|directive|resb|buffer resb 64|Reserves bytes in .bss.
+asm:nasm|directive|resq|resq 1|Reserves 64-bit values in .bss.
+asm:nasm|directive|equ|len equ $ - msg|Defines a constant.
+asm:nasm|directive|times|times 10 db 0|Repeats an instruction or data.
+asm:nasm|directive|%define|%define NAME value|A single-line macro.
+asm:nasm|directive|%macro|%macro name 2 … %endmacro|A multi-line macro with arguments %1, %2…
+asm:nasm|directive|%include|%include "file.inc"|Includes another file.
+asm:gas|directive|.text||Switches to the code section.
+asm:gas|directive|.data||Switches to the data section.
+asm:gas|directive|.bss||Switches to the zeroed data section.
+asm:gas|directive|.section|.section .rodata|Switches to a named section.
+asm:gas|directive|.globl|.globl main|Exports a symbol.
+asm:gas|directive|.global|.global _start|Exports a symbol.
+asm:gas|directive|.asciz|.asciz "text"|A string with a terminating zero.
+asm:gas|directive|.ascii|.ascii "text"|A string without a terminating zero.
+asm:gas|directive|.byte|.byte 1, 2|Bytes.
+asm:gas|directive|.quad|.quad 0|64-bit values.
+asm:gas|directive|.long|.long 0|32-bit values.
+asm:gas|directive|.align|.align 8|Aligns the next item.
+asm:gas|directive|.intel_syntax|.intel_syntax noprefix|Switches GAS to Intel syntax (dest first, no % or $).
+asm:gas|directive|.att_syntax|.att_syntax|Switches GAS back to AT&T syntax (source first, %registers, $immediates).
+asm:gas|directive|.type|.type name, @function|Marks a symbol as a function or object.
+asm:gas|directive|.size|.size name, .-name|The size of a symbol.
+asm:gas|directive|.equ|.equ name, value|Defines a constant.
+asm:masm|directive|.code||Starts the code segment.
+asm:masm|directive|.data||Starts the data segment.
+asm:masm|directive|PROC|name PROC|Starts a procedure.
+asm:masm|directive|ENDP|name ENDP|Ends a procedure.
+asm:masm|directive|END|END|Ends the source file.
+asm:masm|directive|EXTERN|EXTERN name:PROC|Uses a symbol from elsewhere.
+asm:masm|directive|INCLUDELIB|INCLUDELIB kernel32.lib|Links a library.

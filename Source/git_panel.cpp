@@ -1,6 +1,8 @@
 #include "canopy/git_panel.hpp"
 
 #include "canopy/build.hpp"
+#include "canopy/desktop.hpp"
+#include "canopy/secure_store.hpp"
 #include "canopy/workspace.hpp"
 
 #include <grove/dom_tools.hpp>
@@ -268,10 +270,13 @@ void GitPanel::install() {
             run_task(run->attribute_or("data-task", ""));
             return;
         }
-        if (with_attribute(e.target, "data-tasks-create")) create_tasks_file();
+        if (const grove::Node* make = with_attribute(e.target, "data-tasks-create")) {
+            create_tasks_file(make->attribute_or("data-tasks-create", "") == "local");
+            return;
+        }
         if (const grove::Node* line = with_attribute(e.target, "data-task-line")) {
-            if (m_tasks.exists && m_hooks.open_file) m_hooks.open_file(m_tasks.path);
-            (void)line;
+            const std::string file = line->attribute_or("data-task-file", m_tasks.path);
+            if (m_tasks.exists && m_hooks.open_file) m_hooks.open_file(file.empty() ? m_tasks.path : file);
         }
     });
     listen("git-tasks-edit", "click", [this](grove::Event&) { open_tasks_file(); });
@@ -520,6 +525,17 @@ void GitPanel::finish_action(std::vector<CommandOutput>& results) {
     if (m_hooks.output) m_hooks.output(m_action_label + (ok ? " finished.\n" : " failed.\n"));
     set_state(ok ? m_action_label + " finished" : m_action_label + " failed \xE2\x80\x94 see Output");
     if (!ok && m_hooks.show_output) m_hooks.show_output();
+    bool auth_failed = false;
+    for (const CommandOutput& r : results) auth_failed = auth_failed || (r.code != 0 && github_auth_failure(r.text));
+    if (!ok && auth_failed && !(m_github && m_github->busy())) {
+        const std::optional<GitHubLogin> saved = load_github_login();
+        if (saved) forget_github_login();
+        const std::string label = m_action_label;
+        const std::string why = saved ? "GitHub didn't accept the saved sign-in for " + saved->user + " (the token may have expired or been deleted)." : "GitHub needs you to sign in before " + label + " can push or pull.";
+        m_doc.events().set_timeout(1.0, [this, why, label] {
+            confirm("Sign in to GitHub", why + " Sign in now? Then run " + label + " again.", [this] { sign_in_to_github(); });
+        });
+    }
     if (m_hooks.files_changed) m_hooks.files_changed();
     std::function<void(bool)> done = std::move(m_action_done);
     m_action_done = nullptr;
@@ -529,6 +545,106 @@ void GitPanel::finish_action(std::vector<CommandOutput>& results) {
     if (done) done(ok);
 }
 
+void GitPanel::sign_in_to_github() {
+    if (!m_github) m_github = std::make_unique<GitHubSignIn>();
+    if (m_github->busy()) return;
+    const std::string client = github_client_id(m_hooks.setting ? m_hooks.setting("git", "github-client-id", "") : std::string());
+    if (!client.empty()) {
+        m_github->start_device(client);
+        set_state("Asking GitHub for a sign-in code\xE2\x80\xA6");
+        return;
+    }
+    confirm("Sign in to GitHub", "Signing in through the browser needs Canopy's GitHub app, and this copy of Canopy doesn't have one set (Settings > Explorer, Terminal and Git > GitHub app client ID).\nYou can paste a token from GitHub instead. Make it expire, and Canopy keeps it in " + (secure_store_name().empty() ? std::string("memory until it closes") : secure_store_name()) + ".", [this] { paste_github_token(); });
+}
+
+void GitPanel::paste_github_token() {
+    open_in_browser(github_token_page());
+    grove::PopupOptions options;
+    options.kind = "question";
+    options.title = "Paste a GitHub token";
+    options.message = "GitHub opened in your browser on a page that makes a token for Canopy, with repo and workflow already ticked. Pick an expiration, press Generate token, copy it and paste it here.";
+    options.input = "string";
+    grove::Node* popup = grove::create_popup(m_doc, nullptr, options);
+    if (!popup) return;
+    if (grove::Node* field = grove::query(*popup, ".popup-input")) field->set_attribute("masked", "true");
+    m_doc.events().add_listener(popup, "ok", [this, popup](grove::Event&) {
+        const std::string token = popup->attribute_or("value", "");
+        m_doc.events().set_timeout(1.0, [this, token] {
+            if (m_github->start_token(token)) set_state("Checking the token with GitHub\xE2\x80\xA6");
+        });
+    });
+}
+
+void GitPanel::sign_out_of_github() {
+    const std::optional<GitHubLogin> login = load_github_login();
+    if (!login) return;
+    confirm("Sign out of GitHub", "Forget " + login->user + "'s GitHub sign-in in Canopy? Canopy asks again the next time Git needs it. A copy Git's own credential helper saved stays there.", [this, user = login->user] {
+        forget_github_login();
+        set_state("Signed out of GitHub (" + user + ")");
+    });
+}
+
+void GitPanel::close_sign_in_popup() {
+    if (!m_github_popup) return;
+    m_github_closing = true;
+    grove::answer_popup(m_doc, *m_github_popup, true);
+    m_github_closing = false;
+    m_github_popup = nullptr;
+}
+
+void GitPanel::poll_github_sign_in() {
+    if (!m_github) return;
+    std::optional<GitHubSignIn::Update> u = m_github->take();
+    if (!u) return;
+    if (u->stage == GitHubSignIn::Stage::Code) {
+        grove::set_clipboard_text(m_doc, u->code.user_code);
+        open_in_browser(u->code.verification_uri);
+        grove::PopupOptions options;
+        options.kind = "info";
+        options.title = "Sign in to GitHub";
+        options.message = "Your code is " + u->code.user_code + " (it's copied).\nGitHub opened in your browser at " + u->code.verification_uri + ": paste the code there and press Authorize.\nThis closes by itself once you're signed in. Close it to cancel.";
+        m_github_popup = grove::create_popup(m_doc, nullptr, options);
+        if (m_github_popup) {
+            if (grove::Node* button = grove::query(*m_github_popup, ".popup-ok")) button->set_inner_text("Cancel sign-in");
+            m_doc.events().add_listener(m_github_popup, "ok", [this](grove::Event&) {
+                if (m_github_closing) return;
+                m_github_popup = nullptr;
+                m_github->cancel();
+                set_state("GitHub sign-in cancelled");
+            });
+        }
+        set_state("Waiting for you to enter " + u->code.user_code + " on GitHub\xE2\x80\xA6");
+        return;
+    }
+    if (u->stage == GitHubSignIn::Stage::Failed) {
+        close_sign_in_popup();
+        set_state("GitHub sign-in failed");
+        if (m_hooks.output) m_hooks.output("\nGitHub sign-in failed: " + u->result.error + "\n");
+        if (m_hooks.show_output) m_hooks.show_output();
+        return;
+    }
+    if (u->stage == GitHubSignIn::Stage::Done) {
+        close_sign_in_popup();
+        GitHubLogin login{ u->result.user, u->result.token };
+        u->result.token.clear();
+        if (!save_github_login(login)) {
+            set_state("Signed in, but Canopy couldn't save it");
+            if (m_hooks.output) m_hooks.output("\nCanopy couldn't write " + github_login_path() + "\n");
+            return;
+        }
+        std::string helper;
+        const bool shared = github_share_with_git(login, helper);
+        const std::string storage = github_login_storage();
+        std::string note = "\nSigned in to GitHub as " + login.user + ". Canopy's pushes and pulls use it from now on. It's kept in " + storage + ".";
+        if (storage.rfind("memory", 0) == 0) note += " To stay signed in after Canopy closes, install secret-tool (the libsecret-tools package) and sign in again.";
+        if (shared) note += " Git's credential helper (" + helper + ") has it too, so git in a terminal works without asking.";
+        if (!u->result.scopes.empty() && u->result.scopes.find("workflow") == std::string::npos) note += " This sign-in can't change files in .github/workflows; make a token with workflow ticked if you need to push those.";
+        if (m_hooks.output) m_hooks.output(note + "\n");
+        set_state("Signed in to GitHub as " + login.user);
+        return;
+    }
+}
+
 void GitPanel::set_state(const std::string& text) {
     m_state = text;
     set_text(m_doc, "git-state", text);
@@ -536,6 +652,7 @@ void GitPanel::set_state(const std::string& text) {
 
 void GitPanel::poll(double now) {
     m_now = now;
+    poll_github_sign_in();
     std::vector<Request> finished;
     for (auto it = m_requests.begin(); it != m_requests.end();) {
         if (it->batch->running()) {
@@ -623,7 +740,7 @@ void GitPanel::finish_refresh(std::vector<CommandOutput>& r) {
 
 void GitPanel::file_saved(const std::string& path) {
     m_next_refresh = std::min(m_next_refresh, m_now + 0.4);
-    if (!tasks_root().empty() && fs::path(path).lexically_normal() == fs::path(tasks_path(tasks_root())).lexically_normal()) {
+    if (!tasks_root().empty() && (fs::path(path).lexically_normal() == fs::path(tasks_path(tasks_root())).lexically_normal() || fs::path(path).lexically_normal() == fs::path(local_tasks_path(tasks_root())).lexically_normal())) {
         reload_tasks();
         render_tasks();
     }
@@ -1189,12 +1306,18 @@ void GitPanel::start_task(std::shared_ptr<TaskRun> run) {
 }
 
 void GitPanel::create_tasks_file() {
+    create_tasks_file(false);
+}
+
+void GitPanel::create_tasks_file(bool personal) {
     if (m_root.empty()) {
         set_state("Open a folder first");
         return;
     }
-    const std::string path = tasks_path(m_repo.empty() ? m_root : m_repo);
+    const std::string base = m_repo.empty() ? m_root : m_repo;
+    const std::string path = personal ? local_tasks_path(base) : tasks_path(base);
     std::error_code ec;
+    if (personal && !keep_local_tasks_out_of_git(base)) set_state("Couldn't add tasks.local.bark to .canopy/.gitignore");
     if (!fs::exists(path, ec)) {
         fs::create_directories(fs::path(path).parent_path(), ec);
         if (!write_text_file(path, tasks_template())) {
@@ -1208,10 +1331,24 @@ void GitPanel::create_tasks_file() {
     if (m_hooks.open_file) m_hooks.open_file(path);
 }
 
+void GitPanel::open_local_tasks_file() {
+    if (m_root.empty()) return;
+    std::error_code ec;
+    if (!fs::exists(local_tasks_path(tasks_root()), ec)) {
+        create_tasks_file(true);
+        return;
+    }
+    if (m_hooks.open_file) m_hooks.open_file(local_tasks_path(tasks_root()));
+}
+
 void GitPanel::open_tasks_file() {
     if (m_root.empty()) return;
     std::error_code ec;
     if (!fs::exists(tasks_path(tasks_root()), ec)) {
+        if (fs::exists(local_tasks_path(tasks_root()), ec)) {
+            open_local_tasks_file();
+            return;
+        }
         create_tasks_file();
         return;
     }
@@ -1413,8 +1550,8 @@ void GitPanel::render_changes() {
 void GitPanel::render_tasks() {
     grove::Node* list = m_doc.find_by_id("git-tasks");
     if (!list) return;
-    std::string sig = m_root + "\x1e" + (m_tasks.exists ? "1" : "0") + "\x1e";
-    for (const Task& t : m_tasks.tasks) sig += t.id + "\x1f" + t.title() + "\x1f" + task_summary(t) + "\x1f" + task_hook_name(t.on_build) + task_hook_name(t.on_run) + "\x1e";
+    std::string sig = m_root + "\x1e" + (m_tasks.exists ? "1" : "0") + (m_tasks.shared_exists ? "1" : "0") + (m_tasks.local_exists ? "1" : "0") + "\x1e";
+    for (const Task& t : m_tasks.tasks) sig += t.id + "\x1f" + t.title() + "\x1f" + task_summary(t) + "\x1f" + task_hook_name(t.on_build) + task_hook_name(t.on_run) + (t.personal ? "p" : "s") + "\x1e";
     for (const std::string& p : m_tasks.problems) sig += p + "\x1e";
     if (sig == m_sig_tasks) return;
     m_sig_tasks = sig;
@@ -1425,9 +1562,13 @@ void GitPanel::render_tasks() {
     }
     if (!m_tasks.exists) {
         add(m_doc, *list, "p", "A tasks file runs a list of Git, CMake and shell steps with one click, like commit, merge into main, tag and push.", "muted");
-        grove::Node* make = add(m_doc, *list, "text", "Create tasks.bark", "view-button");
-        make->set_attribute("data-tasks-create", "1");
-        make->set_attribute("title", "Write .canopy/tasks.bark with a release, commit and CMake task to start from");
+        grove::Node* buttons = add(m_doc, *list, "row", "", "git-task-buttons");
+        grove::Node* make = add(m_doc, *buttons, "text", "Create tasks.bark", "view-button");
+        make->set_attribute("data-tasks-create", "shared");
+        make->set_attribute("title", "Write .canopy/tasks.bark with a release, commit and CMake task to start from. It's committed with the project, so everyone who opens it gets the same tasks");
+        grove::Node* mine = add(m_doc, *buttons, "text", "Create my tasks", "view-button");
+        mine->set_attribute("data-tasks-create", "local");
+        mine->set_attribute("title", "Write .canopy/tasks.local.bark: tasks just for you on this computer. Canopy adds it to .canopy/.gitignore so it's never committed");
         return;
     }
     for (std::size_t i = 0; i < m_tasks.problems.size() && i < 3; ++i) add(m_doc, *list, "p", m_tasks.problems[i], "git-problem");
@@ -1436,7 +1577,8 @@ void GitPanel::render_tasks() {
         grove::Node* row = add(m_doc, *list, "row", "", "git-task");
         grove::Node* text = add(m_doc, *row, "column", "", "git-task-text");
         text->set_attribute("data-task-line", std::to_string(t.line));
-        add(m_doc, *text, "div", t.title(), "git-task-name");
+        text->set_attribute("data-task-file", t.file);
+        add(m_doc, *text, "div", t.title() + (t.personal ? "  \xC2\xB7 yours" : ""), "git-task-name");
         std::string summary = task_summary(t);
         if (t.on_build != TaskHook::None) summary = "on build: " + task_hook_name(t.on_build) + (summary.empty() ? std::string() : " \xC2\xB7 " + summary);
         if (t.on_run != TaskHook::None) summary = "on run: " + task_hook_name(t.on_run) + (summary.empty() ? std::string() : " \xC2\xB7 " + summary);
@@ -1445,6 +1587,15 @@ void GitPanel::render_tasks() {
         grove::Node* run = add(m_doc, *row, "text", "Run", "view-button git-run");
         run->set_attribute("data-task", t.id);
         run->set_attribute("title", "Run " + t.title());
+    }
+    if (!m_tasks.local_exists) {
+        grove::Node* mine = add(m_doc, *list, "text", "Add tasks just for you", "view-button git-task-more");
+        mine->set_attribute("data-tasks-create", "local");
+        mine->set_attribute("title", "Write .canopy/tasks.local.bark: tasks only on this computer, never committed. A task there with the same name as a shared one replaces it for you");
+    } else if (!m_tasks.shared_exists) {
+        grove::Node* shared = add(m_doc, *list, "text", "Add shared tasks.bark", "view-button git-task-more");
+        shared->set_attribute("data-tasks-create", "shared");
+        shared->set_attribute("title", "Write .canopy/tasks.bark: tasks committed with the project for everyone");
     }
 }
 
@@ -2138,7 +2289,10 @@ void GitPanel::more_menu(grove::Event& e) {
     }
     items.push_back(grove::menu_separator());
     if (repo) items.push_back(grove::menu_item("clone", "Clone Repository\xE2\x80\xA6"));
-    items.push_back(grove::menu_item("tasks", m_tasks.exists ? "Edit Tasks File" : "Create Tasks File", {}, m_root.empty()));
+    items.push_back(grove::menu_item("tasks", m_tasks.shared_exists ? "Edit Shared Tasks (tasks.bark)" : "Create Shared Tasks (tasks.bark)", {}, m_root.empty()));
+    items.push_back(grove::menu_item("my-tasks", m_tasks.local_exists ? "Edit My Tasks (not shared)" : "Create My Tasks (not shared)", {}, m_root.empty()));
+    if (const std::optional<GitHubLogin> login = load_github_login()) items.push_back(grove::menu_item("github-sign-out", "Sign Out of GitHub (" + login->user + ")"));
+    else items.push_back(grove::menu_item("github-sign-in", "Sign in to GitHub\xE2\x80\xA6", {}, m_github && m_github->busy()));
     items.push_back(grove::menu_item("refresh", "Refresh"));
     grove::open_menu(m_doc, *owner, items, e.x, e.y);
     e.default_prevented = true;
@@ -2151,6 +2305,10 @@ void GitPanel::more_action(const std::string& act) {
     }
     if (act == "init") {
         action({ step(git({ "init" })) }, "Initialize repository", {}, m_root);
+    } else if (act == "github-sign-in") {
+        sign_in_to_github();
+    } else if (act == "github-sign-out") {
+        sign_out_of_github();
     } else if (act == "branch") {
         new_branch();
     } else if (act == "clone") {
@@ -2198,7 +2356,10 @@ void GitPanel::more_action(const std::string& act) {
             action({ step(git({ "reset", "--hard", "HEAD" })), step(git({ "clean", "-fd" })) }, "Discard all changes");
         });
     } else if (act == "tasks") {
-        open_tasks_file();
+        if (m_tasks.shared_exists) open_tasks_file();
+        else create_tasks_file(false);
+    } else if (act == "my-tasks") {
+        open_local_tasks_file();
     } else if (act == "refresh") {
         rescan_repos();
         reload_tasks();

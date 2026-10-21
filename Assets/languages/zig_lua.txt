@@ -1,0 +1,131 @@
+zig-keyword|keyword|const|const name: Type = value;|A constant binding.
+zig-keyword|keyword|var|var name: Type = value;|A variable.
+zig-keyword|keyword|fn|fn name(arg: Type) Ret { … }|Defines a function.
+zig-keyword|keyword|pub|pub fn name()|Makes a declaration visible to other files.
+zig-keyword|keyword|struct|struct { field: Type }|A struct type.
+zig-keyword|keyword|enum|enum { a, b }|An enum type.
+zig-keyword|keyword|union|union(enum) { a: i32, b: f32 }|A union; union(enum) is tagged.
+zig-keyword|keyword|error|error{ NotFound, Invalid }|An error set.
+zig-keyword|keyword|try|try expr|Returns the error if expr fails, otherwise its value.
+zig-keyword|keyword|catch|expr catch |err| fallback|Handles an error.
+zig-keyword|keyword|defer|defer expr;|Runs expr when the scope ends.
+zig-keyword|keyword|errdefer|errdefer expr;|Runs expr when the scope ends with an error.
+zig-keyword|keyword|comptime|comptime expr|Evaluates at compile time.
+zig-keyword|keyword|orelse|optional orelse fallback|The value, or the fallback when null.
+zig-keyword|keyword|if|if (cond) a else b|A branch; with a capture after it, it also unwraps optionals and errors.
+zig-keyword|keyword|while|while (cond) : (i += 1) { … }|A loop with an optional continue expression.
+zig-keyword|keyword|for|for (items, 0..) |item, i| { … }|Loops over slices and ranges.
+zig-keyword|keyword|switch|switch (x) { 1 => …, else => … }|Picks a branch; must cover every case.
+zig-keyword|keyword|return|return value;|Returns from the function.
+zig-keyword|keyword|test|test "name" { … }|A test run by `zig test`.
+zig-keyword|keyword|unreachable|unreachable|Asserts this code is never reached.
+zig-keyword|constant|null||The empty optional.
+zig-keyword|constant|undefined||An uninitialized value.
+zig-builtin|function|@import|@import("std")|Imports a package or file.
+zig-builtin|function|@as|@as(T, value)|Converts to a type when it's safe.
+zig-builtin|function|@intCast|@intCast(value)|Converts between integer types; checked in safe builds.
+zig-builtin|function|@floatFromInt|@floatFromInt(int)|Integer to float.
+zig-builtin|function|@intFromFloat|@intFromFloat(float)|Float to integer.
+zig-builtin|function|@truncate|@truncate(value)|Drops high bits.
+zig-builtin|function|@sizeOf|@sizeOf(T)|The size of a type in bytes.
+zig-builtin|function|@TypeOf|@TypeOf(expr)|The type of an expression.
+zig-builtin|function|@typeInfo|@typeInfo(T)|Reflection information about a type.
+zig-builtin|function|@panic|@panic("message")|Stops with an error.
+zig-builtin|function|@compileError|@compileError("message")|Fails compilation with a message.
+zig-builtin|function|@embedFile|@embedFile("path")|A file's contents as a string at compile time.
+zig-builtin|function|@memcpy|@memcpy(dest, src)|Copies memory.
+zig-builtin|function|@field|@field(obj, "name")|A field by name.
+zig-builtin|function|@This|@This()|The innermost struct, enum or union.
+zig:std|module|debug||print, assert, panic.
+zig:std|module|mem||Memory and slices: eql, copy, Allocator.
+zig:std|module|heap||Allocators: page_allocator, GeneralPurposeAllocator, ArenaAllocator.
+zig:std|module|fs||Files and folders.
+zig:std|module|fmt||Formatting and parsing numbers.
+zig:std|module|io||Readers and writers.
+zig:std|module|math||Math functions.
+zig:std|module|process||Arguments, environment, child processes.
+zig:std|module|testing||expect, expectEqual for tests.
+zig:std|type|ArrayList|std.ArrayList(T)|A growable list.
+zig:std|type|AutoHashMap|std.AutoHashMap(K, V)|A hash map.
+zig:std.debug|function|print|std.debug.print("{d}\n", .{value})|Prints to standard error.
+zig:std.debug|function|assert|std.debug.assert(ok)|Panics when false in safe builds.
+zig:std.mem|function|eql|std.mem.eql(u8, a, b) -> bool|Whether two slices are equal.
+zig:std.mem|function|copyForwards|std.mem.copyForwards(T, dest, src)|Copies items.
+zig:std.mem|function|splitScalar|std.mem.splitScalar(u8, text, ',')|Splits on a delimiter.
+zig:std.heap|variable|page_allocator||An allocator that asks the OS for pages.
+zig:std.heap|type|ArenaAllocator|std.heap.ArenaAllocator.init(child)|Frees everything at once with deinit().
+zig:std.heap|type|GeneralPurposeAllocator|std.heap.GeneralPurposeAllocator(.{}){}|An allocator that detects leaks and double frees.
+zig:std.testing|function|expect|try std.testing.expect(ok)|Fails the test when false.
+zig:std.testing|function|expectEqual|try std.testing.expectEqual(expected, actual)|Fails the test when they differ.
+lua-keyword|keyword|local|local name = value|A local variable.
+lua-keyword|keyword|function|function name(args) … end|Defines a function.
+lua-keyword|keyword|if|if cond then … elseif … else … end|A branch.
+lua-keyword|keyword|for|for i = 1, n do … end / for k, v in pairs(t) do … end|A numeric or generic loop.
+lua-keyword|keyword|while|while cond do … end|Loops while true.
+lua-keyword|keyword|repeat|repeat … until cond|Loops until the condition is true.
+lua-keyword|keyword|return|return values|Returns from a function.
+lua-keyword|keyword|end|end|Closes a block.
+lua-keyword|keyword|then|then|Starts an if branch.
+lua-keyword|keyword|do|do … end|Starts a loop body or a block.
+lua-keyword|keyword|nil|nil|No value.
+lua-keyword|keyword|and|a and b|Logical and.
+lua-keyword|keyword|or|a or b|Logical or.
+lua-keyword|keyword|not|not a|Logical not.
+lua-keyword|constant|true||The boolean true.
+lua-keyword|constant|false||The boolean false.
+lua-builtin|function|print|print(...)|Prints the values separated by tabs.
+lua-builtin|function|type|type(v) -> string|"nil", "number", "string", "table", "function"…
+lua-builtin|function|pairs|pairs(t)|Iterates over every key and value.
+lua-builtin|function|ipairs|ipairs(t)|Iterates over t[1], t[2], … until nil.
+lua-builtin|function|tostring|tostring(v) -> string|A string.
+lua-builtin|function|tonumber|tonumber(v, base) -> number|A number, or nil.
+lua-builtin|function|require|require("module")|Loads a module.
+lua-builtin|function|pcall|pcall(f, ...) -> ok, result|Calls f and catches errors.
+lua-builtin|function|error|error(message, level)|Raises an error.
+lua-builtin|function|assert|assert(v, message)|Raises an error when v is false or nil.
+lua-builtin|function|setmetatable|setmetatable(t, mt) -> t|Sets a table's metatable.
+lua-builtin|function|getmetatable|getmetatable(t)|A table's metatable.
+lua-builtin|function|select|select(n, ...)|Arguments from the nth on, or "#" for the count.
+lua-builtin|function|next|next(t, key)|The next key and value.
+lua-builtin|module|string||String functions; also usable as s:method().
+lua-builtin|module|table||Table functions.
+lua-builtin|module|math||Math functions.
+lua-builtin|module|io||Files and standard input/output.
+lua-builtin|module|os||Time, environment, files.
+lua-builtin|module|coroutine||Coroutines.
+lua:string|function|format|string.format(fmt, ...)|printf-style formatting.
+lua:string|function|sub|string.sub(s, i, j)|A substring.
+lua:string|function|len|string.len(s)|The length.
+lua:string|function|upper|string.upper(s)|Upper case.
+lua:string|function|lower|string.lower(s)|Lower case.
+lua:string|function|find|string.find(s, pattern, init, plain)|Where the pattern is.
+lua:string|function|match|string.match(s, pattern)|The captures of the first match.
+lua:string|function|gmatch|string.gmatch(s, pattern)|An iterator over matches.
+lua:string|function|gsub|string.gsub(s, pattern, repl)|Replaces matches.
+lua:string|function|rep|string.rep(s, n)|Repeated.
+lua:string|function|byte|string.byte(s, i)|Character codes.
+lua:string|function|char|string.char(...)|A string from codes.
+lua:table|function|insert|table.insert(t, [pos,] value)|Inserts into a list.
+lua:table|function|remove|table.remove(t, pos)|Removes from a list.
+lua:table|function|concat|table.concat(t, sep)|Joins a list of strings.
+lua:table|function|sort|table.sort(t, comp)|Sorts a list in place.
+lua:table|function|unpack|table.unpack(t)|The list's items as separate values.
+lua:math|function|floor|math.floor(x)|Rounds down.
+lua:math|function|ceil|math.ceil(x)|Rounds up.
+lua:math|function|abs|math.abs(x)|The absolute value.
+lua:math|function|max|math.max(x, ...)|The largest.
+lua:math|function|min|math.min(x, ...)|The smallest.
+lua:math|function|random|math.random(m, n)|A random number.
+lua:math|function|sqrt|math.sqrt(x)|The square root.
+lua:math|constant|pi||π.
+lua:math|constant|huge||Infinity.
+lua:io|function|read|io.read(format)|Reads from standard input: "l" a line, "n" a number, "a" everything.
+lua:io|function|write|io.write(...)|Writes without a newline.
+lua:io|function|open|io.open(path, mode) -> file|Opens a file.
+lua:io|function|lines|io.lines(path)|An iterator over a file's lines.
+lua:os|function|time|os.time()|The current time.
+lua:os|function|clock|os.clock()|CPU time used.
+lua:os|function|date|os.date(format)|A formatted date.
+lua:os|function|getenv|os.getenv(name)|An environment variable.
+lua:os|function|exit|os.exit(code)|Ends the program.
+lua:os|function|remove|os.remove(path)|Deletes a file.

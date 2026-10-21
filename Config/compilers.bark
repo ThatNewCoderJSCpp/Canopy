@@ -3,6 +3,22 @@ toolchain {
     cpp: auto;
     walnut: auto;
     grove: auto;
+    node: auto;
+    zig: auto;
+    rustc: auto;
+    cargo: auto;
+    python: auto;
+    lua: auto;
+    luac: auto;
+    java: auto;
+    javac: auto;
+    dotnet: auto;
+    mcs: auto;
+    mono: auto;
+    nasm: auto;
+    yasm: auto;
+    fasm: auto;
+    masm: auto;
 }
 
 language.c {
@@ -23,8 +39,47 @@ language.walnut {
     flags: "";
     debug-flags: "-g";
     release-flags: "-O2";
+    checks: "off";
+    leak-check: "off";
+    gc: false;
+    ownership: false;
 }
 
 language.grove {
     flags: "";
+}
+
+language.rust {
+    edition: "2021";
+    flags: "";
+    debug-flags: "";
+    release-flags: "";
+}
+
+language.zig {
+    flags: "";
+    debug-flags: "";
+    release-flags: "";
+}
+
+language.python {
+    flags: "";
+}
+
+language.java {
+    flags: "";
+    debug-flags: "";
+    release-flags: "";
+}
+
+language.csharp {
+    flags: "";
+}
+
+language.asm {
+    dialect: auto;
+    arch: auto;
+    flags: "";
+    debug-flags: "";
+    release-flags: "";
 }

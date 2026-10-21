@@ -8,8 +8,10 @@
 #include <grove/markup/node.hpp>
 
 #include <functional>
+#include <cstdint>
 #include <map>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -50,6 +52,8 @@ public:
     struct Hooks {
         std::function<void()> changed;
         std::function<void(const std::string&)> open_file;
+        std::function<std::string()> project_file;
+        std::function<void(const std::string&)> project_names_changed;
     };
 
     SettingsPage(grove::Document& doc, Workspace& workspace, std::vector<Theme>& themes, Hooks hooks);
@@ -75,6 +79,13 @@ private:
     void build_gui(grove::Node& body);
     void build_highlighting(grove::Node& body);
     void build_shortcuts(grove::Node& body);
+    void build_characters(grove::Node& body);
+    void fill_character_search(grove::Node& results, const std::string& query);
+    void edit_project_name(std::size_t index, const std::string& name, const std::string& value);
+    void remove_project_name(std::size_t index);
+    void add_project_name();
+    void set_names_for_code(std::uint32_t code, const std::string& typed);
+    std::string character_file() const;
     void write_shortcut(const std::string& id, const std::string& text);
     void heading(grove::Node& body, const std::string& title, const std::string& note);
     grove::Node* setting_row(grove::Node& parent, const std::string& section, const std::string& key);
@@ -87,6 +98,7 @@ private:
     void on_size_change(grove::Node& target);
     double page_zoom() const;
     void choice_control(grove::Node& row, const std::string& section, const std::string& key, const std::vector<std::string>& choices);
+    void multi_control(grove::Node& row, const std::string& section, const std::string& key, const std::vector<std::string>& choices);
     void tool_row(grove::Node& body, const std::string& key, const std::string& label);
     void viewer_tool_row(grove::Node& body, const std::string& key, const std::string& label, const std::string& kinds);
     void theme_cards(grove::Node& body);
@@ -125,6 +137,8 @@ private:
     Hooks m_hooks;
     grove::Node* m_root = nullptr;
     grove::Node* m_body = nullptr;
+    grove::Node* m_nav = nullptr;
+    std::string m_body_page;
     grove::Node* m_preview = nullptr;
     std::string m_page = "editor";
     std::string m_language = "cpp";
@@ -138,6 +152,8 @@ private:
     Sections m_saved;
     std::string m_notice;
     std::string m_recording;
+    std::string m_char_search;
+    std::set<std::string> m_char_open;
     grove::Node* m_status = nullptr;
 };
 

@@ -48,6 +48,8 @@ struct Task {
     TaskHook on_run = TaskHook::None;
     bool keep_going = false;
     std::size_t line = 0;
+    std::string file;
+    bool personal = false;
 
     std::string title() const { return label.empty() ? id : label; }
 };
@@ -57,6 +59,9 @@ struct TaskFile {
     std::vector<Task> tasks;
     std::vector<std::string> problems;
     bool exists = false;
+    std::string local_path;
+    bool shared_exists = false;
+    bool local_exists = false;
 
     const Task* find(const std::string& id) const;
     const Task* hooked_build(TaskHook hook) const;
@@ -72,6 +77,8 @@ struct TaskContext {
 
 std::string tasks_path(const std::string& workspace_root);
 std::string tasks_template();
+std::string local_tasks_path(const std::string& workspace_root);
+bool keep_local_tasks_out_of_git(const std::string& workspace_root);
 TaskFile parse_tasks(const std::string& text, const std::string& path);
 TaskFile load_tasks(const std::string& workspace_root);
 TaskHook parse_task_hook(const std::string& text);

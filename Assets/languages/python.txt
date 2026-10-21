@@ -1,0 +1,190 @@
+python-keyword|keyword|def|def name(params): …|Defines a function.
+python-keyword|keyword|class|class Name(Base): …|Defines a class.
+python-keyword|keyword|lambda|lambda args: expression|A small anonymous function.
+python-keyword|keyword|import|import module|Loads a module.
+python-keyword|keyword|from|from module import name|Imports names from a module.
+python-keyword|keyword|as|import module as alias|Gives an import or a `with`/`except` target a name.
+python-keyword|keyword|if|if condition: …|Runs the block when the condition is true.
+python-keyword|keyword|elif|elif condition: …|Another condition, tried when the ones before were false.
+python-keyword|keyword|else|else: …|Runs when nothing before matched (also after `for`, `while` and `try`).
+python-keyword|keyword|for|for item in iterable: …|Loops over the items.
+python-keyword|keyword|while|while condition: …|Loops while the condition is true.
+python-keyword|keyword|break|break|Leaves the loop.
+python-keyword|keyword|continue|continue|Skips to the next iteration.
+python-keyword|keyword|return|return value|Ends the function and gives back a value.
+python-keyword|keyword|pass|pass|Does nothing; a placeholder block.
+python-keyword|keyword|try|try: … except Error as e: …|Runs code and catches exceptions.
+python-keyword|keyword|except|except ValueError as e: …|Handles an exception.
+python-keyword|keyword|finally|finally: …|Runs whether or not an exception happened.
+python-keyword|keyword|raise|raise ValueError("message")|Raises an exception.
+python-keyword|keyword|with|with open(path) as f: …|Uses a context manager that cleans up after the block.
+python-keyword|keyword|yield|yield value|Produces a value from a generator.
+python-keyword|keyword|async|async def name(): …|Defines a coroutine.
+python-keyword|keyword|await|await coroutine|Waits for a coroutine.
+python-keyword|keyword|global|global name|Assigns to a module-level variable from inside a function.
+python-keyword|keyword|nonlocal|nonlocal name|Assigns to a variable of the enclosing function.
+python-keyword|keyword|del|del name|Deletes a name, item or attribute.
+python-keyword|keyword|assert|assert condition, "message"|Raises AssertionError when the condition is false.
+python-keyword|keyword|match|match value: case pattern: …|Structural pattern matching.
+python-keyword|keyword|case|case pattern: …|One branch of a `match`.
+python-keyword|keyword|in|x in container|Whether x is in the container; also `for x in …`.
+python-keyword|keyword|is|a is b|Whether both are the same object.
+python-keyword|keyword|not|not x|Logical not.
+python-keyword|keyword|and|a and b|Logical and.
+python-keyword|keyword|or|a or b|Logical or.
+python-keyword|constant|True||The boolean true.
+python-keyword|constant|False||The boolean false.
+python-keyword|constant|None||No value.
+python-builtin|function|print|print(*values, sep=" ", end="\n", file=sys.stdout)|Prints the values.
+python-builtin|function|input|input(prompt="") -> str|Reads a line typed by the user.
+python-builtin|function|len|len(obj) -> int|How many items it has.
+python-builtin|function|range|range(start, stop, step)|A sequence of integers, for loops.
+python-builtin|function|enumerate|enumerate(iterable, start=0)|Pairs of (index, item).
+python-builtin|function|zip|zip(*iterables)|Tuples of items taken from each iterable in turn.
+python-builtin|function|map|map(function, iterable)|Applies the function to every item.
+python-builtin|function|filter|filter(function, iterable)|The items the function keeps.
+python-builtin|function|sorted|sorted(iterable, key=None, reverse=False) -> list|A new sorted list.
+python-builtin|function|reversed|reversed(sequence)|The items backwards.
+python-builtin|function|sum|sum(iterable, start=0)|Adds the items.
+python-builtin|function|min|min(iterable) or min(a, b, …)|The smallest item.
+python-builtin|function|max|max(iterable) or max(a, b, …)|The largest item.
+python-builtin|function|abs|abs(x)|The absolute value.
+python-builtin|function|round|round(number, ndigits=None)|Rounds to the nearest value.
+python-builtin|function|open|open(file, mode="r", encoding=None)|Opens a file; use with `with`.
+python-builtin|function|isinstance|isinstance(obj, class_or_tuple) -> bool|Whether obj is an instance of the class.
+python-builtin|function|type|type(obj)|The type of the object.
+python-builtin|function|int|int(x=0, base=10)|An integer from a number or a string.
+python-builtin|function|float|float(x)|A floating-point number.
+python-builtin|function|str|str(obj)|A string.
+python-builtin|function|bool|bool(x)|True or False.
+python-builtin|function|list|list(iterable)|A new list.
+python-builtin|function|dict|dict(**kwargs) or dict(pairs)|A new dictionary.
+python-builtin|function|set|set(iterable)|A new set.
+python-builtin|function|tuple|tuple(iterable)|A new tuple.
+python-builtin|function|repr|repr(obj) -> str|The printable representation.
+python-builtin|function|any|any(iterable) -> bool|Whether any item is true.
+python-builtin|function|all|all(iterable) -> bool|Whether every item is true.
+python-builtin|function|getattr|getattr(obj, name, default)|An attribute by name.
+python-builtin|function|setattr|setattr(obj, name, value)|Sets an attribute by name.
+python-builtin|function|hasattr|hasattr(obj, name) -> bool|Whether the attribute exists.
+python-builtin|function|super|super()|The parent class, to call its methods.
+python-builtin|function|chr|chr(code) -> str|The character with this code.
+python-builtin|function|ord|ord(char) -> int|The code of the character.
+python-builtin|function|hex|hex(x) -> str|The integer in hexadecimal.
+python-builtin|function|iter|iter(obj)|An iterator.
+python-builtin|function|next|next(iterator, default)|The next item.
+python-builtin|function|format|format(value, spec)|The value formatted.
+python-builtin|function|divmod|divmod(a, b)|(a // b, a % b).
+python-builtin|function|pow|pow(base, exp, mod=None)|Power, optionally modulo.
+python-builtin|function|exit|exit(code=0)|Leaves the program.
+python-module|module|os||Operating system: files, folders, environment variables, processes.
+python-module|module|sys||The interpreter: argv, exit, path, stdin/stdout.
+python-module|module|math||Math functions and constants.
+python-module|module|random||Random numbers and choices.
+python-module|module|json||Reads and writes JSON.
+python-module|module|re||Regular expressions.
+python-module|module|time||Time, sleeping and timing.
+python-module|module|datetime||Dates and times.
+python-module|module|pathlib||Object-oriented paths: Path("a") / "b".
+python-module|module|subprocess||Runs other programs.
+python-module|module|collections||Counter, defaultdict, deque, namedtuple.
+python-module|module|itertools||Iterator building blocks.
+python-module|module|functools||lru_cache, partial, reduce.
+python-module|module|typing||Type hints.
+python-module|module|dataclasses||@dataclass classes.
+python-module|module|csv||Reads and writes CSV files.
+python-module|module|shutil||Copies and moves files and folders.
+python-module|module|argparse||Command-line arguments.
+python-module|module|logging||Logging.
+python-module|module|threading||Threads.
+python-module|module|asyncio||Async I/O.
+python-module|module|unittest||Unit tests.
+python:str|method|split|s.split(sep=None, maxsplit=-1) -> list|Splits the string.
+python:str|method|join|sep.join(iterable) -> str|Joins the items with this string between them.
+python:str|method|strip|s.strip(chars=None) -> str|Without whitespace (or the chars) at both ends.
+python:str|method|lower|s.lower() -> str|Lower case.
+python:str|method|upper|s.upper() -> str|Upper case.
+python:str|method|replace|s.replace(old, new, count=-1) -> str|Replaces occurrences.
+python:str|method|startswith|s.startswith(prefix) -> bool|Whether it starts with the prefix.
+python:str|method|endswith|s.endswith(suffix) -> bool|Whether it ends with the suffix.
+python:str|method|find|s.find(sub) -> int|The index of sub, or -1.
+python:str|method|format|s.format(*args, **kwargs) -> str|Fills in `{}` fields.
+python:str|method|isdigit|s.isdigit() -> bool|Whether every character is a digit.
+python:str|method|count|s.count(sub) -> int|How many times sub occurs.
+python:str|method|splitlines|s.splitlines() -> list|The lines.
+python:str|method|encode|s.encode("utf-8") -> bytes|Encodes as bytes.
+python:list|method|append|lst.append(item)|Adds an item at the end.
+python:list|method|extend|lst.extend(iterable)|Adds every item.
+python:list|method|insert|lst.insert(index, item)|Inserts at an index.
+python:list|method|pop|lst.pop(index=-1)|Removes and returns an item.
+python:list|method|remove|lst.remove(value)|Removes the first item equal to value.
+python:list|method|sort|lst.sort(key=None, reverse=False)|Sorts in place.
+python:list|method|reverse|lst.reverse()|Reverses in place.
+python:list|method|index|lst.index(value) -> int|The index of the first match.
+python:list|method|count|lst.count(value) -> int|How many items equal value.
+python:list|method|copy|lst.copy() -> list|A shallow copy.
+python:list|method|clear|lst.clear()|Removes every item.
+python:dict|method|get|d.get(key, default=None)|The value, or the default when the key is missing.
+python:dict|method|keys|d.keys()|The keys.
+python:dict|method|values|d.values()|The values.
+python:dict|method|items|d.items()|(key, value) pairs.
+python:dict|method|pop|d.pop(key, default)|Removes and returns a value.
+python:dict|method|update|d.update(other)|Adds the other mapping's pairs.
+python:dict|method|setdefault|d.setdefault(key, default)|The value, setting it to default first if missing.
+python:dict|method|clear|d.clear()|Removes every pair.
+python:os|function|listdir|os.listdir(path=".") -> list|The names in a folder.
+python:os|function|getcwd|os.getcwd() -> str|The current folder.
+python:os|function|makedirs|os.makedirs(path, exist_ok=False)|Makes a folder and its parents.
+python:os|function|remove|os.remove(path)|Deletes a file.
+python:os|function|rename|os.rename(src, dst)|Renames or moves.
+python:os|function|getenv|os.getenv(name, default=None)|An environment variable.
+python:os|variable|environ||The environment variables as a dict.
+python:os|module|path||Path helpers: os.path.join, exists, isfile, basename…
+python:os.path|function|join|os.path.join(a, *parts) -> str|Joins path parts.
+python:os.path|function|exists|os.path.exists(path) -> bool|Whether the path exists.
+python:os.path|function|isfile|os.path.isfile(path) -> bool|Whether it's a file.
+python:os.path|function|isdir|os.path.isdir(path) -> bool|Whether it's a folder.
+python:os.path|function|basename|os.path.basename(path) -> str|The last part.
+python:os.path|function|dirname|os.path.dirname(path) -> str|The folder part.
+python:os.path|function|splitext|os.path.splitext(path) -> (root, ext)|Splits off the extension.
+python:os.path|function|abspath|os.path.abspath(path) -> str|An absolute path.
+python:sys|variable|argv||The command-line arguments; argv[0] is the script.
+python:sys|function|exit|sys.exit(code=0)|Leaves the program.
+python:sys|variable|path||Where imports are searched for.
+python:sys|variable|stdin||Standard input.
+python:sys|variable|stdout||Standard output.
+python:sys|variable|stderr||Standard error.
+python:sys|variable|platform||"linux", "win32", "darwin"…
+python:math|function|sqrt|math.sqrt(x)|The square root.
+python:math|function|floor|math.floor(x) -> int|Rounds down.
+python:math|function|ceil|math.ceil(x) -> int|Rounds up.
+python:math|function|sin|math.sin(x)|Sine, in radians.
+python:math|function|cos|math.cos(x)|Cosine, in radians.
+python:math|function|log|math.log(x, base=e)|Logarithm.
+python:math|function|isclose|math.isclose(a, b)|Whether two floats are close.
+python:math|constant|pi||π.
+python:math|constant|e||e.
+python:math|constant|inf||Infinity.
+python:random|function|random|random.random() -> float|A float from 0 up to 1.
+python:random|function|randint|random.randint(a, b) -> int|An integer from a to b, both included.
+python:random|function|choice|random.choice(seq)|A random item.
+python:random|function|shuffle|random.shuffle(lst)|Shuffles in place.
+python:random|function|sample|random.sample(population, k) -> list|k different random items.
+python:json|function|loads|json.loads(text)|Parses JSON text.
+python:json|function|dumps|json.dumps(obj, indent=None) -> str|Turns a value into JSON text.
+python:json|function|load|json.load(file)|Reads JSON from a file.
+python:json|function|dump|json.dump(obj, file, indent=None)|Writes JSON to a file.
+python:re|function|search|re.search(pattern, string)|The first match anywhere, or None.
+python:re|function|match|re.match(pattern, string)|A match at the start, or None.
+python:re|function|findall|re.findall(pattern, string) -> list|Every match.
+python:re|function|sub|re.sub(pattern, repl, string) -> str|Replaces matches.
+python:re|function|compile|re.compile(pattern)|A compiled pattern.
+python:time|function|sleep|time.sleep(seconds)|Waits.
+python:time|function|time|time.time() -> float|Seconds since 1970.
+python:time|function|perf_counter|time.perf_counter() -> float|A precise timer.
+python:subprocess|function|run|subprocess.run(args, capture_output=False, text=False, check=False)|Runs a program and waits.
+python:file|method|read|f.read(size=-1)|Reads the rest of the file.
+python:file|method|readline|f.readline()|Reads one line.
+python:file|method|readlines|f.readlines() -> list|Reads every line.
+python:file|method|write|f.write(text)|Writes text.
+python:file|method|close|f.close()|Closes the file.

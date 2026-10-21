@@ -35,6 +35,26 @@
                         <button id="run-button" class="primary">Run</button>
                     </row>
                 </row>
+                <column id="find-bar" class="hidden">
+                    <row id="find-row">
+                        <text id="find-toggle-replace" class="find-arrow" title="Show replace (Ctrl+H)">▸</text>
+                        <div class="find-box"><input_string id="find-query" class="find-input" placeholder="Find" title="Enter finds the next match, Shift+Enter the previous one, Alt+Enter selects them all" /></div>
+                        <text id="find-case" class="find-option" title="Match case (Alt+C)">Aa</text>
+                        <text id="find-word" class="find-option" title="Match whole word (Alt+W)">ab</text>
+                        <text id="find-regex" class="find-option" title="Use regular expression (Alt+R)">.*</text>
+                        <text id="find-status" class="find-status"> </text>
+                        <text id="find-prev" class="find-arrow" title="Previous match (Shift+Enter or Shift+F3)">↑</text>
+                        <text id="find-next" class="find-arrow" title="Next match (Enter or F3)">↓</text>
+                        <text id="find-select-all" class="view-button" title="Select every match, each with its own caret (Alt+Enter)">Select All</text>
+                        <text id="find-close" class="find-arrow" title="Close (Escape)">×</text>
+                    </row>
+                    <row id="replace-row" class="hidden">
+                        <div class="find-indent"></div>
+                        <div class="find-box"><input_string id="replace-query" class="find-input" placeholder="Replace" title="Enter replaces the current match, Ctrl+Alt+Enter replaces them all. With .* on, $1 and $&amp; put in what the pattern caught" /></div>
+                        <text id="replace-one" class="view-button" title="Replace the current match and go to the next (Enter)">Replace</text>
+                        <text id="replace-all" class="view-button" title="Replace every match, as one undo step (Ctrl+Alt+Enter)">Replace All</text>
+                    </row>
+                </column>
                 <panel id="editors">
                     <panel id="welcome">
                         <h2>Welcome to Canopy</h2>
@@ -50,6 +70,9 @@
                         <text class="panel-tab active" id="tab-problems" data-view="problems">PROBLEMS</text>
                         <text class="panel-tab" id="tab-warnings" data-view="warnings">WARNINGS</text>
                         <text class="panel-tab" id="tab-output" data-view="output">OUTPUT</text>
+                        <text class="panel-tab" id="tab-stats" data-view="stats" title="How long the last program ran and how much memory it used">STATS</text>
+                        <text class="panel-tab" id="tab-console" data-view="console" title="What pages served from the Ports tab log, and JavaScript to run in them">CONSOLE</text>
+                        <text class="panel-tab" id="tab-elements" data-view="elements" title="The live HTML of a served page; try changes in the page without touching your files">ELEMENTS</text>
                         <text class="panel-tab" id="tab-git" data-view="git">GIT</text>
                         <text class="panel-tab" id="tab-history" data-view="history">HISTORY</text>
                         <text class="panel-tab" id="tab-ports" data-view="ports">PORTS</text>
@@ -76,6 +99,65 @@
                     </panel>
                     <panel id="view-output" class="panel-view">
                         <pre id="output-log">Build and run output shows up here.</pre>
+                    </panel>
+                    <panel id="view-stats" class="panel-view">
+                        <column id="stats">
+                            <p class="muted">Run a program (F5) to see how long it took and how much memory it used.</p>
+                        </column>
+                    </panel>
+                    <panel id="view-console" class="panel-view">
+                        <column id="console">
+                            <row id="console-bar">
+                                <input_select id="console-level" class="console-level" value="info" title="Which messages to show">
+                                    <option value="verbose">All levels</option>
+                                    <option value="info">Default levels</option>
+                                    <option value="warnings">Warnings and errors</option>
+                                    <option value="errors">Errors only</option>
+                                </input_select>
+                                <div class="console-filter-box"><input_string id="console-filter" class="console-filter" placeholder="Filter" title="Only show messages with this text" /></div>
+                                <input_bool id="console-preserve" title="Keep messages when a page reloads (otherwise a reload clears that page's messages)">Preserve log</input_bool>
+                                <button id="console-clear" title="Clear the console (Ctrl+L in the input)">Clear</button>
+                            </row>
+                            <column id="console-log">
+                                <column id="console-empty">
+                                    <p id="console-hint" class="muted">The console shows what pages served by Canopy's local server log.</p>
+                                    <p><link id="console-serve" data-console-serve="workspace">Serve the workspace folder</link></p>
+                                </column>
+                            </column>
+                            <row id="console-input-row">
+                                <text class="console-prompt">›</text>
+                                <div class="console-input-box"><input_string id="console-input" class="console-input" placeholder="Run JavaScript in the open pages: Enter runs it, Up and Down go through what you ran" /></div>
+                                <button id="console-run" title="Run it in every open page">Run</button>
+                            </row>
+                        </column>
+                    </panel>
+                    <panel id="view-elements" class="panel-view">
+                        <column id="elements">
+                            <row id="elements-bar">
+                                <input_select id="elements-page" class="elements-page" title="The open page to inspect"><option value="">No open page</option></input_select>
+                                <button id="elements-refresh" title="Read the page's elements again">Refresh</button>
+                                <button id="elements-reload" title="Reload the page in the browser, which drops every change made here">Reload page</button>
+                                <text class="muted elements-note">Changes only affect the page in the browser, never your files.</text>
+                            </row>
+                            <column id="elements-empty">
+                                <p id="elements-hint" class="muted">Elements shows the HTML of a page Canopy's local server sent.</p>
+                                <p><link id="elements-serve">Serve the workspace folder</link></p>
+                            </column>
+                            <row id="elements-body" class="hidden">
+                                <column id="elements-tree"></column>
+                                <column id="elements-side" class="hidden">
+                                    <row class="elements-side-bar">
+                                        <text id="elements-selected" class="elements-selected">Edit as HTML</text>
+                                    </row>
+                                    <input_code id="elements-html" class="elements-html" language="html" line-numbers="false" value="" />
+                                    <row class="elements-side-buttons">
+                                        <button id="elements-apply" title="Put this into the page (Ctrl+Enter)">Apply</button>
+                                        <button id="elements-revert" title="Go back to what the page has">Revert</button>
+                                        <button id="elements-delete" title="Remove this node from the page">Delete node</button>
+                                    </row>
+                                </column>
+                            </row>
+                        </column>
                     </panel>
                     <panel id="view-git" class="panel-view">
                         <row id="git">

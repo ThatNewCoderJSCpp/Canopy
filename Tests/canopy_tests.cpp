@@ -2,6 +2,7 @@
 #include <canopy/build.hpp>
 #include <canopy/desktop.hpp>
 #include <canopy/git.hpp>
+#include <canopy/github_auth.hpp>
 #include <canopy/history.hpp>
 #include <canopy/tasks.hpp>
 #include <canopy/code_intel.hpp>
@@ -12,11 +13,17 @@
 #include <canopy/markdown.hpp>
 #include <canopy/settings.hpp>
 #include <canopy/settings_page.hpp>
+#include <canopy/special_names.hpp>
 #include <canopy/shortcuts.hpp>
 #include <canopy/terminal.hpp>
 #include <canopy/toolchain.hpp>
 #include <canopy/viewers.hpp>
 #include <canopy/walnut_semantic.hpp>
+#include <canopy/web_docs.hpp>
+#include <canopy/asm_info.hpp>
+#include <canopy/lang_intel.hpp>
+#include <canopy/web_intel.hpp>
+#include <canopy/elements_panel.hpp>
 #include <canopy/workspace.hpp>
 
 #include <grove/bark/parser.hpp>
@@ -56,7 +63,7 @@ bool has_warning(const grove::Diagnostics& d, const std::string& text) {
 void test_defaults() {
     const canopy::Settings s = canopy::Settings::defaults();
     check(s.get_or("language.cpp", "standard", "") == "c++17", "default C++ standard is c++17");
-    check(s.number("editor", "tab-size").value_or(0) == 4, "default tab size is 4");
+    check(s.number("editor", "tab-size").value_or(0) == 2, "default tab size is 2");
     check(s.flag("editor", "insert-spaces"), "insert-spaces defaults to true");
     check(s.get_or("toolchain", "cpp", "") == "auto", "toolchain defaults to auto");
     check(s.get_or("language.cpp", "flags", "") == "-Wall -Wextra -Wpedantic", "flags keep their spaces");
@@ -79,7 +86,7 @@ void test_typos() {
     s.load_text("editor { tab-siz: 2; }\nlangauge.cpp { standard: c++20; }\n", "user.bark", canopy::SettingSource::User, d);
     check(has_warning(d, "did you mean 'tab-size'"), "a misspelled key suggests the right one");
     check(has_warning(d, "did you mean 'language.cpp'"), "a misspelled section suggests the right one");
-    check(s.number("editor", "tab-size").value_or(0) == 4, "a misspelled key doesn't change anything");
+    check(s.number("editor", "tab-size").value_or(0) == 2, "a misspelled key doesn't change anything");
 }
 
 void test_languages() {
@@ -794,7 +801,12 @@ void test_terminal_screen() {
         const auto& names = canopy::settings_file_names();
         check(std::find(names.begin(), names.end(), file) != names.end(), std::string("settings written for [") + section + "] go to " + file + ", which Canopy loads");
     }
-    check(canopy::file_uri("/home/me/My Dir/a,b#c.txt") == "file:///home/me/My%20Dir/a%2Cb%23c.txt", "file URIs are percent-encoded: " + canopy::file_uri("/home/me/My Dir/a,b#c.txt"));
+#if defined(_WIN32)
+    const std::string uri_prefix = "file:///" + std::filesystem::current_path().root_name().generic_string();
+#else
+    const std::string uri_prefix = "file://";
+#endif
+    check(canopy::file_uri("/home/me/My Dir/a,b#c.txt") == uri_prefix + "/home/me/My%20Dir/a%2Cb%23c.txt", "file URIs are percent-encoded: " + canopy::file_uri("/home/me/My Dir/a,b#c.txt"));
     check(canopy::settings_file_for_section("terminal") == "workbench.bark" && canopy::settings_file_for_section("explorer") == "workbench.bark", "explorer and terminal settings live in workbench.bark");
 }
 
@@ -877,6 +889,25 @@ void test_live_server() {
     const std::string page = canopy::inject_live_reload("<html><body>x</body></html>");
     check(page.find("<script>") < page.find("</body>") && page.find("__canopy/reload") != std::string::npos, "live reload goes before </body>");
     check(canopy::folder_listing_html(r, (root / "sub").string(), "/sub/").find("a%20b.css") != std::string::npos, "listings link escaped names");
+    const std::string head_page = canopy::inject_page_script("<!DOCTYPE html>\n<html>\n<head>\n<title>t</title></head><body>x</body></html>", true, true);
+    check(head_page.rfind("<!DOCTYPE html>\n<html>\n<head><script>", 0) == 0, "the page script goes right after <head>, keeping the doctype first: " + head_page.substr(0, 60));
+    check(std::count(head_page.begin(), head_page.end(), '\n') == 3, "the page script adds no lines, so line numbers in the page stay right");
+    check(head_page.find("__canopy/") != std::string::npos && head_page.find("__RELOAD__") == std::string::npos && head_page.find("__CONSOLE__") == std::string::npos, "the page script has its switches filled in");
+    check(canopy::inject_page_script("<p>bare</p>", false, true).rfind("<script>", 0) == 0, "pages without <head> or <html> get the script first");
+    check(canopy::inject_page_script("<!doctype html><p>x</p>", true, false).rfind("<!doctype html><script>", 0) == 0, "a doctype stays the first thing in the page");
+    check(canopy::inject_page_script("<html><head></head></html>", false, false) == "<html><head></head></html>", "nothing is added with reload and console both off");
+    {
+        const std::string us = "\x1f";
+        const std::string rs = "\x1e";
+        const std::string body = "log" + us + "/app.js" + us + "12" + us + "5" + us + "/index.html" + us + "p1" + us + "hello\nworld" + rs + "error" + us + us + "0" + us + "0" + us + "/index.html" + us + "p1" + us + "boom" + rs + "weird" + us + "a" + us + "1" + us + "1" + us + "/" + us + "p2" + us + "x" + rs + "broken";
+        const std::vector<canopy::ConsoleMessage> msgs = canopy::parse_console_messages(body);
+        check(msgs.size() == 3, "console messages are split into records: " + std::to_string(msgs.size()));
+        if (msgs.size() == 3) {
+            check(msgs[0].level == "log" && msgs[0].source == "/app.js" && msgs[0].line == 12 && msgs[0].column == 5 && msgs[0].page == "/index.html" && msgs[0].page_id == "p1" && msgs[0].text == "hello\nworld", "a console record keeps its fields");
+            check(msgs[1].level == "error" && msgs[1].text == "boom" && msgs[1].source.empty(), "errors without a source");
+            check(msgs[2].level == "log", "unknown levels become log");
+        }
+    }
 
     canopy::LiveServer a;
     canopy::LiveServer b;
@@ -888,6 +919,10 @@ void test_live_server() {
         check(a.url() == "http://localhost:" + std::to_string(a.port()) + "/", "server URL");
         check(a.url((root / "sub" / "a b.css").string()) == a.url() + "sub/a%20b.css", "URL of a file in the folder");
         check(a.contains((root / "sub").string()) && !a.contains(root.parent_path().string()), "contains only its folder");
+        check(a.file_for_url("/sub/a%20b.css?v=1") == (root / "sub" / "a b.css").string() && a.file_for_url("http://localhost:1/about") == (root / "about.html").string() && a.file_for_url("/nope.js").empty(), "console sources map back to files");
+        check(a.console() && a.evaluate("1 + 1") == 0 && a.pages() == 0, "the console starts on and has no pages yet");
+        a.set_console(false);
+        check(!a.console() && a.take_console().empty(), "the console can be turned off");
         a.stop();
         b.stop();
         check(!a.running(), "servers stop");
@@ -1351,6 +1386,427 @@ void test_bark_properties() {
     fs::remove_all(root, ec);
 }
 
+void test_special_names() {
+    std::uint32_t cp = 0;
+    check(canopy::special_character("alpha", cp) && cp == 0x3B1, "\\s{alpha} is U+03B1");
+    check(canopy::special_character("Beta", cp) && cp == 0x392, "names are case-sensitive: Beta is U+0392");
+    check(canopy::special_character("infty", cp) && cp == 0x221E && canopy::special_character("infin", cp) && cp == 0x221E, "LaTeX and HTML names both work");
+    check(!canopy::special_character("alhpa", cp) && canopy::special_character_suggestion("alhpa") == "alpha", "a swapped pair of letters suggests the right name");
+    check(canopy::special_character_suggestion("ALPHA") == "Alpha" || canopy::special_character_suggestion("ALPHA") == "alpha", "a wrongly cased name suggests the right one");
+    check(canopy::special_character_suggestion("zzzzzzzz").empty(), "nothing close means no suggestion");
+    const auto names = canopy::special_character_names("lambd");
+    check(std::find(names.begin(), names.end(), "lambda") != names.end(), "names can be listed by prefix");
+    canopy::CompletionSources none;
+    const std::string wal = "string: s = \"\\s{lamb\";\n";
+    grove::CompletionList list = complete_at("walnut", wal, 0, 20, none);
+    check(!list.items.empty() && list.items[0].label == "lambda" && list.items[0].insert == "lambda}" && list.column == 16, "names complete after \\s{ in Walnut, closing the brace");
+    list = complete_at("walnut", "string: s = \"\\\\s{lamb\";\n", 0, 21, none);
+    check(!has_label(list, "lambda"), "an escaped backslash before s{ isn't an escape");
+}
+
+void test_project_names() {
+    const std::string text = "// mine\nother { x: 1; }\nnames {\n    a: alpha;\n    dg: \"\\u{B0}\";\n    hrt: U+2665;\n    a2: a;\n    alpha: \"q\";\n    two: \"ab\";\n    bad: alhpa;\n}\n";
+    const canopy::ProjectNames names = canopy::parse_project_names(text, "walnut.bark");
+    check(names.entries.size() == 7, "every written entry is listed: " + std::to_string(names.entries.size()));
+    check(names.names.size() == 4, "valid entries become names: " + std::to_string(names.names.size()));
+    if (names.entries.size() == 7) {
+        check(names.entries[0].ok && names.entries[0].code == 0x3B1, "a built-in name works as a value");
+        check(names.entries[1].ok && names.entries[1].code == 0xB0 && names.entries[1].quoted, "a quoted escape works as a value");
+        check(names.entries[2].ok && names.entries[2].code == 0x2665, "U+ codes work as values");
+        check(names.entries[3].ok && names.entries[3].code == 0x3B1, "a name can point at another of your names");
+        check(!names.entries[4].ok && names.entries[4].problem.find("built-in") != std::string::npos, "built-in names can't be taken: " + names.entries[4].problem);
+        check(!names.entries[5].ok && names.entries[5].problem.find("one character") != std::string::npos, "values are one character: " + names.entries[5].problem);
+        check(!names.entries[6].ok && names.entries[6].problem.find("alpha") != std::string::npos, "a misspelled value suggests the right name: " + names.entries[6].problem);
+    }
+    const canopy::ProjectNames twice = canopy::parse_project_names("names {\n    x: alpha;\n    y: beta;\n    x: gamma;\n}\n", "walnut.bark");
+    check(twice.problems.size() == 2 && twice.entries.size() == 3 && !twice.entries[0].problem.empty() && !twice.entries[2].problem.empty() && twice.entries[1].problem.empty(), "a name given twice marks both lines");
+    check(canopy::special_character_category(0x3B1) == "Greek" && canopy::special_character_category(0x2192) == "Arrows" && canopy::special_character_category(0x2264) == "Math operators and relations" && canopy::special_character_category(0x211D) == "Math letters and number sets" && canopy::special_character_category(0x20AC) == "Currency" && canopy::special_character_category(0x09) == "Control and invisible characters", "characters are sorted into types");
+    const auto rarr = canopy::builtin_names_for(0x2192);
+    check(rarr.size() >= 3 && rarr.front() == "to", "a character lists its built-in names, shortest first");
+    check(canopy::builtin_special_codes().size() > 1000, "every built-in character is listed by code");
+    canopy::use_project_names(names);
+    std::uint32_t cp = 0;
+    check(canopy::special_character("hrt", cp) && cp == 0x2665 && canopy::special_character("alpha", cp) && cp == 0x3B1, "project names work alongside the built-in ones");
+    check(canopy::special_character_suggestion("hrrt") == "hrt", "project names are suggested too");
+    canopy::CompletionSources none;
+    const grove::CompletionList list = complete_at("walnut", "string: s = \"\\s{hr\";\n", 0, 18, none);
+    check(has_label(list, "hrt"), "project names complete after \\s{");
+    const auto hover = canopy::literal_hover("walnut", "char: c = '\\s{dg}';\n", 0, 11);
+    check(hover && hover->markdown.find("U+00B0") != std::string::npos, "project names decode in hovers");
+    canopy::clear_project_names();
+    check(!canopy::special_character("hrt", cp), "project names can be cleared");
+
+    std::vector<canopy::ProjectNameEntry> entries = names.entries;
+    entries.resize(2);
+    const std::string rewritten = canopy::replace_project_names(text, entries);
+    check(rewritten == "// mine\nother { x: 1; }\nnames {\n    a: alpha;\n    dg: \"\\u{B0}\";\n}\n", "rewriting keeps everything outside the names block: " + rewritten);
+    check(canopy::replace_project_names("other { x: 1; }", entries) == "other { x: 1; }\n\nnames {\n    a: alpha;\n    dg: \"\\u{B0}\";\n}\n", "a missing names block is added at the end");
+    check(canopy::project_name_value_text("\xC2\xB0") == "\"\xC2\xB0\"" && canopy::project_name_value_text("degree") == "degree" && canopy::project_name_value_text("U+00B0") == "U+00B0" && canopy::project_name_value_text("\\u{B0}") == "\"\\u{B0}\"", "typed values are written the way the file reads them");
+
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "canopy-names-test";
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir / "src" / "deep", ec);
+    const std::string file = (dir / "walnut.bark").string();
+    check(canopy::write_project_names(file, entries), "names can be written to a new walnut.bark");
+    check(canopy::find_project_file((dir / "src" / "deep" / "main.wal").string()) == file, "walnut.bark is found from folders below it");
+    const canopy::ProjectNames back = canopy::read_project_names(file);
+    check(back.names.size() == 2 && back.problems.empty(), "a written walnut.bark reads back cleanly");
+    fs::remove_all(dir, ec);
+}
+
+std::size_t column_after(const std::string& text, std::size_t line, const std::string& marker) {
+    std::size_t at = 0;
+    for (std::size_t l = 0; l < line; ++l) at = text.find('\n', at) + 1;
+    const std::size_t end = text.find('\n', at);
+    const std::string row = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
+    return row.find(marker) + marker.size();
+}
+
+void test_personal_tasks() {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "canopy-personal-tasks";
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir / ".canopy", ec);
+    { std::ofstream(dir / ".canopy" / "tasks.bark") << "build { run: \"make\"; }\nrelease { run: \"git push\"; }\n"; }
+    { std::ofstream(dir / ".canopy" / "tasks.local.bark") << "release { label: \"My release\"; run: \"git push origin dev\"; }\nmine { run: \"echo hi\"; }\n"; }
+    const canopy::TaskFile file = canopy::load_tasks(dir.string());
+    check(file.shared_exists && file.local_exists && file.tasks.size() == 3, "shared and personal tasks load together");
+    const canopy::Task* release = file.find("release");
+    check(release && release->personal && release->title() == "My release", "a personal task replaces the shared one with the same name");
+    const canopy::Task* build = file.find("build");
+    check(build && !build->personal && build->file == canopy::tasks_path(dir.string()), "shared tasks remember their file");
+    check(canopy::keep_local_tasks_out_of_git(dir.string()) && canopy::keep_local_tasks_out_of_git(dir.string()), "personal tasks are kept out of Git");
+    std::ifstream ignore(dir / ".canopy" / ".gitignore");
+    const std::string text((std::istreambuf_iterator<char>(ignore)), std::istreambuf_iterator<char>());
+    check(text == "*.local.bark\n", "the ignore line is written once");
+    fs::remove_all(dir, ec);
+}
+
+void test_github_auth() {
+    const std::map<std::string, std::string> form = canopy::parse_form("device_code=dc1&user_code=ABCD-1234&verification_uri=https%3A%2F%2Fgithub.com%2Flogin%2Fdevice&interval=5");
+    check(form.at("user_code") == "ABCD-1234" && form.at("verification_uri") == "https://github.com/login/device", "GitHub's form answers are decoded");
+    check(canopy::json_string_field("{\"login\": \"octo-cat\", \"id\": 1}", "login") == "octo-cat", "the login is read from GitHub's user answer");
+    check(canopy::json_string_field("{\"id\": 1}", "login").empty(), "a missing field reads as empty");
+    check(canopy::github_auth_failure("remote: Invalid username or token. Password authentication is not supported for Git operations.\nfatal: Authentication failed for 'https://github.com/a/b.git/'"), "GitHub's rejected-password message is recognized");
+    check(!canopy::github_auth_failure("error: failed to push some refs (fetch first)"), "other push failures aren't sign-in problems");
+    check(canopy::github_token_page().find("scopes=repo,workflow") != std::string::npos, "the token page asks for repo and workflow");
+    check(canopy::github_client_id(std::string(" Iv1.abc ")) == "Iv1.abc", "a configured client ID is used");
+}
+
+void test_run_stats() {
+    check(canopy::format_duration_us(0) == "0 \xC2\xB5s", "zero time shows as microseconds");
+    check(canopy::format_duration_us(999) == "999 \xC2\xB5s", "under a millisecond shows microseconds");
+    check(canopy::format_duration_us(1000) == "1 ms", "1000 microseconds carry into a millisecond");
+    check(canopy::format_duration_us(1001) == "1 ms 1 \xC2\xB5s", "milliseconds and microseconds");
+    check(canopy::format_duration_us(3723004005LL) == "1 h 2 min 3 s 4 ms 5 \xC2\xB5s", "every unit carries into the next");
+    check(canopy::format_duration_us(60000000LL) == "1 min", "zero parts are left out");
+    check(canopy::format_bytes(512) == "512 bytes", "small sizes in bytes");
+    check(canopy::format_bytes(1536) == "1.5 KB", "kilobytes");
+    check(canopy::format_bytes(254ULL * 1024 * 1024) == "254 MB", "megabytes");
+#if !defined(_WIN32)
+    std::string out;
+    canopy::RunStats stats;
+    std::string streamed;
+    const int code = canopy::run_command_measured({ "sh", "-c", "echo hi; exit 3" }, std::string(), out, stats, [&](const std::string& piece) { streamed += piece; });
+    check(code == 3 && stats.exit_code == 3, "measured runs keep the exit code");
+    check(out == "hi\n" && streamed == out, "measured runs capture and stream the output");
+    check(stats.measured && stats.wall_us > 0 && stats.peak_bytes > 0, "measured runs record time and memory");
+    check(canopy::run_stats_summary(stats).find("exit code 3") != std::string::npos, "the summary names the exit code");
+#endif
+}
+
+void test_walnut_safety_settings() {
+    canopy::Settings s = canopy::Settings::defaults();
+    check(canopy::walnut_safety_flags(s).empty(), "walnut safety is off by default");
+    grove::Diagnostics d;
+    s.load_text("language.walnut {\n    checks: \"all\";\n    leak-check: \"error\";\n    gc: true;\n    ownership: true;\n}\n", "user.bark", canopy::SettingSource::User, d);
+    check(d.empty(), "walnut safety settings are known settings");
+    const std::vector<std::string> flags = canopy::walnut_safety_flags(s);
+    const std::vector<std::string> want = { "--checks", "--leak-check=error", "--gc", "--ownership" };
+    check(flags == want, "walnut safety settings become walnut flags");
+    canopy::Settings one = canopy::Settings::defaults();
+    one.load_text("language.walnut {\n    checks: \"bounds\";\n}\n", "user.bark", canopy::SettingSource::User, d);
+    check(canopy::walnut_safety_flags(one) == std::vector<std::string>{ "--check-bounds" }, "a single runtime check picks its own flag");
+    canopy::Settings some = canopy::Settings::defaults();
+    some.load_text("language.walnut {\n    checks: \"null dangling\";\n}\n", "user.bark", canopy::SettingSource::User, d);
+    check(canopy::walnut_safety_flags(some) == std::vector<std::string>{ "--check-null", "--check-dangling" }, "several runtime checks can be picked together");
+    const std::vector<std::string> live = canopy::walnut_highlight_command("walnut", "a.wal", "-O2 --ownership");
+    check(std::find(live.begin(), live.end(), "--ownership") != live.end(), "ownership checks reach live problems");
+}
+
+void test_more_language_builds() {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / "canopy-lang-tests";
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir / "src" / "demo", ec);
+    fs::create_directories(dir / "crate" / "src", ec);
+    auto write = [&](const fs::path& p, const std::string& text) {
+        std::ofstream out(p, std::ios::binary);
+        out << text;
+    };
+    write(dir / "src" / "demo" / "Hello.java", "package demo;\npublic class Hello { public static void main(String[] a) {} }\n");
+    write(dir / "crate" / "Cargo.toml", "[package]\nname = \"x\"\n");
+    write(dir / "crate" / "src" / "main.rs", "fn main() {}\n");
+    write(dir / "one.rs", "fn main() {}\n");
+    write(dir / "a.py", "print(1)\n");
+    write(dir / "a.lua", "print(1)\n");
+    write(dir / "a.cs", "class A { static void Main() {} }\n");
+    write(dir / "start.asm", "section .text\nglobal _start\n_start:\n  mov rax, 60\n  syscall\n");
+    write(dir / "main.s", ".globl main\nmain:\n  movq $0, %rax\n  ret\n");
+    write(dir / "arm.s", ".global _start\n_start:\n  mov x0, #0\n  mov x8, #93\n  svc #0\n");
+
+    const canopy::Settings s = canopy::Settings::defaults();
+    canopy::Toolchain t;
+    t.c = canopy::Tool{ "c", "/usr/bin/gcc", canopy::ToolOrigin::Path, canopy::CompilerFamily::Gcc };
+    auto tool = [&](const std::string& key, const std::string& path) { t.more[key] = canopy::Tool{ key, path, canopy::ToolOrigin::Path, canopy::CompilerFamily::Other }; };
+    canopy::BuildRequest r;
+    r.workspace_root = dir.string();
+    auto plan = [&](const fs::path& file) {
+        r.file = file.string();
+        r.output.clear();
+        return canopy::plan_build(r, s, t);
+    };
+    for (const char* ext : { "x.rs", "x.zig", "x.py", "x.lua", "X.java", "x.cs", "x.asm", "x.s", "x.S" }) check(canopy::language_for_path(ext) != nullptr, std::string("Canopy knows ") + ext);
+    canopy::BuildPlan p = plan(dir / "one.rs");
+    check(!p.ok() && p.error.find("rustup") != std::string::npos, "Rust without rustc says how to install it: " + p.error);
+    tool("rustc", "/bin/rustc");
+    tool("cargo", "/bin/cargo");
+    p = plan(dir / "one.rs");
+    check(p.ok() && p.command[0] == "/bin/rustc" && p.run.empty(), "a lone .rs file builds with rustc");
+    p = plan(dir / "crate" / "src" / "main.rs");
+    check(p.ok() && p.command[1] == "build" && p.run.size() > 2 && p.run[1] == "run" && fs::path(p.folder) == dir / "crate", "a file in a Cargo project builds with cargo");
+    tool("python", "/bin/python3");
+    p = plan(dir / "a.py");
+    check(p.ok() && p.run == std::vector<std::string>{ "/bin/python3", "-u", (dir / "a.py").string() }, "Python checks the syntax, then runs");
+    tool("lua", "/bin/lua");
+    p = plan(dir / "a.lua");
+    check(p.ok() && p.command[0] == "/bin/lua" && p.run[0] == "/bin/lua", "Lua without luac still checks with lua");
+    tool("javac", "/bin/javac");
+    tool("java", "/bin/java");
+    p = plan(dir / "src" / "demo" / "Hello.java");
+    check(p.ok() && p.run.back() == "demo.Hello" && std::find(p.command.begin(), p.command.end(), (dir / "src").string()) != p.command.end(), "Java finds the package and the source root");
+    p = plan(dir / "a.cs");
+    check(!p.ok() && p.error.find(".NET") != std::string::npos, "C# without a compiler says what to install");
+    tool("mcs", "/bin/mcs");
+    tool("mono", "/bin/mono");
+    p = plan(dir / "a.cs");
+    check(p.ok() && p.command[0] == "/bin/mcs", "C# without a project builds with mcs");
+    p = plan(dir / "start.asm");
+    check(!p.ok() && p.error.find("NASM") != std::string::npos && p.error.find("nasm") != std::string::npos, "NASM code without nasm says which assembler it needs: " + p.error);
+    tool("nasm", "/bin/nasm");
+    tool("ld", "/bin/ld");
+    p = plan(dir / "start.asm");
+    check(p.ok() && p.command[0] == "/bin/nasm" && p.more_steps.size() == 1, "NASM assembles, then links");
+    p = plan(dir / "main.s");
+    check(p.ok() && p.command[0] == "/usr/bin/gcc" && p.note.find("GAS") != std::string::npos, "GAS code builds with the C compiler");
+#if defined(__x86_64__) || defined(_M_X64)
+    p = plan(dir / "arm.s");
+    check(!p.ok() && p.error.find("ARM64") != std::string::npos, "ARM64 code on x86-64 needs a cross compiler: " + p.error);
+    tool("gcc-aarch64", "/bin/aarch64-linux-gnu-gcc");
+    p = plan(dir / "arm.s");
+    check(p.ok() && !p.run_error.empty(), "without QEMU it builds but can't run");
+    tool("qemu-aarch64", "/bin/qemu-aarch64");
+    p = plan(dir / "arm.s");
+    check(p.ok() && !p.run.empty() && p.run[0] == "/bin/qemu-aarch64", "with QEMU it runs");
+#endif
+    const canopy::AsmInfo masm = canopy::detect_assembly(".model flat\n.code\nmain PROC\n  ret\nmain ENDP\nEND\n", "x.asm");
+    check(masm.dialect == canopy::AsmDialect::Masm, "MASM is recognized");
+    const canopy::AsmInfo intel = canopy::detect_assembly(".intel_syntax noprefix\n.globl main\nmain:\n  mov rax, 0\n  ret\n", "x.s");
+    check(intel.dialect == canopy::AsmDialect::GasIntel && intel.arch == canopy::AsmArch::X86_64 && intel.entry == "main", "GAS Intel syntax is recognized");
+    const canopy::AsmInfo rv = canopy::detect_assembly(".globl _start\n_start:\n  li a7, 93\n  li a0, 0\n  ecall\n", "x.s");
+    check(rv.arch == canopy::AsmArch::RiscV64, "RISC-V is recognized");
+    const canopy::AsmInfo x86 = canopy::detect_assembly("bits 32\nsection .text\nglobal _start\n_start:\n  mov eax, 1\n  int 0x80\n", "x.asm");
+    check(x86.arch == canopy::AsmArch::X86, "32-bit x86 is recognized");
+    fs::remove_all(dir, ec);
+}
+
+void test_more_language_messages() {
+    auto m = canopy::parse_compiler_messages("error: expected `;`, found `println`\n --> bad.rs:2:14\n  |\n\nerror[E0425]: cannot find value `y` in this scope\n --> bad.rs:3:20\n  |\nerror: aborting due to 2 previous errors\n");
+    check(m.size() == 2 && m[0].file == "bad.rs" && m[0].line == 2 && m[0].column == 14 && m[1].message.find("[E0425]") != std::string::npos, "Rust errors are read");
+    m = canopy::parse_compiler_messages("Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import ast\n  File \"/usr/lib/python3.13/ast.py\", line 50, in parse\n    return compile(source)\n  File \"bad.py\", line 1\n    def f(:\n          ^\nSyntaxError: invalid syntax\n");
+    check(m.size() == 1 && m[0].file == "bad.py" && m[0].line == 1 && m[0].column == 7 && m[0].message == "SyntaxError: invalid syntax", "Python syntax errors are read");
+    m = canopy::parse_compiler_messages("Traceback (most recent call last):\n  File \"/w/run.py\", line 2, in <module>\n    print(undefined_name)\n          ^^^^^^^^^^^^^^\nNameError: name 'undefined_name' is not defined\n");
+    check(m.size() == 1 && m[0].line == 2 && m[0].message.rfind("NameError", 0) == 0, "Python exceptions point at the line that raised");
+    m = canopy::parse_compiler_messages("luac: bad.lua:2: ')' expected near <eof>\nlua: run.lua:1: boom\nstack traceback:\n");
+    check(m.size() == 2 && m[0].file == "bad.lua" && m[0].line == 2 && m[1].message == "boom", "Lua errors are read");
+    m = canopy::parse_compiler_messages("Bad.java:2: error: illegal start of expression\n  void f() { int x = ; }\n                     ^\n1 error\n");
+    check(m.size() == 1 && m[0].file == "Bad.java" && m[0].line == 2, "javac errors are read");
+    m = canopy::parse_compiler_messages("bad.cs(1,39): error CS1525: Unexpected symbol `;'\n/w/P.cs(3,5): warning CS0168: The variable 'x' is declared but never used [/w/P.csproj]\n");
+    check(m.size() == 2 && m[0].line == 1 && m[0].column == 39 && m[1].severity == "warning" && m[1].message.find("csproj") == std::string::npos, "C# errors are read");
+    m = canopy::parse_compiler_messages("bad.asm:2: error: invalid combination of opcode and operands\nbad.zig:1:15: error: expected expression, found ';'\n");
+    check(m.size() == 2 && m[0].line == 2 && m[1].column == 15, "NASM and Zig errors are read");
+}
+
+void test_more_language_completion() {
+    auto at = [](const std::string& language, const std::string& text, const std::string& marker) {
+        const std::size_t pos = text.find(marker);
+        std::size_t line = 0;
+        std::size_t start = 0;
+        for (std::size_t i = 0; i < pos + marker.size(); ++i) {
+            if (text[i] == '\n') {
+                ++line;
+                start = i + 1;
+            }
+        }
+        return complete_at(language, text, line, pos + marker.size() - start);
+    };
+    const std::string py = "import os\nname = 'x'\nitems = [1, 2]\nwith open('f') as fh:\n    pass\nname.up\nitems.app\nos.path.jo\nfh.rea\npri\nimport ra\n# name.up\n";
+    check(has_label(at("python", py, "name.up"), "upper"), "Python knows a string variable's methods");
+    check(has_label(at("python", py, "items.app"), "append"), "Python knows a list variable's methods");
+    check(has_label(at("python", py, "os.path.jo"), "join"), "Python knows os.path");
+    check(has_label(at("python", py, "fh.rea"), "readline"), "Python knows files from with open(...) as");
+    check(has_label(at("python", py, "\npri"), "print") && find_label(at("python", py, "\npri"), "print")->insert == "print($0)", "Python builtins complete");
+    check(has_label(at("python", py, "import ra"), "random"), "Python module names complete after import");
+    check(at("python", py, "# name.up").items.empty(), "nothing completes inside a comment");
+    const std::string rs = "use std::collections::HashMap;\nfn main() {\n    let mut v = Vec::new();\n    let s = String::from(\"a\");\n    let m: HashMap<String, i32> = HashMap::new();\n    v.pu\n    s.tri\n    m.ins\n    v.iter().ma\n    Vec::wi\n    prin\n}\n";
+    check(has_label(at("rust", rs, "v.pu"), "push"), "Rust knows Vec::new()");
+    check(has_label(at("rust", rs, "s.tri"), "trim"), "Rust knows String::from");
+    check(has_label(at("rust", rs, "m.ins"), "insert"), "Rust reads type annotations");
+    check(has_label(at("rust", rs, "v.iter().ma"), "map"), "Rust follows iterator chains");
+    check(has_label(at("rust", rs, "Vec::wi"), "with_capacity") && !has_label(at("rust", rs, "Vec::wi"), "push"), "Rust paths show associated functions");
+    check(has_label(at("rust", rs, "    prin"), "println!"), "Rust macros complete");
+    const std::string zig = "const std = @import(\"std\");\npub fn main() void {\n    std.debug.pr\n    @imp\n}\n";
+    check(has_label(at("zig", zig, "std.debug.pr"), "print"), "Zig knows std.debug");
+    check(has_label(at("zig", zig, "@imp"), "@import"), "Zig builtins complete after @");
+    const std::string lua = "local s = \"hi\"\nprint(s:up\nstring.fo\n";
+    check(has_label(at("lua", lua, "s:up"), "upper") && has_label(at("lua", lua, "string.fo"), "format"), "Lua knows string methods and modules");
+    const std::string java = "import java.util.*;\nclass A {\n  void f() {\n    List<String> names = new ArrayList<>();\n    String t = \"x\";\n    names.ad\n    t.toUp\n    System.out.pri\n  }\n}\n";
+    check(has_label(at("java", java, "names.ad"), "add") && has_label(at("java", java, "t.toUp"), "toUpperCase") && has_label(at("java", java, "System.out.pri"), "println"), "Java knows declared types and System.out");
+    const std::string cs = "var list = new List<int>();\nstring s = \"x\";\nlist.Ad\ns.ToUp\nConsole.Wri\n";
+    check(has_label(at("csharp", cs, "list.Ad"), "Add") && has_label(at("csharp", cs, "s.ToUp"), "ToUpper") && has_label(at("csharp", cs, "Console.Wri"), "WriteLine"), "C# knows declared types and Console");
+    const std::string as = "section .text\nglobal _start\n_start:\n    mo\n    mov ra\n";
+    check(has_label(at("asm", as, "    mo"), "mov") && !has_label(at("asm", as, "    mo"), "rax"), "assembly offers instructions at the start of a line");
+    check(has_label(at("asm", as, "mov ra"), "rax"), "assembly offers registers after the instruction");
+    auto hover = canopy::more_hover("python", "name = 'x'\nname.upper()\n", "/w/a.py", 1, 6);
+    check(hover && hover->markdown.find("Upper case") != std::string::npos, "Python members have hovers");
+    hover = canopy::more_hover("asm", "section .text\nglobal _start\n_start:\n    mov rax, 60\n", "/w/a.asm", 3, 9);
+    check(hover && hover->markdown.find("Return value") != std::string::npos && hover->markdown.find("NASM") != std::string::npos, "registers have hovers that name the syntax");
+    hover = canopy::more_hover("rust", "fn main() {\n    println!(\"x\");\n}\n", "/w/a.rs", 1, 6);
+    check(hover && hover->markdown.find("Prints a line") != std::string::npos, "Rust macros have hovers");
+}
+
+void test_web_completion() {
+    check(canopy::web_docs().size() > 500, "the web docs table loads: " + std::to_string(canopy::web_docs().size()));
+    check(canopy::find_web_doc("jquery", "addClass") && canopy::find_web_doc("res", "json") && canopy::find_web_doc("css-prop", "display"), "the web docs cover jQuery, Express and CSS");
+    check(canopy::find_web_doc("css-value:display", "flex") != nullptr, "CSS value lists are split into entries");
+
+    const std::string js = "const fs = require('fs');\nconst express = require(\"express\");\nconst app = express();\napp.get('/', (req, res) => {\n  res.\n  req.\n});\nfs.\ndocument.getElementById('x').\n$('#a').addClass('b').\n$.\nconsole.\nconst p = require('pa');\nconst btn = document.querySelector('b');\nbtn.\nfetch('/x').then(r => r.json()).\ncons\n";
+    grove::CompletionList list = complete_at("javascript", js, 4, column_after(js, 4, "res."));
+    check(has_label(list, "json") && has_label(list, "status") && find_label(list, "json")->insert == "json($0)", "Express res members complete");
+    list = complete_at("javascript", js, 5, column_after(js, 5, "req."));
+    check(has_label(list, "params") && has_label(list, "body"), "Express req members complete");
+    list = complete_at("javascript", js, 7, 3);
+    check(has_label(list, "readFileSync") && has_label(list, "existsSync"), "a variable from require('fs') gets fs members");
+    list = complete_at("javascript", js, 8, column_after(js, 8, "')."));
+    check(has_label(list, "addEventListener") && has_label(list, "classList"), "getElementById(...) gives element members");
+    list = complete_at("javascript", js, 9, column_after(js, 9, "addClass('b')."));
+    check(has_label(list, "fadeIn") && has_label(list, "on"), "jQuery chains keep jQuery members");
+    list = complete_at("javascript", js, 10, 2);
+    check(has_label(list, "ajax") && has_label(list, "each"), "$. gives jQuery's static functions");
+    list = complete_at("javascript", js, 11, 8);
+    check(has_label(list, "log") && has_label(list, "table"), "console members complete");
+    list = complete_at("javascript", js, 12, column_after(js, 12, "'pa"));
+    check(has_label(list, "path") && list.column == column_after(js, 12, "'"), "require('...') completes module names");
+    list = complete_at("javascript", js, 14, 4);
+    check(has_label(list, "addEventListener"), "a querySelector result gets element members");
+    list = complete_at("javascript", js, 15, column_after(js, 15, "r.json())."));
+    check(has_label(list, "then") && has_label(list, "catch"), "promise chains complete");
+    list = complete_at("javascript", js, 16, 4);
+    check(has_label(list, "console") && has_label(list, "const"), "JavaScript globals and keywords complete");
+    check(canopy::js_object_owner(js, js.find("app.get") + 3) == "app", "express() makes an Express app");
+
+    const std::string html = "<!doctype html>\n<html>\n<head>\n<style>\nbody { disp\n  display: fl\n}\na:hov {}\n</style>\n</head>\n<body>\n<inp\n<input ty\n<input type=\"che\n<script>\ndocument.\n</script>\n</bod\n";
+    list = complete_at("html", html, 4, 11);
+    check(has_label(list, "display") && find_label(list, "display")->insert == "display: $0;", "CSS properties complete inside <style>");
+    list = complete_at("html", html, 5, 13);
+    check(has_label(list, "flex") && has_label(list, "inline-flex"), "CSS values complete for the property");
+    list = complete_at("html", html, 7, 5);
+    check(has_label(list, ":hover"), "pseudo-classes complete in <style>");
+    list = complete_at("html", html, 11, 4);
+    check(has_label(list, "input") && !has_label(list, "column"), "HTML tags complete, not Grove ones");
+    list = complete_at("html", html, 12, 9);
+    check(has_label(list, "type") && find_label(list, "type")->insert == "type=\"$0\"" && find_label(list, "type")->detail.find("input") != std::string::npos, "HTML attributes complete");
+    list = complete_at("html", html, 13, 16);
+    check(has_label(list, "checkbox"), "attribute values complete");
+    list = complete_at("html", html, 15, 9);
+    check(has_label(list, "querySelector"), "JavaScript completes inside <script>");
+    list = complete_at("html", html, 17, 5);
+    check(has_label(list, "body"), "closing tags complete");
+
+    const std::string css = "@med\n.box {\n  justify-content: sp\n}\n";
+    list = complete_at("css", css, 0, 4);
+    check(has_label(list, "@media") && list.column == 0, "at-rules complete");
+    list = complete_at("css", css, 2, 21);
+    check(has_label(list, "space-between"), "CSS keyword values complete");
+
+    auto hover = canopy::web_hover("javascript", js, 4, column_after(js, 4, "res.") - 1);
+    check(!hover, "no hover on the dot");
+    hover = canopy::web_hover("javascript", "const app = require('express')();\napp.listen(3000);\n", 1, 6);
+    check(hover && hover->markdown.find("Starts the server") != std::string::npos, "Express members have hovers");
+    hover = canopy::web_hover("html", html, 12, 3);
+    check(hover && hover->markdown.find("form field") != std::string::npos, "HTML tags have hovers");
+    hover = canopy::web_hover("css", css, 2, 5);
+    check(hover && hover->markdown.find("main axis") != std::string::npos, "CSS properties have hovers");
+    check(canopy::is_web_language("html") && !canopy::is_web_language("grove"), "web languages are known");
+}
+
+void test_web_problems() {
+    auto has = [](const std::vector<canopy::CompilerMessage>& list, std::size_t line, const std::string& part) {
+        for (const canopy::CompilerMessage& m : list) {
+            if (m.line == line && m.message.find(part) != std::string::npos) return true;
+        }
+        return false;
+    };
+    const std::string html = "<!doctype html>\n<html>\n<body>\n<div id=\"a\">\n  <p>one\n  <span>two</div>\n<p id=\"a\">x</p>\n<img src=\"x.png\">\n<br></br>\n<blink>x</blink>\n</section>\n<style>\np { colr: red; }\n</style>\n<svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"/></svg>\n<my-widget></my-widget>\n<ul><li>a<li>b</ul>\n</body>\n</html>\n";
+    const auto list = canopy::lint_web("html", html, "/tmp/p.html");
+    check(has(list, 6, "<span> is never closed"), "an unclosed element is reported where it opens");
+    check(has(list, 7, "already used on line 4"), "duplicate ids are reported");
+    check(has(list, 8, "alt"), "images without alt text are reported");
+    check(has(list, 9, "</br> isn't needed"), "closing tags on void elements are reported");
+    check(has(list, 10, "isn't an HTML element"), "unknown tags are reported");
+    check(has(list, 11, "no matching <section>"), "stray closing tags are reported");
+    check(has(list, 13, "did you mean 'color'"), "CSS inside <style> is checked");
+    check(!has(list, 15, "") && !has(list, 16, "") && !has(list, 17, ""), "SVG, custom elements and optional end tags are fine");
+    const std::string css = "a {\n  color: red\n  margin: 0;\n}\n}\n.b { display: flex; -webkit-x: 1; --my: 2; }\n@media (max-width: 9px) {\n  .c { colour: red; }\n}\n.d {\n";
+    const auto cl = canopy::lint_web("css", css, "/tmp/s.css");
+    check(has(cl, 2, "Missing ;"), "a missing semicolon is reported");
+    check(has(cl, 5, "Unexpected }"), "an extra } is reported");
+    check(!has(cl, 6, ""), "vendor prefixes and custom properties are fine");
+    check(has(cl, 8, "Unknown property 'colour'"), "rules inside @media are checked");
+    check(has(cl, 10, "never closed"), "an unclosed { is reported");
+    bool module = false;
+    const std::string page = "<p>\n<script>\nlet x = ;\n</script>\n<script src=\"a.js\"></script>\n<script type=\"module\">import a from './a.js';</script>\n";
+    const std::string js = canopy::web_script_text(page, module);
+    check(module && js.size() == page.size() && js.find("let x = ;") == page.find("let x = ;") && js.find("<p>") == std::string::npos, "inline scripts keep their lines and columns");
+    const auto parsed = canopy::parse_node_check("[stdin]:3\nlet x = ;\n        ^\n\nSyntaxError: Unexpected token ';'\n    at checkSyntax (node:internal/main/check_syntax:74:5)\n", "/tmp/p.html");
+    check(parsed.size() == 1 && parsed[0].line == 3 && parsed[0].column == 9 && parsed[0].message == "SyntaxError: Unexpected token ';'", "node --check output is read");
+    check(canopy::javascript_is_module("import x from 'y';\n", "/tmp/a.js") && !canopy::javascript_is_module("const x = require('y');\n", "/tmp/a.js"), "ES modules are told apart from CommonJS");
+}
+
+void test_elements_tree() {
+    const std::string tree = std::string("d\x1f") + "1\x1f" + "0\x1fhtml" + "\x1e" + "e\x1f" + "2\x1f" + "0\x1fhtml\x1f" + "lang\x1d" + "en" + "\x1e" +
+                             "e\x1f" + "3\x1f" + "1\x1f" + "body\x1f" + "\x1e" + "e\x1f" + "4\x1f" + "2\x1f" + "p\x1f" + "class\x1d" + "a \"b\"\x1c" + "hidden\x1d" + "\x1e" +
+                             "t\x1f" + "5\x1f" + "3\x1f" + "x < y" + "\x1e" + "e\x1f" + "6\x1f" + "2\x1f" + "br\x1f" + "\x1e" + "e\x1f" + "7\x1f" + "2\x1f" + "script\x1f" + "\x1e" + "t\x1f" + "8\x1f" + "3\x1fif (a < b) go();";
+    const std::vector<canopy::DomTreeNode> nodes = canopy::parse_dom_tree(tree);
+    check(nodes.size() == 8, "the page's tree is read: " + std::to_string(nodes.size()));
+    check(nodes.size() == 8 && nodes[1].children.size() == 1 && nodes[2].children.size() == 3 && nodes[3].parent == 2, "children and parents come from the depths");
+    const std::string html = canopy::dom_outer_html(nodes, 2);
+    check(html == "<body>\n  <p class=\"a &quot;b&quot;\" hidden>x &lt; y</p>\n  <br>\n  <script>if (a < b) go();</script>\n</body>", "elements turn back into HTML: " + html);
+    check(canopy::dom_node_label(nodes[3]) == "p.a.\"b\"", "labels list the classes: " + canopy::dom_node_label(nodes[3]));
+    check(canopy::js_string_literal("a\"b\\c\nd\xE2\x80\xA8") == "\"a\\\"b\\\\c\\nd\\u2028\"", "edits are sent as safe JavaScript strings");
+    canopy::LiveServer server;
+    std::string error;
+    check(server.start(".", 0, "127.0.0.1", true, error) || true, "a server starts");
+    server.watch_dom("nope");
+    canopy::PageDom dom;
+    check(!server.page_dom("nope", 0, dom), "pages that never sent a tree have none");
+    server.stop();
+}
+
 void test_literal_hovers() {
     auto hover_on = [](const std::string& language, const std::string& line, const std::string& find) {
         const std::size_t at = line.find(find);
@@ -1364,6 +1820,10 @@ void test_literal_hovers() {
     check(has(md, "4 characters") && has(md, "5 bytes") && has(md, "is tab") && has(md, "U+00E9"), "escapes are decoded and listed: " + md);
     md = hover_on("walnut", "char: c = '\\u00e9';", "'");
     check(has(md, "233") && has(md, "U+00E9") && has(md, "C3 A9"), "Walnut chars show their code: " + md);
+    md = hover_on("walnut", "char: c = '\\s{alpha}';", "'");
+    check(has(md, "U+03B1"), "Walnut \\s{name} escapes are decoded: " + md);
+    md = hover_on("walnut", "string: s = \"\\s{lamda}\";", "\"");
+    check(has(md, "lambda"), "a misspelled \\s{name} suggests the right one: " + md);
     md = hover_on("walnut", "char: c = '\\n';", "'");
     check(has(md, "10 (0x0A") && has(md, "newline"), "control characters are named: " + md);
     md = hover_on("walnut", "int: x = 0xFF_FF;", "0x");
@@ -1486,6 +1946,18 @@ int main() {
     test_editor_editing();
     test_bark_properties();
     test_literal_hovers();
+    test_web_completion();
+    test_personal_tasks();
+    test_github_auth();
+    test_run_stats();
+    test_walnut_safety_settings();
+    test_more_language_builds();
+    test_more_language_messages();
+    test_more_language_completion();
+    test_elements_tree();
+    test_web_problems();
+    test_special_names();
+    test_project_names();
     if (failures == 0) std::cout << "all canopy tests passed\n";
     return failures == 0 ? 0 : 1;
 }

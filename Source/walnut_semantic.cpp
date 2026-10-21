@@ -575,7 +575,8 @@ std::vector<std::string> walnut_highlight_command(const std::string& walnut, con
         const std::string& f = parts[i];
         const bool takes = f == "-I" || f == "-D" || f == "-M" || f == "--module-dir" || f == "--random-seed";
         const bool joined = f.size() > 2 && (f.rfind("-I", 0) == 0 || f.rfind("-D", 0) == 0) && f.rfind("--", 0) != 0;
-        if (joined) command.push_back(f);
+        if (f == "--ownership" || f == "--safe") command.push_back("--ownership");
+        else if (joined) command.push_back(f);
         else if (takes && i + 1 < parts.size()) {
             command.push_back(f);
             command.push_back(parts[++i]);
@@ -780,6 +781,25 @@ bool SemanticJob::start(const std::string& path, std::vector<std::string> comman
         done.path = path;
         done.text = text;
         done.exit_code = run_command_capture_input(command, text, done.output);
+        {
+            std::lock_guard<std::mutex> lock(state->mutex);
+            state->done = std::move(done);
+        }
+        state->running = false;
+    });
+    return true;
+}
+
+bool SemanticJob::start_with_errors(const std::string& path, std::vector<std::string> command, std::string text) {
+    if (m_state->running) return false;
+    if (m_state->thread.joinable()) m_state->thread.join();
+    m_state->running = true;
+    std::shared_ptr<State> state = m_state;
+    state->thread = std::thread([state, path, command = std::move(command), text = std::move(text)] {
+        Done done;
+        done.path = path;
+        done.text = text;
+        done.exit_code = run_command_capture_input(command, text, done.output, true);
         {
             std::lock_guard<std::mutex> lock(state->mutex);
             state->done = std::move(done);

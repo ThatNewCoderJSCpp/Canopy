@@ -5,6 +5,7 @@
 
 #include <grove/script/builder.hpp>
 
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -722,8 +723,10 @@ std::string file_uri(const std::string& path) {
     static const char* hex = "0123456789ABCDEF";
     std::string out = "file://";
     if (absolute.empty() || absolute[0] != '/') out += '/';
-    for (unsigned char c : absolute) {
-        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~' || c == '/';
+    const bool drive = absolute.size() >= 2 && absolute[1] == ':' && std::isalpha(static_cast<unsigned char>(absolute[0]));
+    for (std::size_t i = 0; i < absolute.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(absolute[i]);
+        const bool plain = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == '_' || c == '~' || c == '/' || (drive && i == 1);
         if (plain) out += static_cast<char>(c);
         else {
             out += '%';

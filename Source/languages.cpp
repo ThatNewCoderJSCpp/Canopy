@@ -26,6 +26,17 @@ const std::vector<Language>& builtin_languages() {
         { LanguageId::C, "c", "C", { ".c", ".h" }, BuildKind::CCompiler, { ".h" } },
         { LanguageId::Cpp, "cpp", "C++", { ".cpp", ".cc", ".cxx", ".c++", ".hpp", ".hh", ".hxx", ".h++", ".ipp", ".tpp" }, BuildKind::CppCompiler, { ".hpp", ".hh", ".hxx", ".h++", ".ipp", ".tpp" } },
         { LanguageId::Walnut, "walnut", "Walnut", { ".wal", ".walh", ".hwal" }, BuildKind::Walnut, { ".walh", ".hwal" } },
+        { LanguageId::Html, "html", "HTML", { ".html", ".htm", ".xhtml" }, BuildKind::Web, {} },
+        { LanguageId::Css, "css", "CSS", { ".css" }, BuildKind::None, {} },
+        { LanguageId::JavaScript, "javascript", "JavaScript", { ".js", ".mjs", ".cjs" }, BuildKind::Node, {} },
+        { LanguageId::Json, "json", "JSON", { ".json", ".webmanifest" }, BuildKind::None, {} },
+        { LanguageId::Rust, "rust", "Rust", { ".rs" }, BuildKind::Rust, {} },
+        { LanguageId::Zig, "zig", "Zig", { ".zig" }, BuildKind::Zig, {} },
+        { LanguageId::Python, "python", "Python", { ".py", ".pyw", ".pyi" }, BuildKind::Python, { ".pyi" } },
+        { LanguageId::Lua, "lua", "Lua", { ".lua" }, BuildKind::Lua, {} },
+        { LanguageId::Java, "java", "Java", { ".java" }, BuildKind::Java, {} },
+        { LanguageId::CSharp, "csharp", "C#", { ".cs", ".csx" }, BuildKind::CSharp, {} },
+        { LanguageId::Assembly, "asm", "Assembly", { ".asm", ".s", ".nasm", ".masm", ".fasm" }, BuildKind::Assembly, {} },
     };
     return languages;
 }

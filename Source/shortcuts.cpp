@@ -87,6 +87,11 @@ const std::vector<Shortcut>& shortcuts() {
             general("git-push", "Git: Push", "Push the current branch", {}),
             general("git-pull", "Git: Pull", "Pull the current branch", {}),
             general("run-task", "Run Task", "Pick a task from .canopy/tasks.bark and run it", { key("Ctrl+Shift+R") }),
+            general("find", "Find", "Find in the file you're editing: every match is highlighted, with arrows to step through them", { key("Ctrl+F") }),
+            general("replace", "Replace", "Find and replace in the file you're editing", { key("Ctrl+H") }),
+            general("find-next", "Find next", "Go to the next match", { key("F3") }),
+            general("find-previous", "Find previous", "Go to the previous match", { key("Shift+F3") }),
+            general("select-all-matches", "Select all matches", "Put a caret on every match, so typing changes them all at once", { key("Alt+Enter") }),
         };
         for (const grove::KeyAction& a : grove::code_editor_actions()) {
             out.push_back(Shortcut{ a.id, a.label, a.help, a.mouse ? "Mouse" : "Editor", a.defaults, true, a.mouse, false, std::string() });

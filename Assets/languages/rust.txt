@@ -1,0 +1,146 @@
+rust-keyword|keyword|fn|fn name(arg: Type) -> Ret { … }|Defines a function.
+rust-keyword|keyword|let|let name: Type = value;|Declares a variable; add `mut` to change it later.
+rust-keyword|keyword|mut|let mut name = value;|Makes a binding or reference mutable.
+rust-keyword|keyword|const|const NAME: Type = value;|A compile-time constant.
+rust-keyword|keyword|static|static NAME: Type = value;|A value with a fixed address that lives for the whole program.
+rust-keyword|keyword|struct|struct Name { field: Type }|Defines a struct.
+rust-keyword|keyword|enum|enum Name { A, B(i32) }|Defines an enum whose variants can hold data.
+rust-keyword|keyword|impl|impl Type { … } or impl Trait for Type { … }|Adds methods, or implements a trait.
+rust-keyword|keyword|trait|trait Name { fn method(&self); }|Defines a trait (an interface).
+rust-keyword|keyword|match|match value { pattern => expr, _ => expr }|Picks a branch by pattern; every case must be covered.
+rust-keyword|keyword|if|if condition { … } else { … }|A branch; it's an expression and can give a value.
+rust-keyword|keyword|loop|loop { … }|Loops until `break`, which can give a value.
+rust-keyword|keyword|while|while condition { … }|Loops while the condition is true.
+rust-keyword|keyword|for|for item in iterable { … }|Loops over an iterator.
+rust-keyword|keyword|return|return value;|Returns early.
+rust-keyword|keyword|use|use std::collections::HashMap;|Brings a path into scope.
+rust-keyword|keyword|mod|mod name;|Declares a module.
+rust-keyword|keyword|pub|pub fn name()|Makes an item public.
+rust-keyword|keyword|ref|ref name|Binds by reference in a pattern.
+rust-keyword|keyword|move|move || …|Makes a closure take ownership of what it uses.
+rust-keyword|keyword|unsafe|unsafe { … }|Code the borrow checker can't verify: raw pointers, FFI.
+rust-keyword|keyword|async|async fn name()|A function that returns a Future.
+rust-keyword|keyword|await|future.await|Waits for a Future.
+rust-keyword|keyword|dyn|Box<dyn Trait>|A trait object.
+rust-keyword|keyword|where|where T: Trait|Trait bounds for generics.
+rust-keyword|keyword|type|type Alias = Type;|A type alias.
+rust-keyword|keyword|self|self|The value a method is called on.
+rust-keyword|keyword|Self|Self|The type being implemented.
+rust-keyword|keyword|crate|crate::path|The current crate's root.
+rust-keyword|keyword|super|super::path|The parent module.
+rust-keyword|constant|true||The boolean true.
+rust-keyword|constant|false||The boolean false.
+rust-keyword|constant|None||Option with no value.
+rust-keyword|function|Some|Some(value)|Option holding a value.
+rust-keyword|function|Ok|Ok(value)|A successful Result.
+rust-keyword|function|Err|Err(error)|A failed Result.
+rust-macro|macro|println!|println!("{} {name}", value)|Prints a line to standard output.
+rust-macro|macro|print!|print!("…")|Prints without a newline.
+rust-macro|macro|eprintln!|eprintln!("…")|Prints a line to standard error.
+rust-macro|macro|format!|format!("{:?}", value) -> String|Formats into a String.
+rust-macro|macro|vec!|vec![1, 2, 3]|Makes a Vec.
+rust-macro|macro|panic!|panic!("message")|Stops the thread with an error.
+rust-macro|macro|assert!|assert!(condition)|Panics when the condition is false.
+rust-macro|macro|assert_eq!|assert_eq!(left, right)|Panics when they differ.
+rust-macro|macro|todo!|todo!()|Marks unfinished code; panics if reached.
+rust-macro|macro|unreachable!|unreachable!()|Marks code that can't be reached.
+rust-macro|macro|dbg!|dbg!(expr)|Prints the expression and its value, and returns it.
+rust-macro|macro|write!|write!(f, "…")|Writes formatted text to a writer.
+rust-type|type|Vec|Vec<T>|A growable array.
+rust-type|type|String|String|An owned, growable UTF-8 string.
+rust-type|type|Option|Option<T>|Some(value) or None.
+rust-type|type|Result|Result<T, E>|Ok(value) or Err(error).
+rust-type|type|Box|Box<T>|A value on the heap.
+rust-type|type|HashMap|HashMap<K, V>|A hash map (std::collections).
+rust-type|type|HashSet|HashSet<T>|A hash set (std::collections).
+rust-type|type|Rc|Rc<T>|Shared ownership, one thread.
+rust-type|type|Arc|Arc<T>|Shared ownership across threads.
+rust-type|type|RefCell|RefCell<T>|Interior mutability checked at run time.
+rust-type|type|i32|i32|A 32-bit signed integer.
+rust-type|type|u8|u8|An 8-bit unsigned integer (a byte).
+rust-type|type|usize|usize|A pointer-sized unsigned integer, used for indexes.
+rust-type|type|f64|f64|A 64-bit float.
+rust-type|type|bool|bool|true or false.
+rust-type|type|char|char|A Unicode scalar value.
+rust-type|type|str|&str|A borrowed string slice.
+rust:Vec|method|push|v.push(value)|Adds to the end.
+rust:Vec|method|pop|v.pop() -> Option<T>|Removes the last item.
+rust:Vec|method|len|v.len() -> usize|How many items.
+rust:Vec|method|is_empty|v.is_empty() -> bool|Whether it has no items.
+rust:Vec|method|iter|v.iter()|An iterator of references.
+rust:Vec|method|iter_mut|v.iter_mut()|An iterator of mutable references.
+rust:Vec|method|into_iter|v.into_iter()|An iterator that takes the items.
+rust:Vec|method|get|v.get(index) -> Option<&T>|The item, or None when out of range.
+rust:Vec|method|insert|v.insert(index, value)|Inserts at an index.
+rust:Vec|method|remove|v.remove(index) -> T|Removes at an index.
+rust:Vec|method|clear|v.clear()|Removes everything.
+rust:Vec|method|contains|v.contains(&value) -> bool|Whether it holds the value.
+rust:Vec|method|sort|v.sort()|Sorts in place.
+rust:Vec|method|extend|v.extend(iter)|Adds every item.
+rust:Vec|method|first|v.first() -> Option<&T>|The first item.
+rust:Vec|method|last|v.last() -> Option<&T>|The last item.
+rust:Vec|function|new|Vec::new()|An empty Vec.
+rust:Vec|function|with_capacity|Vec::with_capacity(n)|An empty Vec with room for n items.
+rust:String|method|push_str|s.push_str("…")|Appends a string slice.
+rust:String|method|push|s.push('c')|Appends a char.
+rust:String|method|len|s.len() -> usize|Length in bytes.
+rust:String|method|as_str|s.as_str() -> &str|Borrows it as &str.
+rust:String|method|trim|s.trim() -> &str|Without whitespace at both ends.
+rust:String|method|split|s.split(pattern)|An iterator over the pieces.
+rust:String|method|chars|s.chars()|An iterator over the chars.
+rust:String|method|contains|s.contains(pattern) -> bool|Whether it contains the pattern.
+rust:String|method|replace|s.replace(from, to) -> String|Replaces matches.
+rust:String|method|to_uppercase|s.to_uppercase() -> String|Upper case.
+rust:String|method|parse|s.parse::<T>() -> Result<T, _>|Parses into a number or other type.
+rust:String|function|new|String::new()|An empty String.
+rust:String|function|from|String::from("…")|A String from a &str.
+rust:Option|method|unwrap|opt.unwrap() -> T|The value; panics on None.
+rust:Option|method|expect|opt.expect("message") -> T|The value; panics with the message on None.
+rust:Option|method|unwrap_or|opt.unwrap_or(default) -> T|The value, or the default.
+rust:Option|method|is_some|opt.is_some() -> bool|Whether it holds a value.
+rust:Option|method|is_none|opt.is_none() -> bool|Whether it's None.
+rust:Option|method|map|opt.map(|v| …)|Transforms the value inside.
+rust:Option|method|ok_or|opt.ok_or(err) -> Result|Turns it into a Result.
+rust:Result|method|unwrap|res.unwrap() -> T|The value; panics on Err.
+rust:Result|method|expect|res.expect("message") -> T|The value; panics with the message on Err.
+rust:Result|method|is_ok|res.is_ok() -> bool|Whether it's Ok.
+rust:Result|method|is_err|res.is_err() -> bool|Whether it's Err.
+rust:Result|method|map_err|res.map_err(|e| …)|Transforms the error.
+rust:Result|method|unwrap_or_else|res.unwrap_or_else(|e| …)|The value, or the closure's result.
+rust:HashMap|method|insert|map.insert(key, value) -> Option<V>|Adds or replaces a pair.
+rust:HashMap|method|get|map.get(&key) -> Option<&V>|The value for the key.
+rust:HashMap|method|remove|map.remove(&key) -> Option<V>|Removes a pair.
+rust:HashMap|method|contains_key|map.contains_key(&key) -> bool|Whether the key is there.
+rust:HashMap|method|entry|map.entry(key).or_insert(default)|Gets or inserts a value.
+rust:HashMap|method|len|map.len() -> usize|How many pairs.
+rust:HashMap|method|iter|map.iter()|An iterator of (&key, &value).
+rust:HashMap|method|keys|map.keys()|The keys.
+rust:HashMap|method|values|map.values()|The values.
+rust:HashMap|function|new|HashMap::new()|An empty map.
+rust:Iterator|method|map|iter.map(|x| …)|Transforms each item.
+rust:Iterator|method|filter|iter.filter(|x| …)|Keeps the items that pass.
+rust:Iterator|method|collect|iter.collect::<Vec<_>>()|Gathers the items into a collection.
+rust:Iterator|method|sum|iter.sum::<T>()|Adds the items.
+rust:Iterator|method|count|iter.count() -> usize|How many items.
+rust:Iterator|method|enumerate|iter.enumerate()|Pairs of (index, item).
+rust:Iterator|method|zip|iter.zip(other)|Pairs items from two iterators.
+rust:Iterator|method|rev|iter.rev()|Backwards.
+rust:Iterator|method|take|iter.take(n)|The first n items.
+rust:Iterator|method|skip|iter.skip(n)|All but the first n.
+rust:Iterator|method|find|iter.find(|x| …) -> Option|The first item that passes.
+rust:Iterator|method|any|iter.any(|x| …) -> bool|Whether any item passes.
+rust:Iterator|method|all|iter.all(|x| …) -> bool|Whether every item passes.
+rust:Iterator|method|fold|iter.fold(init, |acc, x| …)|Combines the items.
+rust:std|module|collections||HashMap, HashSet, BTreeMap, VecDeque…
+rust:std|module|io||Input and output: stdin, Read, Write.
+rust:std|module|fs||Files: read_to_string, write, File.
+rust:std|module|env||Arguments and environment variables.
+rust:std|module|thread||Threads: spawn, sleep.
+rust:std|module|sync||Arc, Mutex, mpsc channels.
+rust:std|module|time||Duration and Instant.
+rust:std|module|fmt||Formatting traits: Display, Debug.
+rust:std|module|process||exit and Command.
+rust:fs|function|read_to_string|std::fs::read_to_string(path) -> io::Result<String>|Reads a whole file.
+rust:fs|function|write|std::fs::write(path, contents) -> io::Result<()>|Writes a whole file.
+rust:env|function|args|std::env::args()|The command-line arguments.
+rust:io|function|stdin|std::io::stdin()|Standard input; read_line(&mut s).

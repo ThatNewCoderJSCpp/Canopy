@@ -1,5 +1,8 @@
 name: Release
 
+env:
+  CANOPY_GITHUB_CLIENT_ID: "Ov23liJfPRt629ljZSIv"
+
 on:
   push:
     tags:
@@ -24,6 +27,13 @@ jobs:
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
             echo "::error::CMakeLists.txt says VERSION $version but the tag is $GITHUB_REF_NAME"
             exit 1
+          fi
+
+      - name: Check the GitHub sign-in app
+        shell: bash
+        run: |
+          if [ -z "$CANOPY_GITHUB_CLIENT_ID" ]; then
+            echo "::warning::CANOPY_GITHUB_CLIENT_ID at the top of release.yml is empty, so this release can't sign in to GitHub through the browser; it will offer pasting a token instead"
           fi
 
   linux:
@@ -53,6 +63,7 @@ jobs:
         run: |
           lib=/usr/lib/$(gcc -print-multiarch)
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+            -DCANOPY_GITHUB_CLIENT_ID="$CANOPY_GITHUB_CLIENT_ID" \
             -DCANOPY_PACKAGE_PLATFORM=linux-${{ matrix.arch }} \
             -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
             -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
@@ -130,7 +141,7 @@ jobs:
 
       - name: Build, test and package in a 32-bit container
         run: |
-          docker run --rm --platform linux/386 -v "$PWD:/src" -w /src i386/debian:bookworm bash -euo pipefail -c '
+          docker run --rm --platform linux/386 -e CANOPY_GITHUB_CLIENT_ID -v "$PWD:/src" -w /src i386/debian:bookworm bash -euo pipefail -c '
             apt-get update
             apt-get install -y --no-install-recommends ca-certificates git g++ cmake ninja-build pkg-config file rpm dpkg-dev binutils \
               libx11-dev libxft-dev libxrender-dev libfontconfig-dev libfreetype-dev \
@@ -138,6 +149,7 @@ jobs:
               libvulkan-dev libgl-dev
             lib=/usr/lib/$(gcc -print-multiarch)
             cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+              -DCANOPY_GITHUB_CLIENT_ID="$CANOPY_GITHUB_CLIENT_ID" \
               -DCANOPY_PACKAGE_PLATFORM=linux-i686 \
               -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
               -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
@@ -216,6 +228,7 @@ jobs:
         run: |
           lib=$(cygpath -m "$MINGW_PREFIX/lib")
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+            -DCANOPY_GITHUB_CLIENT_ID="$CANOPY_GITHUB_CLIENT_ID" \
             -DCANOPY_PACKAGE_PLATFORM=${{ matrix.platform }} \
             -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
             -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a

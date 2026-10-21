@@ -1209,6 +1209,50 @@ input_code.dump {
     color: $error;
 }
 
+#stats {
+    flex: 1;
+    overflow: auto;
+    padding: 6px 12px;
+    gap: 8px;
+    user-select: text;
+}
+
+.stats-title {
+    color: $text;
+    font-weight: bold;
+}
+
+.stats-columns {
+    gap: 32px;
+    align-items: flex-start;
+}
+
+.stats-table {
+    gap: 2px;
+    min-width: 260px;
+}
+
+.stats-heading {
+    color: $muted;
+    font-size: 11px;
+    letter-spacing: 1px;
+    margin: 0 0 2px 0;
+}
+
+.stats-row {
+    gap: 12px;
+}
+
+.stats-label {
+    color: $muted;
+    min-width: 150px;
+    white-space: pre;
+}
+
+.stats-value {
+    color: $text;
+}
+
 #ports {
     gap: 0;
     flex: 1;
@@ -1285,6 +1329,562 @@ input_code.dump {
 .server-meta {
     color: $muted;
     font-size: 12px;
+}
+
+#find-bar {
+    gap: 4px;
+    padding: 4px 10px;
+    background: $surface;
+}
+
+#find-row,
+#replace-row {
+    gap: 6px;
+    align-items: center;
+}
+
+.find-box {
+    width: 320px;
+    min-width: 80px;
+    overflow: hidden;
+}
+
+.find-input {
+    width: 100%;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.find-indent {
+    width: 18px;
+}
+
+.find-option {
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: $muted;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: pointer;
+
+    &:hover {
+        background: $hover;
+        color: $text;
+    }
+}
+
+.find-option.on {
+    background: #3b4261;
+    color: $blue;
+}
+
+.find-arrow {
+    width: 18px;
+    text-align: center;
+    color: $text;
+    cursor: pointer;
+    border-radius: 3px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.find-status {
+    min-width: 90px;
+    color: $muted;
+    font-size: 12px;
+}
+
+.find-status.bad {
+    color: $error;
+}
+
+.char-where {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+}
+
+.char-button {
+    margin: 0;
+    padding: 3px 12px;
+}
+
+.char-row {
+    gap: 8px;
+    align-items: center;
+}
+
+.char-name {
+    width: 120px;
+}
+
+.char-value {
+    width: 150px;
+}
+
+.char-arrow {
+    color: $muted;
+}
+
+.char-preview {
+    color: $text;
+    font-size: 13px;
+}
+
+.char-table-head {
+    gap: 12px;
+    padding: 4px 8px;
+    color: $muted;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.char-category {
+    gap: 8px;
+    align-items: center;
+    padding: 5px 8px;
+    margin: 2px 0 0 0;
+    border-radius: 4px;
+    background: $hover;
+    cursor: pointer;
+}
+
+.char-category.clash {
+    background: #3a1f2b;
+    color: $error;
+}
+
+.char-category-arrow {
+    width: 12px;
+}
+
+.char-category-name {
+    font-weight: bold;
+}
+
+.char-category-count {
+    color: $muted;
+    font-size: 12px;
+}
+
+.char-item {
+    gap: 12px;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.char-item.clash {
+    background: #3a1f2b;
+}
+
+.char-col-symbol {
+    width: 64px;
+    min-width: 64px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.char-col-code {
+    width: 90px;
+    white-space: nowrap;
+}
+
+.char-table-head .char-col-code {
+    margin: 0 0 0 10px;
+    width: 80px;
+}
+
+.char-col-names {
+    flex: 1;
+}
+
+.char-col-yours {
+    width: 160px;
+}
+
+.char-yours {
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.char-glyph.invisible {
+    color: $muted;
+}
+
+.char-result-name.bad {
+    color: $error;
+    font-weight: bold;
+}
+
+.char-row.clash {
+    background: #3a1f2b;
+    border-radius: 4px;
+    padding: 6px;
+}
+
+.char-row.clash .char-name,
+.char-name.bad {
+    border-color: $error;
+    color: $error;
+}
+
+.char-search {
+    width: 320px;
+    margin: 4px 0 6px 0;
+}
+
+#char-results {
+    gap: 0;
+}
+
+.char-result {
+    gap: 12px;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.char-glyph {
+    font-size: 18px;
+}
+
+.char-result-name {
+    color: $blue;
+}
+
+.char-result-code {
+    color: $muted;
+    font-size: 12px;
+}
+
+#view-console {
+    padding: 0;
+    overflow: hidden;
+}
+
+#console {
+    gap: 0;
+    height: 100%;
+}
+
+#console-bar {
+    gap: 8px;
+    padding: 4px 10px;
+    align-items: center;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+}
+
+.console-level {
+    min-width: 150px;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.console-filter-box {
+    width: 200px;
+    min-width: 60px;
+    overflow: hidden;
+}
+
+.console-filter {
+    width: 100%;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+#console-log {
+    flex: 1;
+    gap: 0;
+    padding: 2px 0;
+    overflow: auto;
+    scroll-anchor: bottom;
+    user-select: text;
+}
+
+#console-empty {
+    padding: 8px 14px;
+    gap: 2px;
+}
+
+#console-serve {
+    color: $blue;
+    cursor: pointer;
+}
+
+.console-row {
+    gap: 8px;
+    padding: 2px 10px;
+    align-items: start;
+    font-size: 12px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.console-row.error {
+    background: #3a1f2b;
+    color: $error;
+}
+
+.console-row.warn {
+    background: #3a3424;
+    color: $warn;
+}
+
+.console-row.debug {
+    color: $muted;
+}
+
+.console-row.note {
+    color: $muted;
+}
+
+.console-row.input,
+.console-row.result {
+    color: $text;
+}
+
+.console-row.result {
+    color: $blue;
+}
+
+.console-icon {
+    width: 14px;
+    font-size: 12px;
+}
+
+.console-text {
+    flex: 1;
+    margin: 0;
+    font-family: monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+.console-count {
+    background: $line;
+    color: $text;
+    padding: 0 6px;
+    border-radius: 8px;
+    font-size: 11px;
+}
+
+.console-source {
+    color: $muted;
+    font-size: 12px;
+}
+
+.console-source.link {
+    color: $blue;
+    cursor: pointer;
+}
+
+#console-input-row {
+    gap: 6px;
+    padding: 3px 10px;
+    align-items: center;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+}
+
+.console-prompt {
+    color: $blue;
+    font-weight: bold;
+}
+
+.console-input-box {
+    flex: 1;
+    min-width: 40px;
+    overflow: hidden;
+}
+
+.console-input {
+    width: 100%;
+    margin: 0;
+    padding: 3px 8px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+#view-elements {
+    padding: 0;
+    overflow: hidden;
+}
+
+#elements {
+    gap: 0;
+    height: 100%;
+}
+
+#elements-bar {
+    gap: 8px;
+    padding: 4px 10px;
+    align-items: center;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
+}
+
+.elements-page {
+    min-width: 220px;
+    margin: 0;
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.elements-note {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#elements-empty {
+    padding: 8px 14px;
+    gap: 2px;
+}
+
+#elements-serve {
+    color: $blue;
+    cursor: pointer;
+}
+
+#elements-body {
+    flex: 1;
+    gap: 0;
+    min-height: 0;
+}
+
+#elements-tree {
+    flex: 1;
+    gap: 0;
+    padding: 2px 0;
+    overflow: auto;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.el-row {
+    margin: 0;
+    padding: 1px 8px 1px 4px;
+    white-space: pre;
+    font-family: monospace;
+    font-size: 12px;
+    cursor: default;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.el-row.selected {
+    background: #33405e;
+}
+
+.el-twisty {
+    color: $muted;
+    cursor: pointer;
+}
+
+.el-punct {
+    color: $muted;
+    white-space: pre;
+}
+
+.el-tag {
+    color: #cba6f7;
+}
+
+.el-attr {
+    color: #fab387;
+    white-space: pre;
+}
+
+.el-value {
+    color: #a6e3a1;
+    white-space: pre;
+}
+
+.el-text,
+.el-text-inline {
+    color: $text;
+    white-space: pre;
+}
+
+.el-comment {
+    color: $muted;
+    white-space: pre;
+}
+
+.el-ellipsis {
+    color: $muted;
+    padding: 0 2px;
+}
+
+.el-more {
+    color: $muted;
+    padding: 4px 10px;
+}
+
+#elements-side {
+    width: 42%;
+    min-width: 240px;
+    gap: 4px;
+    padding: 4px 8px;
+    border-left: 1px solid $line;
+}
+
+.elements-side-bar {
+    align-items: center;
+}
+
+.elements-selected {
+    color: $muted;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.elements-html {
+    flex: 1;
+    min-height: 60px;
+}
+
+.elements-side-buttons {
+    gap: 6px;
+
+    button {
+        margin: 0;
+        padding: 2px 10px;
+        font-size: 12px;
+    }
 }
 
 .md-block {
@@ -1572,6 +2172,14 @@ input_code.dump {
 .git-task-name {
     font-weight: bold;
     font-size: 12px;
+}
+
+.git-task-buttons {
+    gap: 8px;
+}
+
+.view-button.git-task-more {
+    margin: 6px 0 0 0;
 }
 
 .view-button.git-run {

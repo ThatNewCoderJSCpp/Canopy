@@ -1,6 +1,7 @@
 #ifndef CANOPY_GIT_PANEL_HPP
 #define CANOPY_GIT_PANEL_HPP
 
+#include "github_auth.hpp"
 #include "git.hpp"
 #include "history.hpp"
 #include "tasks.hpp"
@@ -76,6 +77,8 @@ public:
     bool run_task(const std::string& id, std::function<void(bool)> done = {});
     void pick_task();
     void create_tasks_file();
+    void create_tasks_file(bool personal);
+    void open_local_tasks_file();
     void open_tasks_file();
 
     void commit(bool push);
@@ -150,6 +153,11 @@ private:
     void history_menu_action(const std::string& action);
     void more_menu(grove::Event& e);
     void more_action(const std::string& action);
+    void sign_in_to_github();
+    void paste_github_token();
+    void sign_out_of_github();
+    void poll_github_sign_in();
+    void close_sign_in_popup();
     void branch_picked(const std::string& value);
     void repo_picked(const std::string& value);
 
@@ -232,6 +240,9 @@ private:
     std::string m_menu_hash;
     std::size_t m_menu_version = 0;
     std::string m_state;
+    std::unique_ptr<GitHubSignIn> m_github;
+    grove::Node* m_github_popup = nullptr;
+    bool m_github_closing = false;
 };
 
 } // namespace canopy

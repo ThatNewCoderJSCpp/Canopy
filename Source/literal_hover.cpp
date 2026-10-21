@@ -1,4 +1,5 @@
 #include <canopy/code_intel.hpp>
+#include <canopy/special_names.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -273,6 +274,31 @@ Decoded decode_body(const std::string& body, bool walnut, bool raw, bool text_li
                     }
                     cp = cp * 16 + hex_value(body[i]);
                     ++i;
+                }
+                break;
+            }
+            case 's': {
+                if (!walnut) {
+                    ok = false;
+                    break;
+                }
+                if (i >= body.size() || body[i] != '{') {
+                    ok = false;
+                    break;
+                }
+                const std::size_t open = ++i;
+                while (i < body.size() && (std::isalnum(static_cast<unsigned char>(body[i])) || body[i] == '_')) ++i;
+                if (i == open || i >= body.size() || body[i] != '}') {
+                    ok = false;
+                    break;
+                }
+                const std::string name = body.substr(open, i - open);
+                ++i;
+                if (!special_character(name, cp)) {
+                    const std::string guess = special_character_suggestion(name);
+                    d.error = "has " + code(body.substr(start, i - start)) + ", but Walnut has no character named " + code(name);
+                    if (!guess.empty()) d.error += "; did you mean " + code("\\s{" + guess + "}") + "?";
+                    return d;
                 }
                 break;
             }

@@ -17,11 +17,15 @@ server {
     port: 5500;
     host: "127.0.0.1";
     live-reload: true;
+    console: true;
+    proxy-node: true;
+    restart-node: true;
 }
 
 git {
     refresh-seconds: 4;
     protected-branches: "main master";
+    github-client-id: "";
 }
 
 history {

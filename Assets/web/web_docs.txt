@@ -1,0 +1,1104 @@
+html-tag|tag|html||The root of an HTML page; everything else goes inside it. Set `lang` on it.
+html-tag|tag|head||Information about the page (title, meta, links to stylesheets, scripts) that isn't shown in it.
+html-tag|tag|title||The page's title, shown in the browser tab and in bookmarks.
+html-tag|tag|meta||Page metadata: `charset`, or `name`/`content` pairs like `viewport` and `description`.
+html-tag|tag|link||Links an outside resource to the page, most often a stylesheet: `<link rel="stylesheet" href="style.css">`.
+html-tag|tag|style||CSS written inside the page.
+html-tag|tag|script||JavaScript, written inside or loaded with `src`. `defer` runs it after the page is parsed; `type="module"` makes it an ES module.
+html-tag|tag|noscript||Shown only when JavaScript is off.
+html-tag|tag|base||The base URL for every relative URL in the page.
+html-tag|tag|body||The page's visible content.
+html-tag|tag|header||Introductory content for the page or a section: logo, title, navigation.
+html-tag|tag|footer||The footer of the page or a section: author, copyright, links.
+html-tag|tag|main||The page's main content; use one per page.
+html-tag|tag|nav||A block of navigation links.
+html-tag|tag|section||A thematic section of the page, usually with a heading.
+html-tag|tag|article||Self-contained content: a post, a card, a comment.
+html-tag|tag|aside||Content beside the main content: a sidebar, a call-out.
+html-tag|tag|address||Contact information.
+html-tag|tag|h1||A top-level heading. `h1` to `h6` go from most to least important.
+html-tag|tag|h2||A second-level heading.
+html-tag|tag|h3||A third-level heading.
+html-tag|tag|h4||A fourth-level heading.
+html-tag|tag|h5||A fifth-level heading.
+html-tag|tag|h6||A sixth-level heading.
+html-tag|tag|hgroup||A heading with its subtitle.
+html-tag|tag|div||A generic block container, for layout and styling.
+html-tag|tag|p||A paragraph.
+html-tag|tag|hr||A thematic break, drawn as a horizontal line.
+html-tag|tag|pre||Preformatted text: spaces and line breaks are kept.
+html-tag|tag|blockquote||A quotation from somewhere else; `cite` names the source URL.
+html-tag|tag|ol||An ordered (numbered) list of `<li>` items.
+html-tag|tag|ul||An unordered (bulleted) list of `<li>` items.
+html-tag|tag|li||One item in a `<ul>`, `<ol>` or `<menu>`.
+html-tag|tag|dl||A description list of `<dt>` terms and `<dd>` descriptions.
+html-tag|tag|dt||A term in a `<dl>`.
+html-tag|tag|dd||The description of the term before it in a `<dl>`.
+html-tag|tag|figure||Self-contained content such as an image or code listing, with an optional `<figcaption>`.
+html-tag|tag|figcaption||The caption of a `<figure>`.
+html-tag|tag|menu||A list of commands, like `<ul>`.
+html-tag|tag|a||A link. `href` is where it goes; `target="_blank"` opens a new tab; `download` saves the file.
+html-tag|tag|span||A generic inline container, for styling part of a text.
+html-tag|tag|em||Stressed text, usually italic.
+html-tag|tag|strong||Important text, usually bold.
+html-tag|tag|b||Text drawn bold without extra importance.
+html-tag|tag|i||Text in an alternate voice, usually italic.
+html-tag|tag|u||Text with an unarticulated annotation, drawn underlined.
+html-tag|tag|s||Text that is no longer accurate, drawn struck through.
+html-tag|tag|small||Side comments and small print.
+html-tag|tag|mark||Highlighted text.
+html-tag|tag|code||A fragment of computer code.
+html-tag|tag|kbd||Keyboard input.
+html-tag|tag|samp||Sample output from a program.
+html-tag|tag|var||A variable in math or programming.
+html-tag|tag|sub||Subscript text.
+html-tag|tag|sup||Superscript text.
+html-tag|tag|br||A line break.
+html-tag|tag|wbr||A place where a long word may break.
+html-tag|tag|abbr||An abbreviation; `title` gives the full form.
+html-tag|tag|cite||The title of a creative work.
+html-tag|tag|q||A short inline quotation.
+html-tag|tag|time||A date or time; `datetime` gives it in machine-readable form.
+html-tag|tag|data||A value with a machine-readable `value`.
+html-tag|tag|dfn||The defining instance of a term.
+html-tag|tag|del||Text that was removed from the document.
+html-tag|tag|ins||Text that was added to the document.
+html-tag|tag|bdi||Text isolated from its surroundings' direction.
+html-tag|tag|bdo||Text with an overridden direction (`dir`).
+html-tag|tag|ruby||Ruby annotations for East Asian text.
+html-tag|tag|rt||The ruby text inside `<ruby>`.
+html-tag|tag|rp||Fallback parentheses around ruby text.
+html-tag|tag|img||An image. `src` is the file and `alt` describes it for screen readers and when it can't load.
+html-tag|tag|picture||Several `<source>` versions of an image and an `<img>` fallback.
+html-tag|tag|source||A media or image source inside `<video>`, `<audio>` or `<picture>`.
+html-tag|tag|video||A video player; `controls` shows the controls.
+html-tag|tag|audio||An audio player; `controls` shows the controls.
+html-tag|tag|track||Timed text (captions, subtitles) for `<video>` or `<audio>`.
+html-tag|tag|iframe||Another page embedded in this one.
+html-tag|tag|embed||External content from a plugin.
+html-tag|tag|object||An external resource: an image, a page or plugin content.
+html-tag|tag|canvas||A surface to draw on with JavaScript (`getContext('2d')` or WebGL).
+html-tag|tag|svg||Scalable vector graphics.
+html-tag|tag|map||An image map with clickable `<area>`s.
+html-tag|tag|area||A clickable region in an image `<map>`.
+html-tag|tag|table||A table of `<tr>` rows.
+html-tag|tag|caption||The title of a `<table>`.
+html-tag|tag|thead||The header rows of a table.
+html-tag|tag|tbody||The body rows of a table.
+html-tag|tag|tfoot||The footer rows of a table.
+html-tag|tag|tr||A table row of `<th>` and `<td>` cells.
+html-tag|tag|th||A header cell; `scope` says what it heads.
+html-tag|tag|td||A data cell; `colspan` and `rowspan` make it span more cells.
+html-tag|tag|colgroup||A group of table columns.
+html-tag|tag|col||One column in a `<colgroup>`.
+html-tag|tag|form||A form that sends its fields to `action` with `method` when it's submitted.
+html-tag|tag|label||A caption for a form control; `for` names the control's id, or put the control inside.
+html-tag|tag|input||A form field; `type` picks the kind (text, email, password, number, checkbox, radio, date, file, range, color, submit...).
+html-tag|tag|button||A clickable button; inside a form it submits unless `type="button"`.
+html-tag|tag|select||A drop-down list of `<option>`s.
+html-tag|tag|option||One choice in a `<select>` or `<datalist>`.
+html-tag|tag|optgroup||A labelled group of `<option>`s.
+html-tag|tag|datalist||Suggested values for an `<input list="...">`.
+html-tag|tag|textarea||A multi-line text field.
+html-tag|tag|fieldset||Groups form controls, with a `<legend>` caption.
+html-tag|tag|legend||The caption of a `<fieldset>`.
+html-tag|tag|output||The result of a calculation or user action.
+html-tag|tag|progress||A progress bar; `value` out of `max`.
+html-tag|tag|meter||A gauge for a value in a known range.
+html-tag|tag|details||A disclosure box that opens and closes; `<summary>` is its always-shown label.
+html-tag|tag|summary||The label of a `<details>` box.
+html-tag|tag|dialog||A dialog box; open it with `showModal()` or `show()`.
+html-tag|tag|template||HTML that isn't rendered, to be cloned with JavaScript.
+html-tag|tag|slot||A placeholder inside a web component's shadow DOM.
+html-attr|attribute|id||A unique name for the element, for links (`#id`), CSS (`#id`) and `getElementById`.
+html-attr|attribute|class||Space-separated class names, for CSS (`.name`) and `querySelector`.
+html-attr|attribute|style||Inline CSS declarations for this element.
+html-attr|attribute|title||Extra information, shown as a tooltip.
+html-attr|attribute|lang||The language of the element's content, like `en` or `fr`.
+html-attr|attribute|dir||Text direction: `ltr`, `rtl` or `auto`.
+html-attr|flag|hidden||Hides the element.
+html-attr|attribute|tabindex||Whether and in what order the element takes keyboard focus; `0` adds it, `-1` removes it.
+html-attr|attribute|contenteditable||Lets the user edit the element's content: `true` or `false`.
+html-attr|attribute|draggable||Whether the element can be dragged: `true` or `false`.
+html-attr|attribute|role||The element's ARIA role, for assistive technology.
+html-attr|attribute|aria-label||A label read by screen readers.
+html-attr|attribute|aria-hidden||`true` hides the element from screen readers.
+html-attr|attribute|aria-describedby||The id of the element that describes this one.
+html-attr|attribute|aria-expanded||Whether the thing this controls is open.
+html-attr|attribute|data-||Your own data, read in JavaScript with `element.dataset`.
+html-attr|attribute|spellcheck||Whether to check spelling: `true` or `false`.
+html-attr|attribute|translate||Whether to translate the content: `yes` or `no`.
+html-attr|attribute|accesskey||A keyboard shortcut that focuses or activates the element.
+html-attr|attribute|slot||The shadow DOM slot this element goes into.
+html-attr|attribute|onclick||JavaScript to run when the element is clicked.
+html-attr|attribute|onchange||JavaScript to run when the value changes.
+html-attr|attribute|oninput||JavaScript to run on every input.
+html-attr|attribute|onsubmit||JavaScript to run when the form is submitted.
+html-attr|attribute|onload||JavaScript to run when it has loaded.
+html-attr|attribute|onkeydown||JavaScript to run when a key is pressed.
+html-attr|attribute|onmouseover||JavaScript to run when the pointer moves onto the element.
+html-attr|attribute|href|a area link base|The URL the link goes to or the resource it loads.
+html-attr|attribute|target|a area form base|Where to open the link: `_blank` (new tab), `_self`, `_parent`, `_top` or a frame name.
+html-attr|attribute|rel|a area link|How the linked resource relates to the page: `stylesheet`, `icon`, `noopener`, `preload`...
+html-attr|attribute|download|a area|Download the link instead of opening it, optionally with this file name.
+html-attr|attribute|src|img script iframe video audio source track embed input|The URL of the file to load.
+html-attr|attribute|alt|img area input|Text that replaces the image when it can't be shown and that screen readers read.
+html-attr|attribute|width|img canvas video iframe embed object input|The width in pixels.
+html-attr|attribute|height|img canvas video iframe embed object input|The height in pixels.
+html-attr|attribute|srcset|img source|Several image files with their widths or pixel densities.
+html-attr|attribute|sizes|img source|The display size of the image at different viewport widths.
+html-attr|attribute|loading|img iframe|`lazy` waits until the image is near the viewport; `eager` loads it now.
+html-attr|attribute|decoding|img|How to decode the image: `async`, `sync` or `auto`.
+html-attr|attribute|crossorigin|img script link video audio|How to make cross-origin requests: `anonymous` or `use-credentials`.
+html-attr|attribute|charset|meta script|The character encoding, almost always `utf-8`.
+html-attr|attribute|name|meta input select textarea button form iframe|The field's name when the form is sent, or the meta name.
+html-attr|attribute|content|meta|The value of the meta `name` or `http-equiv`.
+html-attr|attribute|http-equiv|meta|A pragma directive, like `refresh` or `content-security-policy`.
+html-attr|attribute|type|input button script link source ol|The kind: for `<input>` text, email, password, number, checkbox, radio...; for `<script>` `module`; for `<button>` submit, button or reset.
+html-attr|flag|defer|script|Runs the script after the page has been parsed, in order.
+html-attr|flag|async|script|Runs the script as soon as it has downloaded, without waiting.
+html-attr|flag|nomodule|script|Only runs in browsers without ES module support.
+html-attr|attribute|integrity|script link|A hash the downloaded file must match.
+html-attr|attribute|media|link source style|The media query the resource is for.
+html-attr|attribute|action|form|The URL the form is sent to.
+html-attr|attribute|method|form|How the form is sent: `get` or `post`.
+html-attr|attribute|enctype|form|How a `post` form's data is encoded; `multipart/form-data` is needed for file uploads.
+html-attr|flag|novalidate|form|Sends the form without checking its fields.
+html-attr|attribute|autocomplete|form input select textarea|Whether the browser may fill it in, or what to fill: `on`, `off`, `email`, `name`...
+html-attr|attribute|value|input button option select textarea li progress meter data param|The current or initial value.
+html-attr|attribute|placeholder|input textarea|Hint text shown while the field is empty.
+html-attr|flag|required|input select textarea|The form can't be sent while this is empty.
+html-attr|flag|disabled|input button select textarea option optgroup fieldset|Turns the control off; it isn't sent with the form.
+html-attr|flag|readonly|input textarea|The user can't change the value.
+html-attr|flag|checked|input|The checkbox or radio button starts checked.
+html-attr|flag|selected|option|The option starts selected.
+html-attr|flag|multiple|input select|Allows more than one value or file.
+html-attr|flag|autofocus|input button select textarea|Focuses the control when the page loads.
+html-attr|attribute|min|input meter|The smallest allowed value.
+html-attr|attribute|max|input meter progress|The largest allowed value.
+html-attr|attribute|step|input|The granularity of the value.
+html-attr|attribute|minlength|input textarea|The fewest characters allowed.
+html-attr|attribute|maxlength|input textarea|The most characters allowed.
+html-attr|attribute|pattern|input|A regular expression the value has to match.
+html-attr|attribute|list|input|The id of a `<datalist>` of suggestions.
+html-attr|attribute|accept|input|The file types a file input takes, like `image/*` or `.pdf`.
+html-attr|attribute|for|label output|The id of the control this labels.
+html-attr|attribute|form|input button select textarea fieldset output|The id of the form this belongs to.
+html-attr|attribute|rows|textarea|The visible number of lines.
+html-attr|attribute|cols|textarea|The visible width in characters.
+html-attr|attribute|wrap|textarea|How the text wraps: `soft` or `hard`.
+html-attr|flag|controls|video audio|Shows the playback controls.
+html-attr|flag|autoplay|video audio|Starts playing as soon as it can.
+html-attr|flag|loop|video audio|Starts again at the end.
+html-attr|flag|muted|video audio|Starts muted.
+html-attr|attribute|poster|video|An image shown before the video plays.
+html-attr|attribute|preload|video audio|What to load before playing: `none`, `metadata` or `auto`.
+html-attr|flag|playsinline|video|Plays inside the page on phones instead of full screen.
+html-attr|attribute|colspan|td th|How many columns the cell spans.
+html-attr|attribute|rowspan|td th|How many rows the cell spans.
+html-attr|attribute|scope|th|What the header cell heads: `row`, `col`, `rowgroup` or `colgroup`.
+html-attr|attribute|start|ol|The number the list starts at.
+html-attr|flag|reversed|ol|Numbers the list backwards.
+html-attr|flag|open|details dialog|The box starts open.
+html-attr|attribute|datetime|time del ins|The date or time in machine-readable form.
+html-attr|attribute|cite|blockquote q del ins|The URL of the source.
+html-attr|attribute|sandbox|iframe|Restrictions on the embedded page.
+html-attr|attribute|allow|iframe|Features the embedded page may use, like `fullscreen` or `camera`.
+html-attr|flag|allowfullscreen|iframe|Lets the embedded page go full screen.
+html-attr|attribute|srcdoc|iframe|HTML to show in the frame instead of `src`.
+html-attr|attribute|label|option optgroup track|The text shown for it.
+html-attr|attribute|kind|track|What the track is: `subtitles`, `captions`, `chapters`...
+html-attr|attribute|srclang|track|The language of the track.
+html-attr|attribute|usemap|img|The `#name` of the image `<map>`.
+html-attr|attribute|coords|area|The area's coordinates.
+html-attr|attribute|shape|area|The area's shape: `rect`, `circle` or `poly`.
+html-attr|attribute|xmlns|svg html|The XML namespace.
+html-attr|attribute|viewBox|svg|The coordinate system: `min-x min-y width height`.
+html-value:type|value|text||A one-line text field.
+html-value:type|value|email||An email address field.
+html-value:type|value|password||A field that hides what's typed.
+html-value:type|value|number||A number field with arrows.
+html-value:type|value|checkbox||A checkbox.
+html-value:type|value|radio||A radio button; ones with the same `name` form a group.
+html-value:type|value|submit||A button that sends the form.
+html-value:type|value|button||A button with no default action.
+html-value:type|value|reset||A button that resets the form.
+html-value:type|value|file||A file picker.
+html-value:type|value|date||A date picker.
+html-value:type|value|time||A time picker.
+html-value:type|value|datetime-local||A date and time picker.
+html-value:type|value|month||A month picker.
+html-value:type|value|week||A week picker.
+html-value:type|value|range||A slider.
+html-value:type|value|color||A color picker.
+html-value:type|value|search||A search field.
+html-value:type|value|tel||A telephone number field.
+html-value:type|value|url||A URL field.
+html-value:type|value|hidden||A value sent with the form but not shown.
+html-value:type|value|image||An image used as a submit button.
+html-value:type|value|module||An ES module script (`<script type="module">`).
+html-value:type|value|text/javascript||A classic script.
+html-value:type|value|text/css||A stylesheet.
+html-value:rel|value|stylesheet||Loads a CSS file.
+html-value:rel|value|icon||The page's icon.
+html-value:rel|value|preload||Downloads the resource early.
+html-value:rel|value|preconnect||Connects to the origin early.
+html-value:rel|value|noopener||Opens the link without giving it access to this page.
+html-value:rel|value|noreferrer||Doesn't send the Referer header.
+html-value:rel|value|nofollow||Asks search engines not to follow the link.
+html-value:rel|value|manifest||The web app manifest.
+html-value:rel|value|modulepreload||Preloads an ES module.
+html-value:target|value|_blank||A new tab or window.
+html-value:target|value|_self||The same frame (the default).
+html-value:target|value|_parent||The parent frame.
+html-value:target|value|_top||The whole window.
+html-value:method|value|get||Sends the fields in the URL.
+html-value:method|value|post||Sends the fields in the request body.
+html-value:method|value|dialog||Closes the dialog the form is in.
+html-value:loading|value|lazy||Loads when it gets near the viewport.
+html-value:loading|value|eager||Loads straight away.
+html-value:preload|value|none||Loads nothing until played.
+html-value:preload|value|metadata||Loads only the duration and size.
+html-value:preload|value|auto||May load the whole file.
+html-value:dir|value|ltr||Left to right.
+html-value:dir|value|rtl||Right to left.
+html-value:dir|value|auto||Decided from the content.
+html-value:name|value|viewport||Controls the layout viewport on phones: `width=device-width, initial-scale=1`.
+html-value:name|value|description||A summary of the page for search engines.
+html-value:name|value|theme-color||The color browsers use around the page.
+html-value:name|value|author||The page's author.
+html-value:charset|value|utf-8||Unicode; what every page should use.
+html-value:autocomplete|value|on||The browser may fill it in.
+html-value:autocomplete|value|off||The browser shouldn't fill it in.
+html-value:autocomplete|value|email||An email address.
+html-value:autocomplete|value|name||A full name.
+html-value:autocomplete|value|username||A user name.
+html-value:autocomplete|value|current-password||The user's current password.
+html-value:autocomplete|value|new-password||A new password.
+html-value:enctype|value|multipart/form-data||Needed to upload files.
+html-value:enctype|value|application/x-www-form-urlencoded||The default encoding.
+html-value:scope|value|col||Heads a column.
+html-value:scope|value|row||Heads a row.
+html-value:crossorigin|value|anonymous||Cross-origin request without credentials.
+html-value:crossorigin|value|use-credentials||Cross-origin request with credentials.
+css-prop|property|display|block | inline | inline-block | flex | grid | none | …|How the element is laid out: as a block, inline, a flex or grid container, or not at all.
+css-prop|property|position|static | relative | absolute | fixed | sticky|How the element is positioned; `top`/`right`/`bottom`/`left` move it.
+css-prop|property|top|<length> | <percentage> | auto|The offset from the top of the containing block, for positioned elements.
+css-prop|property|right|<length> | <percentage> | auto|The offset from the right, for positioned elements.
+css-prop|property|bottom|<length> | <percentage> | auto|The offset from the bottom, for positioned elements.
+css-prop|property|left|<length> | <percentage> | auto|The offset from the left, for positioned elements.
+css-prop|property|inset|<top> <right> <bottom> <left>|Shorthand for `top`, `right`, `bottom` and `left`.
+css-prop|property|z-index|auto | <integer>|The stacking order of positioned elements; higher is in front.
+css-prop|property|float|left | right | none|Floats the element to a side so text wraps around it.
+css-prop|property|clear|left | right | both | none|Moves the element below floats.
+css-prop|property|box-sizing|content-box | border-box|Whether `width` and `height` include the padding and border (`border-box`).
+css-prop|property|width|<length> | <percentage> | auto | fit-content|The width of the content box (or border box with `box-sizing: border-box`).
+css-prop|property|height|<length> | <percentage> | auto|The height of the element.
+css-prop|property|min-width|<length> | <percentage>|The smallest width the element can shrink to.
+css-prop|property|max-width|<length> | <percentage> | none|The largest width the element can grow to.
+css-prop|property|min-height|<length> | <percentage>|The smallest height.
+css-prop|property|max-height|<length> | <percentage> | none|The largest height.
+css-prop|property|aspect-ratio|auto | <ratio>|A preferred width/height ratio, like `16 / 9`.
+css-prop|property|margin|<top> <right> <bottom> <left>|Space outside the border; one to four values, or `auto` to center.
+css-prop|property|margin-top|<length> | auto|Space above the element.
+css-prop|property|margin-right|<length> | auto|Space to the right of the element.
+css-prop|property|margin-bottom|<length> | auto|Space below the element.
+css-prop|property|margin-left|<length> | auto|Space to the left of the element.
+css-prop|property|margin-inline|<length> | auto|Margin at the start and end of the line direction.
+css-prop|property|margin-block|<length> | auto|Margin before and after in the block direction.
+css-prop|property|padding|<top> <right> <bottom> <left>|Space between the content and the border; one to four values.
+css-prop|property|padding-top|<length>|Space inside the top border.
+css-prop|property|padding-right|<length>|Space inside the right border.
+css-prop|property|padding-bottom|<length>|Space inside the bottom border.
+css-prop|property|padding-left|<length>|Space inside the left border.
+css-prop|property|padding-inline|<length>|Padding at the start and end of the line direction.
+css-prop|property|padding-block|<length>|Padding before and after in the block direction.
+css-prop|property|border|<width> <style> <color>|Shorthand for the border's width, style and color, like `1px solid #ccc`.
+css-prop|property|border-top|<width> <style> <color>|The top border.
+css-prop|property|border-right|<width> <style> <color>|The right border.
+css-prop|property|border-bottom|<width> <style> <color>|The bottom border.
+css-prop|property|border-left|<width> <style> <color>|The left border.
+css-prop|property|border-width|<length>|The width of the border.
+css-prop|property|border-style|solid | dashed | dotted | double | none | …|How the border is drawn.
+css-prop|property|border-color|<color>|The color of the border.
+css-prop|property|border-radius|<length> | <percentage>|Rounds the corners; `50%` makes a circle.
+css-prop|property|border-collapse|collapse | separate|Whether table cell borders merge.
+css-prop|property|border-spacing|<length>|The space between table cell borders.
+css-prop|property|outline|<width> <style> <color>|A line outside the border that takes no space; often shows focus.
+css-prop|property|outline-offset|<length>|The gap between the outline and the border.
+css-prop|property|color|<color>|The text color.
+css-prop|property|background|<color> <image> <position> / <size> <repeat>|Shorthand for every background property.
+css-prop|property|background-color|<color>|The background color.
+css-prop|property|background-image|url() | linear-gradient() | none|One or more background images or gradients.
+css-prop|property|background-size|auto | cover | contain | <length>|How big the background image is.
+css-prop|property|background-position|<position>|Where the background image sits, like `center` or `top right`.
+css-prop|property|background-repeat|repeat | no-repeat | repeat-x | repeat-y|Whether the background image tiles.
+css-prop|property|background-attachment|scroll | fixed | local|Whether the background scrolls with the page.
+css-prop|property|background-clip|border-box | padding-box | content-box | text|How far the background extends.
+css-prop|property|opacity|<number>|How opaque the element is, from 0 (invisible) to 1.
+css-prop|property|visibility|visible | hidden | collapse|Hides the element but keeps its space.
+css-prop|property|box-shadow|<x> <y> <blur> <spread> <color>|Shadows around the box; `inset` puts it inside.
+css-prop|property|filter|blur() | brightness() | grayscale() | …|Graphical effects like blur and grayscale.
+css-prop|property|backdrop-filter|blur() | …|Effects applied to what's behind the element.
+css-prop|property|mix-blend-mode|normal | multiply | screen | …|How the element blends with what's behind it.
+css-prop|property|font|<style> <weight> <size>/<line-height> <family>|Shorthand for the font properties.
+css-prop|property|font-family|<family>, …|The font, with fallbacks: `"Inter", Arial, sans-serif`.
+css-prop|property|font-size|<length> | <percentage> | small | medium | large | …|The size of the text.
+css-prop|property|font-weight|normal | bold | 100–900|How bold the text is.
+css-prop|property|font-style|normal | italic | oblique|Italic or not.
+css-prop|property|font-variant|normal | small-caps|Small capitals and other variants.
+css-prop|property|line-height|normal | <number> | <length>|The height of each line; a plain number multiplies the font size.
+css-prop|property|letter-spacing|normal | <length>|Extra space between letters.
+css-prop|property|word-spacing|normal | <length>|Extra space between words.
+css-prop|property|text-align|left | right | center | justify | start | end|How text lines line up.
+css-prop|property|text-decoration|none | underline | line-through | overline|Lines on the text.
+css-prop|property|text-transform|none | uppercase | lowercase | capitalize|Changes the case of the text.
+css-prop|property|text-indent|<length>|Indents the first line.
+css-prop|property|text-shadow|<x> <y> <blur> <color>|Shadows behind the text.
+css-prop|property|text-overflow|clip | ellipsis|What shows where text is cut off; needs `overflow: hidden` and `white-space: nowrap`.
+css-prop|property|white-space|normal | nowrap | pre | pre-wrap | pre-line|How spaces and line breaks are handled.
+css-prop|property|word-break|normal | break-all | keep-all|Where long words may break.
+css-prop|property|overflow-wrap|normal | break-word | anywhere|Lets long words break to fit.
+css-prop|property|vertical-align|baseline | top | middle | bottom | <length>|Vertical alignment of inline and table-cell content.
+css-prop|property|list-style|<type> <position> <image>|Shorthand for list bullets.
+css-prop|property|list-style-type|disc | circle | square | decimal | none | …|The bullet or numbering.
+css-prop|property|overflow|visible | hidden | scroll | auto | clip|What happens to content that doesn't fit.
+css-prop|property|overflow-x|visible | hidden | scroll | auto|Horizontal overflow.
+css-prop|property|overflow-y|visible | hidden | scroll | auto|Vertical overflow.
+css-prop|property|cursor|auto | pointer | default | text | move | not-allowed | …|The mouse pointer over the element.
+css-prop|property|pointer-events|auto | none|`none` lets clicks pass through the element.
+css-prop|property|user-select|auto | none | text | all|Whether the user can select the text.
+css-prop|property|resize|none | both | horizontal | vertical|Whether the user can resize the element.
+css-prop|property|content|normal | none | "<string>" | attr() | counter()|What `::before` and `::after` show.
+css-prop|property|flex|<grow> <shrink> <basis>|How a flex item grows and shrinks; `flex: 1` shares the space equally.
+css-prop|property|flex-direction|row | row-reverse | column | column-reverse|The direction flex items flow in.
+css-prop|property|flex-wrap|nowrap | wrap | wrap-reverse|Whether flex items wrap onto more lines.
+css-prop|property|flex-flow|<direction> <wrap>|Shorthand for `flex-direction` and `flex-wrap`.
+css-prop|property|flex-grow|<number>|How much the item grows to fill space.
+css-prop|property|flex-shrink|<number>|How much the item shrinks when space is short.
+css-prop|property|flex-basis|auto | <length>|The item's starting size.
+css-prop|property|justify-content|flex-start | center | flex-end | space-between | space-around | space-evenly|How items are spread along the main axis.
+css-prop|property|align-items|stretch | flex-start | center | flex-end | baseline|How items line up on the cross axis.
+css-prop|property|align-self|auto | stretch | flex-start | center | flex-end|Overrides `align-items` for one item.
+css-prop|property|align-content|stretch | flex-start | center | flex-end | space-between|How lines are spread when there are several.
+css-prop|property|justify-items|start | center | end | stretch|How grid items line up in their cells horizontally.
+css-prop|property|justify-self|auto | start | center | end | stretch|Overrides `justify-items` for one item.
+css-prop|property|place-items|<align> <justify>|Shorthand for `align-items` and `justify-items`; `place-items: center` centers.
+css-prop|property|place-content|<align> <justify>|Shorthand for `align-content` and `justify-content`.
+css-prop|property|gap|<row-gap> <column-gap>|The space between flex or grid items.
+css-prop|property|row-gap|<length>|The space between rows.
+css-prop|property|column-gap|<length>|The space between columns.
+css-prop|property|order|<integer>|The order of a flex or grid item.
+css-prop|property|grid-template-columns|<track-size> … | repeat()|The columns of a grid, like `repeat(3, 1fr)`.
+css-prop|property|grid-template-rows|<track-size> …|The rows of a grid.
+css-prop|property|grid-template-areas|"<names>" …|Named grid areas.
+css-prop|property|grid-column|<start> / <end>|Where the item starts and ends among the columns, like `1 / 3` or `span 2`.
+css-prop|property|grid-row|<start> / <end>|Where the item starts and ends among the rows.
+css-prop|property|grid-area|<name> | <row-start> / <col-start> / …|The grid area the item goes in.
+css-prop|property|grid-auto-flow|row | column | dense|How auto-placed items fill the grid.
+css-prop|property|grid-auto-rows|<track-size>|The size of rows created automatically.
+css-prop|property|grid-auto-columns|<track-size>|The size of columns created automatically.
+css-prop|property|transform|translate() | rotate() | scale() | …|Moves, rotates, scales or skews the element.
+css-prop|property|transform-origin|<position>|The point transforms happen around.
+css-prop|property|transition|<property> <duration> <timing> <delay>|Animates changes, like `opacity .2s ease`.
+css-prop|property|transition-property|all | <property>|Which properties animate.
+css-prop|property|transition-duration|<time>|How long transitions take.
+css-prop|property|transition-timing-function|ease | linear | ease-in | ease-out | ease-in-out | cubic-bezier()|The easing curve.
+css-prop|property|transition-delay|<time>|How long before transitions start.
+css-prop|property|animation|<name> <duration> <timing> <delay> <count> <direction>|Runs a `@keyframes` animation.
+css-prop|property|animation-name|<keyframes-name>|The `@keyframes` to run.
+css-prop|property|animation-duration|<time>|How long one cycle takes.
+css-prop|property|animation-iteration-count|<number> | infinite|How many times it runs.
+css-prop|property|animation-direction|normal | reverse | alternate|Which way it plays.
+css-prop|property|animation-fill-mode|none | forwards | backwards | both|Whether styles apply before and after.
+css-prop|property|animation-delay|<time>|How long before it starts.
+css-prop|property|object-fit|fill | contain | cover | none | scale-down|How an image or video fills its box.
+css-prop|property|object-position|<position>|Where the image sits in its box.
+css-prop|property|table-layout|auto | fixed|How the table's column widths are worked out.
+css-prop|property|caret-color|<color>|The color of the text cursor.
+css-prop|property|accent-color|<color>|The color of checkboxes, radios and range sliders.
+css-prop|property|scroll-behavior|auto | smooth|Whether scrolling to anchors is smooth.
+css-prop|property|will-change|auto | <property>|Hints which properties will change.
+css-prop|property|isolation|auto | isolate|Creates a new stacking context.
+css-prop|property|clip-path|inset() | circle() | polygon() | …|Clips the element to a shape.
+css-prop|property|columns|<width> <count>|Lays out text in columns.
+css-prop|property|counter-reset|<name> <integer>|Resets a CSS counter.
+css-prop|property|counter-increment|<name> <integer>|Increments a CSS counter.
+css-prop|property|all|initial | inherit | unset | revert|Resets every property.
+css-values|display|block inline inline-block flex inline-flex grid inline-grid none contents table table-row table-cell list-item flow-root
+css-values|position|static relative absolute fixed sticky
+css-values|float|left right none inline-start inline-end
+css-values|clear|left right both none
+css-values|box-sizing|content-box border-box
+css-values|border-style|solid dashed dotted double groove ridge inset outset none hidden
+css-values|border-collapse|collapse separate
+css-values|background-size|auto cover contain
+css-values|background-repeat|repeat no-repeat repeat-x repeat-y space round
+css-values|background-attachment|scroll fixed local
+css-values|background-clip|border-box padding-box content-box text
+css-values|background-position|center top bottom left right
+css-values|visibility|visible hidden collapse
+css-values|font-weight|normal bold bolder lighter 100 200 300 400 500 600 700 800 900
+css-values|font-style|normal italic oblique
+css-values|font-variant|normal small-caps
+css-values|font-size|xx-small x-small small medium large x-large xx-large smaller larger
+css-values|font-family|serif sans-serif monospace cursive system-ui ui-monospace Arial Helvetica Georgia Verdana
+css-values|text-align|left right center justify start end
+css-values|text-decoration|none underline line-through overline
+css-values|text-transform|none uppercase lowercase capitalize
+css-values|text-overflow|clip ellipsis
+css-values|white-space|normal nowrap pre pre-wrap pre-line break-spaces
+css-values|word-break|normal break-all keep-all break-word
+css-values|overflow-wrap|normal break-word anywhere
+css-values|vertical-align|baseline top middle bottom text-top text-bottom sub super
+css-values|list-style-type|disc circle square decimal lower-alpha upper-alpha lower-roman upper-roman none
+css-values|overflow|visible hidden scroll auto clip
+css-values|overflow-x|visible hidden scroll auto clip
+css-values|overflow-y|visible hidden scroll auto clip
+css-values|cursor|auto default pointer text move wait help crosshair not-allowed grab grabbing progress zoom-in zoom-out col-resize row-resize ew-resize ns-resize
+css-values|pointer-events|auto none
+css-values|user-select|auto none text all
+css-values|resize|none both horizontal vertical
+css-values|flex-direction|row row-reverse column column-reverse
+css-values|flex-wrap|nowrap wrap wrap-reverse
+css-values|justify-content|flex-start flex-end center space-between space-around space-evenly start end stretch
+css-values|align-items|stretch flex-start flex-end center baseline start end
+css-values|align-self|auto stretch flex-start flex-end center baseline
+css-values|align-content|stretch flex-start flex-end center space-between space-around space-evenly
+css-values|justify-items|start end center stretch
+css-values|justify-self|auto start end center stretch
+css-values|place-items|center start end stretch
+css-values|grid-auto-flow|row column dense
+css-values|transition-timing-function|ease linear ease-in ease-out ease-in-out step-start step-end
+css-values|animation-iteration-count|infinite
+css-values|animation-direction|normal reverse alternate alternate-reverse
+css-values|animation-fill-mode|none forwards backwards both
+css-values|object-fit|fill contain cover none scale-down
+css-values|table-layout|auto fixed
+css-values|scroll-behavior|auto smooth
+css-values|isolation|auto isolate
+css-values|mix-blend-mode|normal multiply screen overlay darken lighten difference exclusion
+css-values|*|inherit initial unset revert auto none transparent currentColor
+css-func|function|rgb|rgb(r g b / a)|A color from red, green and blue (0–255).
+css-func|function|rgba|rgba(r, g, b, a)|A color with transparency.
+css-func|function|hsl|hsl(h s l / a)|A color from hue, saturation and lightness.
+css-func|function|hsla|hsla(h, s, l, a)|An HSL color with transparency.
+css-func|function|var|var(--name, fallback)|The value of a custom property.
+css-func|function|calc|calc(expression)|Arithmetic with mixed units, like `calc(100% - 2rem)`.
+css-func|function|min|min(a, b, …)|The smallest of the values.
+css-func|function|max|max(a, b, …)|The largest of the values.
+css-func|function|clamp|clamp(min, preferred, max)|A value kept between a minimum and a maximum.
+css-func|function|url|url("path")|A file, like an image or font.
+css-func|function|linear-gradient|linear-gradient(direction, color, color …)|A gradient along a line.
+css-func|function|radial-gradient|radial-gradient(shape, color, color …)|A gradient spreading from a point.
+css-func|function|conic-gradient|conic-gradient(from angle, color …)|A gradient around a point.
+css-func|function|repeat|repeat(count, tracks)|Repeats grid tracks, like `repeat(3, 1fr)` or `repeat(auto-fill, minmax(200px, 1fr))`.
+css-func|function|minmax|minmax(min, max)|A grid track size range.
+css-func|function|translate|translate(x, y)|Moves the element.
+css-func|function|translateX|translateX(x)|Moves the element sideways.
+css-func|function|translateY|translateY(y)|Moves the element up or down.
+css-func|function|rotate|rotate(angle)|Rotates the element, like `rotate(45deg)`.
+css-func|function|scale|scale(x, y)|Scales the element.
+css-func|function|skew|skew(x, y)|Skews the element.
+css-func|function|blur|blur(radius)|Blurs the element.
+css-func|function|brightness|brightness(amount)|Brightens or darkens.
+css-func|function|grayscale|grayscale(amount)|Removes color.
+css-func|function|drop-shadow|drop-shadow(x y blur color)|A shadow that follows the shape.
+css-func|function|attr|attr(name)|The value of an HTML attribute, in `content`.
+css-func|function|cubic-bezier|cubic-bezier(x1, y1, x2, y2)|A custom easing curve.
+css-func|function|steps|steps(count, jump)|An easing that jumps in steps.
+css-pseudo|keyword|:hover||The pointer is over the element.
+css-pseudo|keyword|:active||The element is being pressed.
+css-pseudo|keyword|:focus||The element has keyboard focus.
+css-pseudo|keyword|:focus-visible||Focused, and the browser thinks the focus should show (usually keyboard focus).
+css-pseudo|keyword|:focus-within||The element or something inside it has focus.
+css-pseudo|keyword|:visited||A link that's been visited.
+css-pseudo|keyword|:link||A link that hasn't been visited.
+css-pseudo|keyword|:checked||A checked checkbox, radio or option.
+css-pseudo|keyword|:disabled||A disabled control.
+css-pseudo|keyword|:enabled||An enabled control.
+css-pseudo|keyword|:required||A required field.
+css-pseudo|keyword|:invalid||A field whose value isn't valid.
+css-pseudo|keyword|:valid||A field whose value is valid.
+css-pseudo|keyword|:placeholder-shown||A field showing its placeholder.
+css-pseudo|keyword|:first-child||The first child of its parent.
+css-pseudo|keyword|:last-child||The last child of its parent.
+css-pseudo|keyword|:only-child||The only child of its parent.
+css-pseudo|keyword|:nth-child()||Children by position: `:nth-child(2n+1)`, `:nth-child(odd)`.
+css-pseudo|keyword|:nth-of-type()||Elements by position among siblings of the same tag.
+css-pseudo|keyword|:first-of-type||The first sibling of its tag.
+css-pseudo|keyword|:last-of-type||The last sibling of its tag.
+css-pseudo|keyword|:not()||Elements that don't match the selector inside.
+css-pseudo|keyword|:is()||Elements that match any selector inside.
+css-pseudo|keyword|:where()||Like `:is()` but with no specificity.
+css-pseudo|keyword|:has()||Elements that contain something matching the selector.
+css-pseudo|keyword|:root||The root element, `<html>`; a good place for custom properties.
+css-pseudo|keyword|:empty||Elements with no children.
+css-pseudo|keyword|:target||The element whose id is in the URL fragment.
+css-pseudo|keyword|::before||A generated box before the content; needs `content`.
+css-pseudo|keyword|::after||A generated box after the content; needs `content`.
+css-pseudo|keyword|::placeholder||The placeholder text of a field.
+css-pseudo|keyword|::selection||Selected text.
+css-pseudo|keyword|::first-line||The first line of text.
+css-pseudo|keyword|::first-letter||The first letter.
+css-pseudo|keyword|::marker||The bullet or number of a list item.
+css-at|keyword|@media|@media (max-width: 600px) { … }|Rules that apply only when the media query matches.
+css-at|keyword|@import|@import url("file.css");|Loads another stylesheet.
+css-at|keyword|@font-face|@font-face { font-family: …; src: url(…); }|Defines a downloadable font.
+css-at|keyword|@keyframes|@keyframes name { from { … } to { … } }|Defines the steps of an animation.
+css-at|keyword|@supports|@supports (display: grid) { … }|Rules that apply only if the browser supports a feature.
+css-at|keyword|@layer|@layer name { … }|Groups rules into a cascade layer.
+css-at|keyword|@container|@container (min-width: 400px) { … }|Rules that apply when the container matches.
+css-at|keyword|@charset|@charset "utf-8";|The stylesheet's encoding.
+js-keyword|keyword|const|const name = value;|Declares a block-scoped variable that can't be reassigned.
+js-keyword|keyword|let|let name = value;|Declares a block-scoped variable.
+js-keyword|keyword|var|var name = value;|Declares a function-scoped variable; prefer `let` or `const`.
+js-keyword|keyword|function|function name(params) { … }|Declares a function.
+js-keyword|keyword|return|return value;|Ends the function and gives back a value.
+js-keyword|keyword|if|if (condition) { … }|Runs code when the condition is truthy.
+js-keyword|keyword|else|else { … }|The branch taken when the `if` condition is falsy.
+js-keyword|keyword|for|for (let i = 0; i < n; i++) { … }|A loop; also `for (const x of list)` and `for (const key in object)`.
+js-keyword|keyword|while|while (condition) { … }|Loops while the condition is truthy.
+js-keyword|keyword|do|do { … } while (condition);|Loops at least once.
+js-keyword|keyword|break|break;|Leaves the loop or switch.
+js-keyword|keyword|continue|continue;|Skips to the next loop iteration.
+js-keyword|keyword|switch|switch (value) { case x: … }|Picks a branch by value.
+js-keyword|keyword|case|case value:|A branch of a `switch`.
+js-keyword|keyword|default|default:|The `switch` branch taken when no case matches; also `export default`.
+js-keyword|keyword|try|try { … } catch (error) { … }|Runs code and catches what it throws.
+js-keyword|keyword|catch|catch (error) { … }|Handles an error thrown in `try`.
+js-keyword|keyword|finally|finally { … }|Runs after `try`/`catch` either way.
+js-keyword|keyword|throw|throw new Error(message);|Throws an exception.
+js-keyword|keyword|new|new Constructor(args)|Creates an object from a class or constructor.
+js-keyword|keyword|class|class Name extends Base { constructor() { … } }|Declares a class.
+js-keyword|keyword|extends|class A extends B|Makes a class inherit from another.
+js-keyword|keyword|super|super(args)|Calls the parent class's constructor or methods.
+js-keyword|keyword|this|this|The object the function was called on.
+js-keyword|keyword|typeof|typeof value|The type of a value as a string: "string", "number", "object"...
+js-keyword|keyword|instanceof|value instanceof Class|Whether the value was made by the class.
+js-keyword|keyword|in|"key" in object|Whether the object has the property.
+js-keyword|keyword|of|for (const item of items)|Loops over the values of an iterable.
+js-keyword|keyword|delete|delete object.key|Removes a property.
+js-keyword|keyword|void|void expression|Evaluates the expression and gives `undefined`.
+js-keyword|keyword|async|async function name() { … }|A function that returns a Promise and can use `await`.
+js-keyword|keyword|await|await promise|Waits for a Promise inside an async function.
+js-keyword|keyword|yield|yield value|Produces a value from a generator.
+js-keyword|keyword|import|import { name } from "module";|Imports from an ES module.
+js-keyword|keyword|export|export function name() { … }|Exports from an ES module.
+js-keyword|keyword|from|import x from "module"|Names the module to import from.
+js-keyword|keyword|static|static method() { … }|A method or property on the class itself.
+js-keyword|keyword|get|get name() { … }|A getter.
+js-keyword|keyword|set|set name(value) { … }|A setter.
+js-keyword|constant|true||The boolean true.
+js-keyword|constant|false||The boolean false.
+js-keyword|constant|null||No value, on purpose.
+js-keyword|constant|undefined||A value that hasn't been set.
+js-keyword|constant|NaN||Not a Number.
+js-keyword|constant|Infinity||Positive infinity.
+js-global|variable|console||The browser or Node console: `console.log`, `console.error`...
+js-global|variable|document||The page's DOM: find, create and change elements.
+js-global|variable|window||The browser window and the global object.
+js-global|variable|navigator||Information about the browser.
+js-global|variable|location||The page's URL; set `location.href` to navigate.
+js-global|variable|history||The session history: `pushState`, `back()`.
+js-global|variable|localStorage||Key/value storage that survives reloads.
+js-global|variable|sessionStorage||Key/value storage for this tab.
+js-global|function|fetch|fetch(url, options) → Promise<Response>|Makes an HTTP request.
+js-global|function|setTimeout|setTimeout(callback, ms, …args) → id|Runs the callback once after a delay.
+js-global|function|setInterval|setInterval(callback, ms, …args) → id|Runs the callback repeatedly.
+js-global|function|clearTimeout|clearTimeout(id)|Cancels a `setTimeout`.
+js-global|function|clearInterval|clearInterval(id)|Cancels a `setInterval`.
+js-global|function|requestAnimationFrame|requestAnimationFrame(callback) → id|Runs the callback before the next repaint.
+js-global|function|queueMicrotask|queueMicrotask(callback)|Runs the callback after the current task.
+js-global|function|structuredClone|structuredClone(value)|A deep copy of the value.
+js-global|function|alert|alert(message)|Shows a message box.
+js-global|function|confirm|confirm(message) → boolean|Asks OK or Cancel.
+js-global|function|prompt|prompt(message, default) → string|Asks for text.
+js-global|function|parseInt|parseInt(string, radix) → number|Parses an integer.
+js-global|function|parseFloat|parseFloat(string) → number|Parses a decimal number.
+js-global|function|isNaN|isNaN(value) → boolean|Whether the value is NaN after conversion.
+js-global|function|encodeURIComponent|encodeURIComponent(string)|Escapes text for a URL part.
+js-global|function|decodeURIComponent|decodeURIComponent(string)|Undoes `encodeURIComponent`.
+js-global|class|Math||Math functions and constants: `Math.round`, `Math.random`, `Math.PI`...
+js-global|class|JSON||`JSON.parse` and `JSON.stringify`.
+js-global|class|Object||Object helpers: `Object.keys`, `Object.assign`...
+js-global|class|Array||Arrays; `Array.isArray`, `Array.from`.
+js-global|class|String||Strings.
+js-global|class|Number||Numbers; `Number.isInteger`, `Number.parseFloat`.
+js-global|class|Boolean||Booleans.
+js-global|class|Promise||A value that arrives later: `Promise.all`, `then`, `catch`.
+js-global|class|Date||Dates and times: `new Date()`, `Date.now()`.
+js-global|class|RegExp||Regular expressions.
+js-global|class|Map||A key/value collection with any kind of key.
+js-global|class|Set||A collection of unique values.
+js-global|class|WeakMap||A map with object keys that doesn't keep them alive.
+js-global|class|Symbol||Unique property keys.
+js-global|class|Error||An error; `new Error(message)`.
+js-global|class|TypeError||An error from a value of the wrong type.
+js-global|class|URL||Parses and builds URLs: `new URL(href)`.
+js-global|class|URLSearchParams||Query strings: `new URLSearchParams(location.search).get("q")`.
+js-global|class|FormData||Form fields as key/value pairs, for `fetch` bodies.
+js-global|class|Headers||HTTP headers for `fetch`.
+js-global|class|Event||A DOM event.
+js-global|class|CustomEvent||An event with your own `detail`.
+js-global|class|AbortController||Cancels a `fetch` or other async work.
+js-global|class|IntersectionObserver||Watches when elements enter or leave the viewport.
+js-global|class|MutationObserver||Watches changes to the DOM.
+js-global|class|ResizeObserver||Watches changes to element sizes.
+js-global|class|WebSocket||A two-way connection to a server.
+js-global|class|Worker||Runs a script in a background thread.
+js-global|class|Blob||Raw file-like data.
+js-global|class|FileReader||Reads files and blobs.
+js-global|class|TextEncoder||Encodes strings as UTF-8 bytes.
+js-global|class|TextDecoder||Decodes bytes into a string.
+js-global|class|Intl||Language-sensitive formatting of numbers and dates.
+js-global|function|$|$(selector | element | html | function) → jQuery|jQuery: finds elements, wraps them, creates them from HTML, or runs a function when the page is ready.
+js-global|function|jQuery|jQuery(selector) → jQuery|The same as `$`.
+node-global|function|require|require(id)|Loads a CommonJS module: a built-in like `fs`, a package from node_modules, or a file.
+node-global|variable|module||The current CommonJS module; set `module.exports` to export.
+node-global|variable|exports||A shortcut to `module.exports`.
+node-global|variable|__dirname||The folder the current module is in.
+node-global|variable|__filename||The current module's file path.
+node-global|variable|process||The running Node process: `process.env`, `process.argv`, `process.exit()`.
+node-global|class|Buffer||Raw binary data in Node.
+node-global|variable|global||Node's global object.
+node-global|variable|globalThis||The global object, in any environment.
+console|method|log|console.log(…values)|Prints the values.
+console|method|info|console.info(…values)|Prints an informational message.
+console|method|warn|console.warn(…values)|Prints a warning.
+console|method|error|console.error(…values)|Prints an error.
+console|method|debug|console.debug(…values)|Prints a debug message (verbose).
+console|method|table|console.table(data)|Prints an array or object as a table.
+console|method|dir|console.dir(object)|Prints an object's properties.
+console|method|group|console.group(label)|Starts an indented group.
+console|method|groupEnd|console.groupEnd()|Ends the group.
+console|method|time|console.time(label)|Starts a timer.
+console|method|timeEnd|console.timeEnd(label)|Prints the time since `console.time`.
+console|method|count|console.count(label)|Prints how many times it was called with this label.
+console|method|assert|console.assert(condition, …values)|Prints an error when the condition is false.
+console|method|trace|console.trace(…values)|Prints a stack trace.
+console|method|clear|console.clear()|Clears the console.
+document|method|getElementById|document.getElementById(id) → Element | null|The element with this id.
+document|method|querySelector|document.querySelector(selector) → Element | null|The first element matching the CSS selector.
+document|method|querySelectorAll|document.querySelectorAll(selector) → NodeList|Every element matching the CSS selector.
+document|method|getElementsByClassName|document.getElementsByClassName(names) → HTMLCollection|Elements with these classes.
+document|method|getElementsByTagName|document.getElementsByTagName(tag) → HTMLCollection|Elements with this tag.
+document|method|createElement|document.createElement(tag) → Element|A new element, not in the page yet.
+document|method|createTextNode|document.createTextNode(text) → Text|A new text node.
+document|method|createDocumentFragment|document.createDocumentFragment()|A light container for building nodes.
+document|method|addEventListener|document.addEventListener(type, listener, options)|Listens for an event, like `"DOMContentLoaded"` or `"click"`.
+document|method|removeEventListener|document.removeEventListener(type, listener)|Stops listening.
+document|property|body||The `<body>` element.
+document|property|head||The `<head>` element.
+document|property|documentElement||The `<html>` element.
+document|property|title||The page title.
+document|property|cookie||The page's cookies as a string.
+document|property|readyState||"loading", "interactive" or "complete".
+document|property|activeElement||The focused element.
+document|property|forms||The page's forms.
+document|property|URL||The page's URL.
+window|property|innerWidth||The viewport width in pixels.
+window|property|innerHeight||The viewport height in pixels.
+window|property|scrollX||How far the page is scrolled sideways.
+window|property|scrollY||How far the page is scrolled down.
+window|method|scrollTo|window.scrollTo(x, y) or scrollTo({ top, behavior: "smooth" })|Scrolls the page.
+window|method|addEventListener|window.addEventListener(type, listener, options)|Listens for window events like `"load"`, `"resize"`, `"scroll"`.
+window|method|open|window.open(url, target)|Opens a new window or tab.
+window|method|getComputedStyle|getComputedStyle(element) → CSSStyleDeclaration|The element's final styles.
+window|method|matchMedia|matchMedia(query) → MediaQueryList|Tests a media query.
+window|property|localStorage||Persistent key/value storage.
+window|property|location||The page's URL.
+window|property|document||The page.
+window|property|devicePixelRatio||Screen pixels per CSS pixel.
+element|method|addEventListener|element.addEventListener(type, listener, options)|Runs the listener when the event happens, like `"click"` or `"input"`.
+element|method|removeEventListener|element.removeEventListener(type, listener)|Stops listening.
+element|method|querySelector|element.querySelector(selector) → Element | null|The first matching descendant.
+element|method|querySelectorAll|element.querySelectorAll(selector) → NodeList|Every matching descendant.
+element|method|closest|element.closest(selector) → Element | null|The nearest ancestor (or itself) matching the selector.
+element|method|matches|element.matches(selector) → boolean|Whether it matches the selector.
+element|method|appendChild|element.appendChild(node)|Adds a child at the end.
+element|method|append|element.append(…nodes or strings)|Adds children at the end.
+element|method|prepend|element.prepend(…nodes or strings)|Adds children at the start.
+element|method|remove|element.remove()|Removes the element from the page.
+element|method|replaceWith|element.replaceWith(…nodes)|Replaces the element.
+element|method|insertAdjacentHTML|element.insertAdjacentHTML(position, html)|Inserts HTML at "beforebegin", "afterbegin", "beforeend" or "afterend".
+element|method|setAttribute|element.setAttribute(name, value)|Sets an attribute.
+element|method|getAttribute|element.getAttribute(name) → string | null|Reads an attribute.
+element|method|removeAttribute|element.removeAttribute(name)|Removes an attribute.
+element|method|hasAttribute|element.hasAttribute(name) → boolean|Whether it has the attribute.
+element|method|toggleAttribute|element.toggleAttribute(name, force)|Adds or removes a boolean attribute.
+element|method|getBoundingClientRect|element.getBoundingClientRect() → DOMRect|Its size and position in the viewport.
+element|method|scrollIntoView|element.scrollIntoView(options)|Scrolls the page so it's visible.
+element|method|focus|element.focus()|Gives it keyboard focus.
+element|method|blur|element.blur()|Takes keyboard focus away.
+element|method|click|element.click()|Simulates a click.
+element|method|cloneNode|element.cloneNode(deep) → Node|A copy; `true` copies the children too.
+element|method|contains|element.contains(node) → boolean|Whether the node is inside it.
+element|property|classList||Its classes: `add`, `remove`, `toggle`, `contains`.
+element|property|className||Its class attribute as a string.
+element|property|id||Its id.
+element|property|innerHTML||Its content as HTML; setting it replaces the content.
+element|property|outerHTML||The element itself as HTML.
+element|property|textContent||Its text; setting it replaces the content with plain text.
+element|property|innerText||Its rendered text.
+element|property|style||Its inline styles: `element.style.color = "red"`.
+element|property|dataset||Its `data-*` attributes.
+element|property|value||The value of a form control.
+element|property|checked||Whether a checkbox or radio is checked.
+element|property|disabled||Whether a control is disabled.
+element|property|children||Its child elements.
+element|property|parentElement||Its parent element.
+element|property|firstElementChild||Its first child element.
+element|property|lastElementChild||Its last child element.
+element|property|nextElementSibling||The next sibling element.
+element|property|previousElementSibling||The previous sibling element.
+element|property|tagName||Its tag name, in capitals.
+element|property|hidden||Whether it's hidden.
+element|property|offsetWidth||Its rendered width.
+element|property|offsetHeight||Its rendered height.
+element|property|scrollTop||How far it's scrolled down.
+classList|method|add|classList.add(…names)|Adds classes.
+classList|method|remove|classList.remove(…names)|Removes classes.
+classList|method|toggle|classList.toggle(name, force) → boolean|Adds the class if it's missing, removes it if it's there.
+classList|method|contains|classList.contains(name) → boolean|Whether it has the class.
+classList|method|replace|classList.replace(old, new)|Swaps a class.
+event|method|preventDefault|event.preventDefault()|Stops the browser's default action, like following a link or sending a form.
+event|method|stopPropagation|event.stopPropagation()|Stops the event from reaching parent elements.
+event|property|target||The element the event happened on.
+event|property|currentTarget||The element the listener is on.
+event|property|type||The event's name.
+event|property|key||The key pressed, like "Enter" or "a".
+event|property|code||The physical key, like "KeyA".
+event|property|clientX||The pointer's x position in the viewport.
+event|property|clientY||The pointer's y position in the viewport.
+event|property|shiftKey||Whether Shift was held.
+event|property|ctrlKey||Whether Ctrl was held.
+event|property|altKey||Whether Alt was held.
+event|property|metaKey||Whether Cmd or the Windows key was held.
+event|property|detail||A CustomEvent's data.
+array|method|push|array.push(…items) → length|Adds items to the end.
+array|method|pop|array.pop() → item|Removes and returns the last item.
+array|method|shift|array.shift() → item|Removes and returns the first item.
+array|method|unshift|array.unshift(…items) → length|Adds items to the start.
+array|method|map|array.map((item, index) => value) → Array|A new array of the callback's results.
+array|method|filter|array.filter((item, index) => keep) → Array|A new array of the items the callback keeps.
+array|method|reduce|array.reduce((total, item) => total, initial)|Combines the items into one value.
+array|method|forEach|array.forEach((item, index) => { … })|Runs the callback for each item.
+array|method|find|array.find(item => match) → item | undefined|The first item that matches.
+array|method|findIndex|array.findIndex(item => match) → index|The index of the first match, or -1.
+array|method|some|array.some(item => test) → boolean|Whether any item passes.
+array|method|every|array.every(item => test) → boolean|Whether every item passes.
+array|method|includes|array.includes(value) → boolean|Whether the value is in it.
+array|method|indexOf|array.indexOf(value) → index|The first index of the value, or -1.
+array|method|join|array.join(separator) → string|The items joined into a string.
+array|method|slice|array.slice(start, end) → Array|A copy of part of the array.
+array|method|splice|array.splice(start, count, …items)|Removes and inserts items in place.
+array|method|concat|array.concat(…arrays) → Array|A new array with the others added.
+array|method|sort|array.sort((a, b) => a - b)|Sorts in place.
+array|method|reverse|array.reverse()|Reverses in place.
+array|method|flat|array.flat(depth) → Array|Flattens nested arrays.
+array|method|at|array.at(index)|The item at the index; negative counts from the end.
+array|property|length||The number of items.
+string|method|split|string.split(separator) → Array|Splits into an array.
+string|method|trim|string.trim() → string|Without whitespace at both ends.
+string|method|toUpperCase|string.toUpperCase() → string|In capitals.
+string|method|toLowerCase|string.toLowerCase() → string|In lower case.
+string|method|includes|string.includes(text) → boolean|Whether it contains the text.
+string|method|startsWith|string.startsWith(text) → boolean|Whether it starts with the text.
+string|method|endsWith|string.endsWith(text) → boolean|Whether it ends with the text.
+string|method|replace|string.replace(pattern, replacement) → string|Replaces the first match (or every match with a /g regex).
+string|method|replaceAll|string.replaceAll(pattern, replacement) → string|Replaces every match.
+string|method|substring|string.substring(start, end) → string|Part of the string.
+string|method|padStart|string.padStart(length, fill) → string|Padded at the start.
+string|method|repeat|string.repeat(count) → string|Repeated.
+string|method|match|string.match(regex) → Array | null|Regex matches.
+promise|method|then|promise.then(onFulfilled, onRejected) → Promise|Runs when the promise succeeds.
+promise|method|catch|promise.catch(onRejected) → Promise|Runs when the promise fails.
+promise|method|finally|promise.finally(callback) → Promise|Runs either way.
+Promise|method|all|Promise.all(promises) → Promise<Array>|Waits for every promise; fails if one fails.
+Promise|method|allSettled|Promise.allSettled(promises)|Waits for every promise, whatever happens.
+Promise|method|race|Promise.race(promises)|Settles like the first promise to settle.
+Promise|method|any|Promise.any(promises)|The first promise to succeed.
+Promise|method|resolve|Promise.resolve(value)|A promise that succeeds with the value.
+Promise|method|reject|Promise.reject(reason)|A promise that fails.
+response|method|json|response.json() → Promise|Reads the body as JSON.
+response|method|text|response.text() → Promise<string>|Reads the body as text.
+response|method|blob|response.blob() → Promise<Blob>|Reads the body as a Blob.
+response|property|ok||Whether the status is 200–299.
+response|property|status||The HTTP status code.
+response|property|headers||The response headers.
+Math|method|round|Math.round(x)|Rounds to the nearest integer.
+Math|method|floor|Math.floor(x)|Rounds down.
+Math|method|ceil|Math.ceil(x)|Rounds up.
+Math|method|abs|Math.abs(x)|The absolute value.
+Math|method|min|Math.min(…values)|The smallest value.
+Math|method|max|Math.max(…values)|The largest value.
+Math|method|random|Math.random()|A random number from 0 up to (not including) 1.
+Math|method|pow|Math.pow(base, exponent)|base to the power exponent.
+Math|method|sqrt|Math.sqrt(x)|The square root.
+Math|method|sin|Math.sin(radians)|The sine.
+Math|method|cos|Math.cos(radians)|The cosine.
+Math|method|atan2|Math.atan2(y, x)|The angle of the point (x, y).
+Math|method|trunc|Math.trunc(x)|The integer part.
+Math|method|sign|Math.sign(x)|-1, 0 or 1.
+Math|method|hypot|Math.hypot(…values)|The square root of the sum of squares.
+Math|constant|PI||π, about 3.14159.
+Math|constant|E||e, about 2.718.
+JSON|method|parse|JSON.parse(text, reviver)|Parses JSON text into a value.
+JSON|method|stringify|JSON.stringify(value, replacer, indent)|Turns a value into JSON text.
+Object|method|keys|Object.keys(object) → string[]|The object's own property names.
+Object|method|values|Object.values(object) → Array|The object's own property values.
+Object|method|entries|Object.entries(object) → [key, value][]|The object's own key/value pairs.
+Object|method|assign|Object.assign(target, …sources)|Copies properties into the target.
+Object|method|freeze|Object.freeze(object)|Makes the object read-only.
+Object|method|fromEntries|Object.fromEntries(pairs)|An object from key/value pairs.
+Object|method|create|Object.create(proto)|A new object with this prototype.
+Object|method|defineProperty|Object.defineProperty(object, key, descriptor)|Defines a property with options.
+Array|method|isArray|Array.isArray(value) → boolean|Whether the value is an array.
+Array|method|from|Array.from(iterable, map)|An array from any iterable.
+Array|method|of|Array.of(…items)|An array of the arguments.
+Number|method|isInteger|Number.isInteger(value)|Whether it's an integer.
+Number|method|isFinite|Number.isFinite(value)|Whether it's a finite number.
+Number|method|parseFloat|Number.parseFloat(text)|Parses a decimal number.
+Number|method|parseInt|Number.parseInt(text, radix)|Parses an integer.
+Date|method|now|Date.now() → number|Milliseconds since 1 January 1970.
+Date|method|parse|Date.parse(text) → number|Parses a date string.
+localStorage|method|getItem|localStorage.getItem(key) → string | null|Reads a value.
+localStorage|method|setItem|localStorage.setItem(key, value)|Stores a value (as a string).
+localStorage|method|removeItem|localStorage.removeItem(key)|Removes a value.
+localStorage|method|clear|localStorage.clear()|Removes everything.
+location|property|href||The whole URL; set it to navigate.
+location|property|pathname||The path part of the URL.
+location|property|search||The query string, starting with "?".
+location|property|hash||The fragment, starting with "#".
+location|property|host||The host and port.
+location|property|origin||The scheme, host and port.
+location|method|reload|location.reload()|Reloads the page.
+location|method|assign|location.assign(url)|Navigates to the URL.
+location|method|replace|location.replace(url)|Navigates without adding a history entry.
+history|method|pushState|history.pushState(state, "", url)|Adds a history entry without reloading.
+history|method|replaceState|history.replaceState(state, "", url)|Changes the current history entry.
+history|method|back|history.back()|Goes back.
+history|method|forward|history.forward()|Goes forward.
+navigator|property|userAgent||The browser's user agent string.
+navigator|property|language||The user's preferred language.
+navigator|property|clipboard||Clipboard access: `navigator.clipboard.writeText(text)`.
+navigator|property|onLine||Whether the browser is online.
+navigator|property|geolocation||The device's location, with permission.
+jquery|method|addClass|.addClass(className)|Adds classes to every matched element.
+jquery|method|removeClass|.removeClass(className)|Removes classes.
+jquery|method|toggleClass|.toggleClass(className, state)|Adds or removes classes.
+jquery|method|hasClass|.hasClass(className) → boolean|Whether any matched element has the class.
+jquery|method|attr|.attr(name) / .attr(name, value)|Reads or sets an attribute.
+jquery|method|removeAttr|.removeAttr(name)|Removes an attribute.
+jquery|method|prop|.prop(name) / .prop(name, value)|Reads or sets a DOM property, like `checked` or `disabled`.
+jquery|method|data|.data(key) / .data(key, value)|Reads `data-*` values or stores data on the elements.
+jquery|method|val|.val() / .val(value)|Reads or sets the value of form controls.
+jquery|method|text|.text() / .text(text)|Reads or sets the text content.
+jquery|method|html|.html() / .html(html)|Reads or sets the HTML content.
+jquery|method|css|.css(property) / .css(property, value) / .css({ … })|Reads or sets styles.
+jquery|method|width|.width() / .width(value)|Reads or sets the content width.
+jquery|method|height|.height() / .height(value)|Reads or sets the content height.
+jquery|method|offset|.offset() → { top, left }|The position relative to the document.
+jquery|method|position|.position() → { top, left }|The position relative to the offset parent.
+jquery|method|scrollTop|.scrollTop() / .scrollTop(value)|Reads or sets the vertical scroll.
+jquery|method|show|.show(duration)|Shows the elements.
+jquery|method|hide|.hide(duration)|Hides the elements.
+jquery|method|toggle|.toggle(duration)|Shows or hides the elements.
+jquery|method|fadeIn|.fadeIn(duration, complete)|Fades the elements in.
+jquery|method|fadeOut|.fadeOut(duration, complete)|Fades the elements out.
+jquery|method|fadeToggle|.fadeToggle(duration)|Fades in or out.
+jquery|method|slideDown|.slideDown(duration)|Slides the elements open.
+jquery|method|slideUp|.slideUp(duration)|Slides the elements closed.
+jquery|method|slideToggle|.slideToggle(duration)|Slides open or closed.
+jquery|method|animate|.animate({ properties }, duration, easing, complete)|Animates CSS properties.
+jquery|method|stop|.stop(clearQueue, jumpToEnd)|Stops running animations.
+jquery|method|on|.on(events, selector, handler)|Attaches an event handler; with a selector it's delegated to matching descendants.
+jquery|method|off|.off(events, selector, handler)|Removes event handlers.
+jquery|method|one|.one(events, handler)|A handler that runs once.
+jquery|method|trigger|.trigger(event, data)|Fires an event.
+jquery|method|click|.click(handler)|Handles clicks (or fires a click without a handler).
+jquery|method|submit|.submit(handler)|Handles form submission.
+jquery|method|change|.change(handler)|Handles value changes.
+jquery|method|keydown|.keydown(handler)|Handles key presses.
+jquery|method|hover|.hover(handlerIn, handlerOut)|Handles the pointer entering and leaving.
+jquery|method|ready|$(document).ready(handler)|Runs when the DOM is ready; same as `$(handler)`.
+jquery|method|append|.append(content)|Inserts content at the end of each element.
+jquery|method|prepend|.prepend(content)|Inserts content at the start.
+jquery|method|after|.after(content)|Inserts content after each element.
+jquery|method|before|.before(content)|Inserts content before each element.
+jquery|method|appendTo|.appendTo(target)|Moves the elements to the end of the target.
+jquery|method|remove|.remove()|Removes the elements and their data and handlers.
+jquery|method|detach|.detach()|Removes the elements but keeps their data and handlers.
+jquery|method|empty|.empty()|Removes every child.
+jquery|method|replaceWith|.replaceWith(content)|Replaces each element.
+jquery|method|wrap|.wrap(html)|Wraps each element.
+jquery|method|clone|.clone(withEvents)|Copies the elements.
+jquery|method|find|.find(selector)|Matching descendants.
+jquery|method|children|.children(selector)|Child elements.
+jquery|method|parent|.parent(selector)|The parent of each element.
+jquery|method|parents|.parents(selector)|Every ancestor.
+jquery|method|closest|.closest(selector)|The nearest ancestor (or itself) that matches.
+jquery|method|siblings|.siblings(selector)|The other children of the parent.
+jquery|method|next|.next(selector)|The next sibling.
+jquery|method|prev|.prev(selector)|The previous sibling.
+jquery|method|first|.first()|The first matched element.
+jquery|method|last|.last()|The last matched element.
+jquery|method|eq|.eq(index)|The element at the index.
+jquery|method|filter|.filter(selector | function)|The elements that match.
+jquery|method|not|.not(selector)|The elements that don't match.
+jquery|method|is|.is(selector) → boolean|Whether any element matches.
+jquery|method|has|.has(selector)|Elements containing a match.
+jquery|method|each|.each((index, element) => { … })|Runs a function for each element.
+jquery|method|map|.map((index, element) => value)|A new jQuery object of the results.
+jquery|method|get|.get(index)|The DOM element at the index, or an array of all.
+jquery|method|index|.index()|The position among its siblings.
+jquery|method|serialize|.serialize() → string|The form's fields as a query string.
+jquery|method|serializeArray|.serializeArray()|The form's fields as `{ name, value }` objects.
+jquery|method|load|.load(url, data, complete)|Loads HTML from the server into the elements.
+jquery|method|focus|.focus()|Focuses the element.
+jquery|property|length||How many elements are matched.
+jquery-static|method|ajax|$.ajax({ url, method, data, dataType, success, error })|Makes an HTTP request.
+jquery-static|method|get|$.get(url, data, success)|Makes a GET request.
+jquery-static|method|post|$.post(url, data, success)|Makes a POST request.
+jquery-static|method|getJSON|$.getJSON(url, data, success)|GETs and parses JSON.
+jquery-static|method|each|$.each(collection, (key, value) => { … })|Loops over an array or object.
+jquery-static|method|extend|$.extend(deep, target, …objects)|Merges objects into the target.
+jquery-static|method|map|$.map(array, (item, index) => value)|Maps an array.
+jquery-static|method|grep|$.grep(array, (item, index) => keep)|Filters an array.
+jquery-static|method|inArray|$.inArray(value, array) → index|The index of the value, or -1.
+jquery-static|method|isArray|$.isArray(value)|Whether the value is an array.
+jquery-static|method|isPlainObject|$.isPlainObject(value)|Whether it's a plain object.
+jquery-static|method|parseHTML|$.parseHTML(html)|Parses HTML into DOM nodes.
+jquery-static|method|Deferred|$.Deferred()|A jQuery deferred object.
+jquery-static|method|when|$.when(…deferreds)|Waits for deferreds or promises.
+jquery-static|method|noConflict|$.noConflict()|Gives `$` back to another library.
+jquery-static|property|fn||jQuery's prototype; add methods with `$.fn.name = function () { … }`.
+node-module|module|fs||The file system: read, write and watch files. `fs.promises` has async versions.
+node-module|module|fs/promises||Promise-based file system functions.
+node-module|module|path||Joins, splits and normalizes file paths.
+node-module|module|http||HTTP servers and requests.
+node-module|module|https||HTTPS servers and requests.
+node-module|module|os||Operating system information.
+node-module|module|events||The EventEmitter class.
+node-module|module|child_process||Runs other programs: `exec`, `spawn`, `execFile`.
+node-module|module|url||URL parsing; also the global `URL`.
+node-module|module|crypto||Hashes, random bytes, ciphers.
+node-module|module|util||Utilities: `promisify`, `inspect`, `format`.
+node-module|module|stream||Streams of data.
+node-module|module|readline||Reads input line by line.
+node-module|module|zlib||Compression.
+node-module|module|net||TCP servers and sockets.
+node-module|module|dns||DNS lookups.
+node-module|module|assert||Assertions for tests.
+node-module|module|buffer||Binary data.
+node-module|module|worker_threads||Threads.
+node-module|module|timers/promises||Promise-based timers.
+node-module|module|express||(package) Web framework: `const app = express(); app.get("/", (req, res) => res.send("hi")); app.listen(3000);`
+node-module|module|cors||(package) Express middleware that allows cross-origin requests.
+node-module|module|body-parser||(package) Request body parsing; built into Express 4.16+ as `express.json()`.
+node-module|module|dotenv||(package) Loads `.env` into `process.env`: `require("dotenv").config()`.
+node-module|module|nodemon||(package) Restarts Node when files change.
+fs|method|readFileSync|fs.readFileSync(path, "utf8") → string|Reads a whole file.
+fs|method|writeFileSync|fs.writeFileSync(path, data)|Writes a whole file.
+fs|method|appendFileSync|fs.appendFileSync(path, data)|Adds to the end of a file.
+fs|method|existsSync|fs.existsSync(path) → boolean|Whether the path exists.
+fs|method|readdirSync|fs.readdirSync(path) → string[]|The names in a folder.
+fs|method|mkdirSync|fs.mkdirSync(path, { recursive: true })|Makes a folder.
+fs|method|statSync|fs.statSync(path) → Stats|File information: size, isFile(), mtime.
+fs|method|unlinkSync|fs.unlinkSync(path)|Deletes a file.
+fs|method|rmSync|fs.rmSync(path, { recursive: true, force: true })|Deletes files and folders.
+fs|method|renameSync|fs.renameSync(old, new)|Renames or moves.
+fs|method|copyFileSync|fs.copyFileSync(src, dest)|Copies a file.
+fs|method|readFile|fs.readFile(path, "utf8", (err, data) => { … })|Reads a whole file, with a callback.
+fs|method|writeFile|fs.writeFile(path, data, err => { … })|Writes a whole file, with a callback.
+fs|method|createReadStream|fs.createReadStream(path)|A readable stream of the file.
+fs|method|createWriteStream|fs.createWriteStream(path)|A writable stream to the file.
+fs|method|watch|fs.watch(path, (event, filename) => { … })|Watches for changes.
+fs|property|promises||Promise versions: `await fs.promises.readFile(path, "utf8")`.
+path|method|join|path.join(…parts) → string|Joins path parts with the right separator.
+path|method|resolve|path.resolve(…parts) → string|An absolute path.
+path|method|dirname|path.dirname(p) → string|The folder part.
+path|method|basename|path.basename(p, ext) → string|The last part.
+path|method|extname|path.extname(p) → string|The extension, like ".js".
+path|method|relative|path.relative(from, to) → string|The relative path between two paths.
+path|method|normalize|path.normalize(p) → string|Cleans up `..` and duplicate separators.
+path|method|parse|path.parse(p) → { root, dir, base, ext, name }|Splits a path.
+path|property|sep||The separator: "/" or "\\".
+http|method|createServer|http.createServer((req, res) => { … }) → Server|Makes an HTTP server; call `.listen(port)`.
+http|method|request|http.request(url, options, callback)|Makes an HTTP request.
+http|method|get|http.get(url, callback)|Makes a GET request.
+os|method|platform|os.platform()|"linux", "darwin", "win32"...
+os|method|homedir|os.homedir()|The user's home folder.
+os|method|tmpdir|os.tmpdir()|The temp folder.
+os|method|cpus|os.cpus()|Information about each CPU.
+os|method|hostname|os.hostname()|The computer's name.
+os|property|EOL||The line ending: "\n" or "\r\n".
+child_process|method|exec|exec(command, (err, stdout, stderr) => { … })|Runs a shell command and collects its output.
+child_process|method|execSync|execSync(command, { encoding: "utf8" })|Runs a shell command and waits.
+child_process|method|spawn|spawn(command, args, options) → ChildProcess|Starts a program and streams its output.
+child_process|method|execFile|execFile(file, args, callback)|Runs a program without a shell.
+crypto|method|randomUUID|crypto.randomUUID()|A random UUID.
+crypto|method|randomBytes|crypto.randomBytes(size)|Random bytes.
+crypto|method|createHash|crypto.createHash("sha256").update(data).digest("hex")|Hashes data.
+util|method|promisify|util.promisify(fn)|A promise version of a callback function.
+util|method|inspect|util.inspect(value, options)|A readable string of any value.
+util|method|format|util.format(format, …args)|printf-style formatting.
+events|class|EventEmitter|new EventEmitter()|Emits named events: `.on(name, fn)`, `.emit(name, …args)`.
+process|property|env||Environment variables: `process.env.PORT`.
+process|property|argv||The command-line arguments.
+process|property|platform||"linux", "darwin", "win32"...
+process|method|exit|process.exit(code)|Ends the process.
+process|method|cwd|process.cwd()|The current folder.
+process|method|on|process.on(event, listener)|Listens for process events like "exit" or "SIGINT".
+process|property|stdout||Standard output.
+process|property|stdin||Standard input.
+process|property|pid||The process id.
+process|method|nextTick|process.nextTick(callback)|Runs the callback before other I/O.
+express-static|method|json|express.json()|Middleware that parses JSON bodies into `req.body`.
+express-static|method|urlencoded|express.urlencoded({ extended: true })|Middleware that parses form bodies into `req.body`.
+express-static|method|static|express.static(folder)|Middleware that serves the files in a folder: `app.use(express.static("public"))`.
+express-static|method|Router|express.Router()|A mini app for grouping routes; mount it with `app.use("/path", router)`.
+app|method|get|app.get(path, (req, res) => { … })|Handles GET requests to the path.
+app|method|post|app.post(path, (req, res) => { … })|Handles POST requests.
+app|method|put|app.put(path, (req, res) => { … })|Handles PUT requests.
+app|method|patch|app.patch(path, (req, res) => { … })|Handles PATCH requests.
+app|method|delete|app.delete(path, (req, res) => { … })|Handles DELETE requests.
+app|method|all|app.all(path, handler)|Handles every method.
+app|method|use|app.use(path, middleware)|Adds middleware or a router, for every path or those under `path`.
+app|method|listen|app.listen(port, () => { … })|Starts the server on the port. Canopy watches for "listening on port N" in the output to open the app.
+app|method|route|app.route(path)|Chains handlers for one path: `.get(…).post(…)`.
+app|method|set|app.set(name, value)|A setting, like `"view engine"`.
+app|method|engine|app.engine(ext, callback)|Registers a template engine.
+app|method|param|app.param(name, callback)|Runs for route parameters with this name.
+app|property|locals||Variables available to every template.
+req|property|params||Route parameters: `/users/:id` gives `req.params.id`.
+req|property|query||The query string as an object: `req.query.page`.
+req|property|body||The parsed body; needs `express.json()` or `express.urlencoded()`.
+req|property|headers||The request headers.
+req|method|get|req.get(header) → string|A request header.
+req|property|method||The HTTP method.
+req|property|path||The path part of the URL.
+req|property|url||The URL.
+req|property|ip||The client's IP address.
+req|property|cookies||Cookies; needs cookie-parser.
+req|property|hostname||The host name.
+req|property|protocol||"http" or "https".
+res|method|send|res.send(body)|Sends a string, Buffer or object.
+res|method|json|res.json(value)|Sends JSON.
+res|method|status|res.status(code)|Sets the status code; chain it: `res.status(404).send("Not found")`.
+res|method|sendStatus|res.sendStatus(code)|Sends just the status.
+res|method|sendFile|res.sendFile(absolutePath)|Sends a file.
+res|method|redirect|res.redirect(status, url)|Redirects.
+res|method|render|res.render(view, locals)|Renders a template.
+res|method|set|res.set(header, value)|Sets a response header.
+res|method|cookie|res.cookie(name, value, options)|Sets a cookie.
+res|method|clearCookie|res.clearCookie(name)|Clears a cookie.
+res|method|end|res.end()|Ends the response.
+res|method|type|res.type(type)|Sets Content-Type.
+res|method|download|res.download(path)|Sends a file as a download.
+res|property|locals||Variables for this response's template.
+server|method|listen|server.listen(port, callback)|Starts listening.
+server|method|close|server.close(callback)|Stops listening.
+server|method|on|server.on(event, listener)|Listens for server events.
+css-known|property|accent-color align-content align-items align-self alignment-baseline all animation animation-composition animation-delay animation-direction animation-duration animation-fill-mode animation-iteration-count animation-name animation-play-state animation-range animation-timeline animation-timing-function appearance ascent-override aspect-ratio backdrop-filter backface-visibility background background-attachment background-blend-mode background-clip background-color background-image background-origin background-position background-position-x background-position-y background-repeat background-size block-size border border-block border-block-color border-block-end border-block-end-color border-block-end-style border-block-end-width border-block-start border-block-start-color border-block-start-style border-block-start-width border-block-style border-block-width border-bottom border-bottom-color border-bottom-left-radius border-bottom-right-radius border-bottom-style border-bottom-width border-collapse border-color border-end-end-radius border-end-start-radius border-image border-image-outset border-image-repeat border-image-slice border-image-source border-image-width border-inline border-inline-color border-inline-end border-inline-end-color border-inline-end-style border-inline-end-width border-inline-start border-inline-start-color border-inline-start-style border-inline-start-width border-inline-style border-inline-width border-left border-left-color border-left-style border-left-width border-radius border-right border-right-color border-right-style border-right-width border-spacing border-start-end-radius border-start-start-radius border-style border-top border-top-color border-top-left-radius border-top-right-radius border-top-style border-top-width border-width bottom box-decoration-break box-shadow box-sizing break-after break-before break-inside caption-side caret-color clear clip clip-path clip-rule color color-interpolation color-scheme column-count column-fill column-gap column-rule column-rule-color column-rule-style column-rule-width column-span column-width columns contain contain-intrinsic-block-size contain-intrinsic-height contain-intrinsic-inline-size contain-intrinsic-size contain-intrinsic-width container container-name container-type content content-visibility counter-increment counter-reset counter-set cursor cx cy d descent-override direction display dominant-baseline empty-cells fill fill-opacity fill-rule filter flex flex-basis flex-direction flex-flow flex-grow flex-shrink flex-wrap float flood-color flood-opacity font font-display font-family font-feature-settings font-kerning font-language-override font-optical-sizing font-palette font-size font-size-adjust font-stretch font-style font-synthesis font-variant font-variant-alternates font-variant-caps font-variant-east-asian font-variant-ligatures font-variant-numeric font-variant-position font-variation-settings font-weight forced-color-adjust gap grid grid-area grid-auto-columns grid-auto-flow grid-auto-rows grid-column grid-column-end grid-column-gap grid-column-start grid-gap grid-row grid-row-end grid-row-gap grid-row-start grid-template grid-template-areas grid-template-columns grid-template-rows hanging-punctuation height hyphenate-character hyphens image-orientation image-rendering inherits initial-value inline-size inset inset-block inset-block-end inset-block-start inset-inline inset-inline-end inset-inline-start isolation justify-content justify-items justify-self left letter-spacing lighting-color line-break line-clamp line-gap-override line-height list-style list-style-image list-style-position list-style-type margin margin-block margin-block-end margin-block-start margin-bottom margin-inline margin-inline-end margin-inline-start margin-left margin-right margin-top marker marker-end marker-mid marker-start mask mask-border mask-clip mask-composite mask-image mask-mode mask-origin mask-position mask-repeat mask-size mask-type math-depth math-style max-block-size max-height max-inline-size max-width min-block-size min-height min-inline-size min-width mix-blend-mode object-fit object-position offset offset-anchor offset-distance offset-path offset-position offset-rotate opacity order orphans outline outline-color outline-offset outline-style outline-width overflow overflow-anchor overflow-block overflow-clip-margin overflow-inline overflow-wrap overflow-x overflow-y overscroll-behavior overscroll-behavior-block overscroll-behavior-inline overscroll-behavior-x overscroll-behavior-y padding padding-block padding-block-end padding-block-start padding-bottom padding-inline padding-inline-end padding-inline-start padding-left padding-right padding-top page page-break-after page-break-before page-break-inside paint-order perspective perspective-origin place-content place-items place-self pointer-events position print-color-adjust quotes r resize right rotate row-gap ruby-align ruby-position rx ry scale scroll-behavior scroll-margin scroll-margin-block scroll-margin-block-end scroll-margin-block-start scroll-margin-bottom scroll-margin-inline scroll-margin-inline-end scroll-margin-inline-start scroll-margin-left scroll-margin-right scroll-margin-top scroll-padding scroll-padding-block scroll-padding-block-end scroll-padding-block-start scroll-padding-bottom scroll-padding-inline scroll-padding-inline-end scroll-padding-inline-start scroll-padding-left scroll-padding-right scroll-padding-top scroll-snap-align scroll-snap-stop scroll-snap-type scroll-timeline scroll-timeline-axis scroll-timeline-name scrollbar-color scrollbar-gutter scrollbar-width shape-image-threshold shape-margin shape-outside shape-rendering size-adjust speak src stop-color stop-opacity stroke stroke-dasharray stroke-dashoffset stroke-linecap stroke-linejoin stroke-miterlimit stroke-opacity stroke-width syntax tab-size table-layout text-align text-align-last text-anchor text-combine-upright text-decoration text-decoration-color text-decoration-line text-decoration-skip-ink text-decoration-style text-decoration-thickness text-emphasis text-emphasis-color text-emphasis-position text-emphasis-style text-indent text-justify text-orientation text-overflow text-rendering text-shadow text-size-adjust text-transform text-underline-offset text-underline-position text-wrap text-wrap-mode text-wrap-style top touch-action transform transform-box transform-origin transform-style transition transition-behavior transition-delay transition-duration transition-property transition-timing-function translate unicode-bidi unicode-range user-select vector-effect vertical-align view-timeline view-transition-name visibility white-space white-space-collapse widows width will-change word-break word-spacing word-wrap writing-mode x y z-index zoom

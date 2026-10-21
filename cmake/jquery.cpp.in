@@ -1,0 +1,19 @@
+#include <canopy/live_server.hpp>
+
+namespace canopy {
+
+namespace {
+
+const unsigned char k_jquery[] = { @CANOPY_JQUERY_BYTES@ 0x00 };
+
+} // namespace
+
+std::string_view bundled_jquery() noexcept {
+    return std::string_view(reinterpret_cast<const char*>(k_jquery), sizeof(k_jquery) - 1);
+}
+
+const char* bundled_jquery_version() noexcept {
+    return "@CANOPY_JQUERY_VERSION@";
+}
+
+} // namespace canopy

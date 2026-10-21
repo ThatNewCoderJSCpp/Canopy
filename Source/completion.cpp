@@ -1,12 +1,18 @@
 #include <canopy/completion.hpp>
 #include <canopy/language_docs.hpp>
+#include <canopy/special_names.hpp>
+#include <canopy/web_intel.hpp>
+#include <canopy/lang_intel.hpp>
 #include <grove/input/code_buffer.hpp>
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <set>
+#include <type_traits>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -48,6 +54,24 @@ std::size_t offset_of(const std::string& text, std::size_t line, std::size_t col
 }
 
 bool tag_char(char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '-' || c == ':' || c == '.'; }
+
+template <typename T, typename = void>
+struct item_has_preview : std::false_type {};
+
+template <typename T>
+struct item_has_preview<T, std::void_t<decltype(std::declval<T&>().preview)>> : std::true_type {};
+
+template <typename T>
+bool set_completion_preview(T& item, const std::string& text) {
+    if constexpr (item_has_preview<T>::value) {
+        item.preview = text;
+        return true;
+    } else {
+        (void)item;
+        (void)text;
+        return false;
+    }
+}
 
 grove::CodeLanguage grove_language(const std::string& language) { return grove::code_language_from_name(language); }
 
@@ -161,7 +185,7 @@ void bark_context(CompletionContext& ctx, const std::string& text, std::size_t r
 }
 
 std::vector<std::string> open_tags(const std::string& text, std::size_t to) {
-    static const std::set<std::string> lonely = { "br", "img", "hr", "input", "meta", "link" };
+    static const std::set<std::string> lonely = { "br", "img", "hr", "input", "meta", "link", "area", "base", "col", "embed", "param", "source", "track", "wbr" };
     std::vector<std::string> stack;
     std::size_t i = 0;
     while (i < to) {
@@ -267,6 +291,105 @@ void grove_context(CompletionContext& ctx, const std::string& text, std::size_t 
     ctx.site = CompletionSite::Attribute;
     const std::string r = trim_text(rest);
     ctx.rest_has_quote = !r.empty() && r[0] == '=';
+}
+
+void css_context(CompletionContext& ctx, const std::string& text, std::size_t region, std::size_t word_offset, const std::string& rest, bool manual) {
+    bark_context(ctx, text, region, word_offset, rest);
+    ctx.language = "css";
+    if (ctx.site == CompletionSite::None) return;
+    const char prev = word_offset > 0 ? text[word_offset - 1] : '\0';
+    if (prev == '@') {
+        ctx.site = CompletionSite::Command;
+        const std::size_t back = std::min<std::size_t>(ctx.start, 1);
+        ctx.start -= back;
+        ctx.typed = "@" + ctx.typed;
+        return;
+    }
+    if (ctx.site == CompletionSite::Pseudo && ctx.start > 0 && word_offset >= 2 && text[word_offset - 1] == ':' && text[word_offset - 2] == ':') {
+        --ctx.start;
+        ctx.typed = ":" + ctx.typed;
+    }
+    if (ctx.site == CompletionSite::Value) ctx.attribute = css_property_before(text, word_offset);
+    if (ctx.typed.empty() && !manual && (ctx.site == CompletionSite::Selector || ctx.site == CompletionSite::Property)) ctx.site = CompletionSite::None;
+}
+
+void js_context(CompletionContext& ctx, const CompletionRequest& r, const std::string& line, std::size_t column, std::size_t word_offset, const std::string& rest) {
+    ctx.language = "javascript";
+    if (const std::optional<std::string> module = js_module_string_at(line, column)) {
+        std::size_t q = column;
+        while (q > 0 && line[q - 1] != '"' && line[q - 1] != '\'' && line[q - 1] != '`') --q;
+        ctx.site = CompletionSite::Module;
+        ctx.start = q;
+        ctx.typed = line.substr(q, column - q);
+        const std::size_t end = line.find_first_of("\"'`", column);
+        ctx.rest_has_quote = end != std::string::npos;
+        return;
+    }
+    char quote = 0;
+    for (std::size_t i = 0; i < ctx.start && i < line.size(); ++i) {
+        const char c = line[i];
+        if (quote) {
+            if (c == '\\') ++i;
+            else if (c == quote) quote = 0;
+            continue;
+        }
+        if (c == '/' && i + 1 < line.size() && (line[i + 1] == '/' || line[i + 1] == '*')) {
+            ctx.site = CompletionSite::None;
+            return;
+        }
+        if (c == '"' || c == '\'' || c == '`') quote = c;
+    }
+    if (quote) {
+        ctx.site = CompletionSite::None;
+        return;
+    }
+    const std::string r2 = trim_text(rest);
+    ctx.rest_has_paren = !r2.empty() && r2[0] == '(';
+    if (ctx.start > 0 && line[ctx.start - 1] == '.' && !(ctx.start > 1 && line[ctx.start - 2] == '.')) {
+        ctx.site = CompletionSite::Member;
+        ctx.tag = js_object_owner(r.text, word_offset - 1);
+        return;
+    }
+    if (ctx.typed.empty() && !r.manual) {
+        ctx.site = CompletionSite::None;
+        return;
+    }
+    ctx.site = CompletionSite::Code;
+}
+
+void more_context(CompletionContext& ctx, const CompletionRequest& r, std::size_t word_offset, const std::string& before, const std::string& rest) {
+    ctx.language = r.language;
+    const std::string& language = r.language;
+    if (more_inside_text(language, r.text, r.line, ctx.start)) {
+        ctx.site = CompletionSite::None;
+        return;
+    }
+    const std::string trimmed = trim_text(before);
+    const std::string r2 = trim_text(rest);
+    ctx.rest_has_paren = !r2.empty() && r2[0] == '(';
+    if (language == "python" && (trimmed == "import" || (starts_with(trimmed, "from ") && trimmed.find(" import") == std::string::npos && trimmed.find('.') == std::string::npos))) {
+        ctx.site = CompletionSite::Module;
+        ctx.tag = "python-module";
+        return;
+    }
+    std::string sep;
+    if (!before.empty() && before.back() == '.' && !(before.size() > 1 && before[before.size() - 2] == '.') && language != "asm") sep = ".";
+    else if (language == "rust" && ends_with(before, "::")) sep = "::";
+    else if (language == "lua" && !before.empty() && before.back() == ':' && !ends_with(before, "::")) sep = ":";
+    if (!sep.empty()) {
+        ctx.site = CompletionSite::Member;
+        ctx.attribute = sep;
+        ctx.tag = more_member_owner(language, r.text, word_offset - sep.size(), sep);
+        return;
+    }
+    if (language == "asm") {
+        ctx.angled = trimmed.empty() || trimmed.back() == ':';
+    }
+    if (ctx.typed.empty() && !r.manual) {
+        ctx.site = CompletionSite::None;
+        return;
+    }
+    ctx.site = CompletionSite::Code;
 }
 
 void c_context(CompletionContext& ctx, const CompletionRequest& r, const std::string& line, const std::string& masked_line, const std::string& before, std::size_t column, const std::string& rest) {
@@ -471,15 +594,26 @@ std::vector<grove::CompletionItem> CompletionIndex::query(const std::string& typ
 std::string completion_word_chars(const std::string& language) {
     if (language == "bark") return "-$";
     if (language == "grove") return "-$";
+    if (language == "css" || language == "html") return "-";
+    if (language == "javascript") return "$";
+    if (language == "zig") return "@";
+    if (language == "asm") return ".%";
     return "";
 }
 
 std::string completion_triggers(const std::string& language) {
     if (language == "c" || language == "cpp") return ". -> :: # \" < /";
-    if (language == "walnut") return ". -> ::";
+    if (language == "walnut") return ". -> :: \\s{";
     if (language == "grove") return "< </";
     if (language == "bark") return ":";
     if (language == "cmake") return "${";
+    if (language == "html") return "< </ . : \" '";
+    if (language == "css") return ": @";
+    if (language == "javascript") return ". \" '";
+    if (language == "python" || language == "java" || language == "csharp") return ".";
+    if (language == "rust") return ". ::";
+    if (language == "zig") return ". @";
+    if (language == "lua") return ". :";
     return "";
 }
 
@@ -508,6 +642,15 @@ CompletionContext completion_context(const CompletionRequest& request) {
     const std::size_t word_offset = offset_of(request.text, request.line, ctx.start);
     if (!ctx.typed.empty() && std::isdigit(static_cast<unsigned char>(ctx.typed[0]))) return ctx;
     const std::string& language = request.language;
+    if (language == "walnut" && before.size() >= 3 && before.compare(before.size() - 3, 3, "\\s{") == 0) {
+        std::size_t slashes = 0;
+        for (std::size_t k = before.size() - 3; k-- > 0 && before[k] == '\\';) ++slashes;
+        if (slashes % 2 == 0) {
+            ctx.site = CompletionSite::SpecialCharacter;
+            ctx.rest_has_brace = !rest.empty() && rest[0] == '}';
+            return ctx;
+        }
+    }
     if (language == "c" || language == "cpp" || language == "walnut") {
         const std::string masked = mask_c_like_line(request.text, request.line);
         c_context(ctx, request, line, masked.size() == line.size() ? masked : line, before, column, rest);
@@ -517,6 +660,23 @@ CompletionContext completion_context(const CompletionRequest& request) {
         grove_context(ctx, request.text, word_offset, rest);
     } else if (language == "cmake") {
         cmake_context(ctx, request.text, word_offset, before, rest);
+    } else if (is_more_language(language)) {
+        more_context(ctx, request, word_offset, before, rest);
+    } else if (language == "javascript") {
+        js_context(ctx, request, line, column, word_offset, rest);
+    } else if (language == "css") {
+        css_context(ctx, request.text, 0, word_offset, rest, request.manual);
+    } else if (language == "html") {
+        const WebRegionAt region = web_region_at(request.text, word_offset);
+        if (region.region == WebRegion::Script) {
+            js_context(ctx, request, line, column, word_offset, rest);
+        } else if (region.region == WebRegion::Css) {
+            css_context(ctx, request.text, region.start, word_offset, rest, request.manual);
+        } else {
+            grove_context(ctx, request.text, word_offset, rest);
+            ctx.language = "html";
+            if (ctx.site == CompletionSite::Code && !request.manual) ctx.site = CompletionSite::None;
+        }
     } else {
         ctx.site = CompletionSite::Code;
     }
@@ -612,6 +772,155 @@ grove::CompletionList complete_code(const CompletionRequest& request, const Comp
         }
     };
     const std::string& lang = request.language;
+    if (is_more_language(ctx.language)) {
+        auto add_doc = [&](const WebDoc& d, int priority) {
+            const bool callable = d.kind == "method" || d.kind == "function" || d.kind == "macro";
+            std::string insert;
+            if (callable && !ctx.rest_has_paren) insert = d.name + "($0)";
+            if (d.kind == "macro" && d.name == "vec!" && !ctx.rest_has_paren) insert = "vec![$0]";
+            const std::string kind = d.kind == "instruction" ? std::string("keyword") : d.kind == "directive" ? std::string("keyword") : d.kind == "register" ? std::string("variable") : d.kind == "macro" ? std::string("function") : d.kind;
+            add(d.name, kind, d.signature.empty() ? d.text : d.signature, insert, d.signature.empty() ? std::string() : d.text, priority);
+        };
+        switch (ctx.site) {
+            case CompletionSite::Member:
+                if (!ctx.tag.empty()) {
+                    for (const WebDoc* d : web_docs_of(ctx.tag)) {
+                        if (ctx.language == "rust" && ctx.attribute == "::" && d->kind == "method") continue;
+                        if (ctx.language == "rust" && ctx.attribute == "." && d->kind == "function") continue;
+                        add_doc(*d, 0);
+                    }
+                }
+                add_words(4);
+                break;
+            case CompletionSite::Module:
+                for (const WebDoc* d : web_docs_of(ctx.tag)) add_doc(*d, 0);
+                break;
+            case CompletionSite::Code: {
+                int priority = 0;
+                for (std::string owner : more_code_owners(ctx.language, request.text, request.path, ctx.angled)) {
+                    std::string only;
+                    const std::size_t hash = owner.find('#');
+                    if (hash != std::string::npos) {
+                        only = owner.substr(hash + 1);
+                        owner = owner.substr(0, hash);
+                    }
+                    for (const WebDoc* d : web_docs_of(owner)) {
+                        if (!only.empty() && d->kind != only) continue;
+                        if (ctx.language == "asm" && ctx.angled && d->kind == "register") continue;
+                        add_doc(*d, priority);
+                    }
+                    priority = std::min(priority + 1, 1);
+                }
+                for (const grove::CodeWord& w : grove::code_language_words(grove_language(lang))) {
+                    if (ctx.language == "asm") continue;
+                    add(w.word, word_kind(w.kind), std::string(), std::string(), std::string(), 2);
+                }
+                add_extra(1);
+                add_words(3);
+                break;
+            }
+            default:
+                add_words(3);
+                break;
+        }
+        list.items = index.query(ctx.typed, 300);
+        return list;
+    }
+    if (ctx.language == "javascript" || ctx.language == "css" || ctx.language == "html") {
+        auto kind_of = [](const WebDoc& d) -> std::string {
+            if (d.kind == "flag") return "attribute";
+            return d.kind;
+        };
+        auto add_doc = [&](const WebDoc& d, const std::string& insert, int priority) {
+            add(d.name, kind_of(d), d.signature.empty() ? d.text : d.signature, insert, d.signature.empty() ? std::string() : d.text, priority);
+        };
+        auto add_owner = [&](const std::string& owner, int priority, bool calls) {
+            for (const WebDoc* d : web_docs_of(owner)) {
+                const bool callable = calls && (d->kind == "method" || d->kind == "function");
+                add_doc(*d, callable && !ctx.rest_has_paren ? d->name + "($0)" : std::string(), priority);
+            }
+        };
+        switch (ctx.site) {
+            case CompletionSite::Code:
+                if (ctx.language == "javascript") {
+                    add_owner("js-keyword", 2, false);
+                    add_owner("js-global", 1, false);
+                    if (lang == "javascript") add_owner("node-global", 1, false);
+                    add_extra(1);
+                }
+                add_words(3);
+                break;
+            case CompletionSite::Member:
+                if (!ctx.tag.empty()) add_owner(ctx.tag, 0, true);
+                add_words(4);
+                break;
+            case CompletionSite::Module:
+                for (const WebDoc* d : web_docs_of("node-module")) add_doc(*d, std::string(), d->text.rfind("(package)", 0) == 0 ? 2 : 0);
+                for (const std::string& name : node_package_names(request.path)) {
+                    if (index.contains(name)) continue;
+                    add(name, "module", "node_modules", std::string(), std::string(), 1);
+                }
+                break;
+            case CompletionSite::Tag:
+                for (const WebDoc* d : web_docs_of("html-tag")) add(d->name, "tag", d->text, std::string(), std::string(), 0);
+                break;
+            case CompletionSite::ClosingTag:
+                if (!ctx.open_tag.empty()) add(ctx.open_tag, "tag", "closes <" + ctx.open_tag + ">", ctx.open_tag + ">", std::string(), -1);
+                for (const WebDoc* d : web_docs_of("html-tag")) add(d->name, "tag", d->text, d->name + ">", std::string(), 1);
+                break;
+            case CompletionSite::Attribute:
+                for (const WebDoc* d : web_docs_of("html-attr")) {
+                    int priority = 1;
+                    if (!d->signature.empty()) {
+                        priority = 2;
+                        std::size_t w = 0;
+                        while (w < d->signature.size()) {
+                            std::size_t e = d->signature.find(' ', w);
+                            if (e == std::string::npos) e = d->signature.size();
+                            if (d->signature.compare(w, e - w, ctx.tag) == 0) priority = 0;
+                            w = e + 1;
+                        }
+                    }
+                    std::string insert;
+                    if (d->name == "data-") insert = "data-";
+                    else if (d->kind != "flag" && !ctx.rest_has_quote) insert = d->name + "=\"$0\"";
+                    add(d->name, "attribute", d->signature.empty() ? std::string("any element") : d->signature, insert, d->text, priority);
+                }
+                break;
+            case CompletionSite::AttributeValue:
+                for (const WebDoc* d : web_docs_of("html-value:" + lower(ctx.attribute))) add_doc(*d, std::string(), 0);
+                add_words(3);
+                break;
+            case CompletionSite::Property:
+                for (const WebDoc* d : web_docs_of("css-prop")) add(d->name, "property", d->signature, ctx.rest_has_colon ? std::string() : d->name + ": $0;", d->text, 0);
+                add_words(4);
+                break;
+            case CompletionSite::Value:
+                for (const WebDoc* d : web_docs_of("css-value:" + ctx.attribute)) add_doc(*d, std::string(), 0);
+                for (const WebDoc* d : web_docs_of("css-value:*")) add_doc(*d, std::string(), 1);
+                for (const WebDoc* d : web_docs_of("css-func")) add_doc(*d, d->name + "($0)", 2);
+                add_words(3);
+                break;
+            case CompletionSite::Selector:
+                for (const WebDoc* d : web_docs_of("html-tag")) add(d->name, "tag", d->text, std::string(), std::string(), 1);
+                add_words(2);
+                break;
+            case CompletionSite::Pseudo:
+                for (const WebDoc* d : web_docs_of("css-pseudo")) {
+                    const bool call = d->name.size() > 2 && d->name.compare(d->name.size() - 2, 2, "()") == 0;
+                    add(d->name, "keyword", std::string(), call ? d->name.substr(0, d->name.size() - 2) + "($0)" : std::string(), d->text, 0);
+                }
+                break;
+            case CompletionSite::Command:
+                for (const WebDoc* d : web_docs_of("css-at")) add(d->name, "keyword", d->signature, d->name + " ", d->text, 0);
+                break;
+            default:
+                add_words(3);
+                break;
+        }
+        list.items = index.query(ctx.typed, 300);
+        return list;
+    }
     switch (ctx.site) {
         case CompletionSite::None:
             break;
@@ -620,6 +929,48 @@ grove::CompletionList complete_code(const CompletionRequest& request, const Comp
             break;
         case CompletionSite::Module:
             add_extra(0);
+            break;
+        case CompletionSite::SpecialCharacter:
+            for (const std::string_view name : special_character_names(std::string_view())) {
+                std::uint32_t code = 0;
+                if (!special_character(name, code)) continue;
+                std::string glyph;
+                if (code > 0x20 && code != 0x7F && !(code >= 0x80 && code < 0xA0)) {
+                    if (code < 0x80) glyph += static_cast<char>(code);
+                    else if (code < 0x800) {
+                        glyph += static_cast<char>(0xC0 | (code >> 6));
+                        glyph += static_cast<char>(0x80 | (code & 0x3F));
+                    } else if (code < 0x10000) {
+                        glyph += static_cast<char>(0xE0 | (code >> 12));
+                        glyph += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+                        glyph += static_cast<char>(0x80 | (code & 0x3F));
+                    } else {
+                        glyph += static_cast<char>(0xF0 | (code >> 18));
+                        glyph += static_cast<char>(0x80 | ((code >> 12) & 0x3F));
+                        glyph += static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+                        glyph += static_cast<char>(0x80 | (code & 0x3F));
+                    }
+                }
+                char hex[16];
+                std::snprintf(hex, sizeof hex, "U+%04X", static_cast<unsigned>(code));
+                const std::string label(name);
+                grove::CompletionItem item;
+                item.label = label;
+                item.insert = ctx.rest_has_brace ? std::string() : label + "}";
+                std::string others;
+                for (const std::string_view other : builtin_names_for(code)) {
+                    if (other != name) others += (others.empty() ? "" : ", ") + std::string("\\s{") + std::string(other) + "}";
+                }
+                if (!others.empty()) item.documentation = "Also written " + others;
+                if (set_completion_preview(item, glyph.empty() ? std::string("\xE2\x90\xA3") : glyph)) {
+                    item.kind = "character";
+                    item.detail = hex;
+                } else {
+                    item.kind = "constant";
+                    item.detail = glyph.empty() ? std::string(hex) : glyph + "  " + hex;
+                }
+                index.add(std::move(item), label.size() <= 6 ? 0 : 1);
+            }
             break;
         case CompletionSite::Include:
             for (grove::CompletionItem& item : include_completions(sources.include_dirs, ctx.include_dir, ctx.typed)) {

@@ -5,6 +5,13 @@
 #include <canopy/completion.hpp>
 #include <canopy/desktop.hpp>
 #include <canopy/developer.hpp>
+#include <canopy/console_panel.hpp>
+#include <canopy/elements_panel.hpp>
+#include <canopy/web_intel.hpp>
+#include <canopy/asm_info.hpp>
+#include <canopy/lang_intel.hpp>
+#include <canopy/find_bar.hpp>
+#include <canopy/special_names.hpp>
 #include <canopy/git_panel.hpp>
 #include <canopy/history.hpp>
 #include <canopy/languages.hpp>
@@ -25,6 +32,8 @@
 #include <grove/terminal.hpp>
 #include <grove/windowing.hpp>
 
+#include <cstdio>
+#include <ctime>
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -35,6 +44,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <set>
 #include <sstream>
 #include <tuple>
@@ -512,8 +522,16 @@ public:
         SettingsPage::Hooks hooks;
         hooks.changed = [this] { reload_settings(); };
         hooks.open_file = [this](const std::string& path) { open_file(path); };
+        hooks.project_file = [this] { return walnut_names_target(); };
+        hooks.project_names_changed = [this](const std::string&) {
+            load_walnut_names(true);
+            reload_from_disk();
+        };
         m_settings = std::make_unique<SettingsPage>(m_doc, m_ws, m_themes, std::move(hooks));
+        load_walnut_names(true);
         setup_git();
+        setup_console();
+        setup_find();
         m_doc.events().set_interval(100.0, [this] { poll_job(); });
         m_doc.events().set_interval(40.0, [this] { poll_terminals(); });
         m_doc.events().set_interval(1500.0, [this] { watch_explorer(); });
@@ -684,11 +702,44 @@ public:
         refresh_explorer();
         refresh_status();
         if (m_git && !virtual_tab(path)) m_git->active_changed(path);
+        if (!virtual_tab(path)) load_walnut_names(false);
+        if (m_find) m_find->editor_changed();
+    }
+
+    std::string walnut_names_from() const {
+        if (!m_active.empty() && !virtual_tab(m_active)) return m_active;
+        return m_ws.root;
+    }
+
+    std::string walnut_names_target() const {
+        std::string file = find_project_file(walnut_names_from());
+        if (file.empty() && !m_ws.root.empty()) file = find_project_file(m_ws.root);
+        if (file.empty() && !m_ws.root.empty()) file = (fs::path(m_ws.root) / project_file_name()).string();
+        return file;
+    }
+
+    void load_walnut_names(bool force) {
+        const std::string file = find_project_file(walnut_names_from());
+        std::error_code ec;
+        const auto stamp = file.empty() ? fs::file_time_type{} : fs::last_write_time(file, ec);
+        if (!force && file == m_names_file && stamp == m_names_time) return;
+        m_names_file = file;
+        m_names_time = stamp;
+        m_names = file.empty() ? ProjectNames{} : read_project_names(file);
+        if (file.empty()) clear_project_names();
+        else use_project_names(m_names);
+        refresh_problems();
+        for (const OpenFile& f : m_files) {
+            if (!f.editor || virtual_tab(f.path)) continue;
+            const Language* lang = language_for_path(f.path);
+            if (lang && lang->id == LanguageId::Walnut) schedule_semantic(f.path, 0.0);
+        }
     }
 
     void close_file(const std::string& path) {
         auto it = std::find_if(m_files.begin(), m_files.end(), [&](const OpenFile& f) { return f.path == path; });
         if (it == m_files.end()) return;
+        if (m_find) m_find->forget(it->editor);
         if (path == k_settings_tab && m_settings) m_settings->forget();
         if (path == k_developer_tab) {
             m_developer.stop();
@@ -698,6 +749,10 @@ public:
         if (path != k_settings_tab && virtual_tab(path)) virtual_titles().erase(path);
         m_semantic_due.erase(path);
         m_markdown_due.erase(path);
+        m_web_due.erase(path);
+        m_web_lint.erase(path);
+        m_web_syntax.erase(path);
+        m_web_problems.erase(path);
         if (m_live.erase(path)) refresh_problems();
         m_walnut.erase(path);
         m_marks.erase(path);
@@ -730,6 +785,11 @@ public:
         set_dirty(*f, false);
         for (const auto& s : m_servers) s->changed(f->path);
         if (is_settings_file(f->path)) reload_settings();
+        restart_node_apps(f->path);
+        if (fs::path(f->path).filename() == project_file_name()) {
+            load_walnut_names(true);
+            if (m_settings && m_settings->page() == "characters" && m_settings->root()) m_settings->rebuild();
+        }
         latex_saved(f->path);
         if (m_git) m_git->file_saved(f->path);
         return true;
@@ -790,6 +850,17 @@ public:
             show_panel("output");
             return;
         }
+        if (const Language* lang = language_for_path(m_active); lang && lang->build == BuildKind::Web) {
+            if (m_ws.settings.flag("build", "save-before-build", true)) save_active();
+            serve_path(m_active);
+            show_panel("console");
+            return;
+        }
+        if (const Language* lang = language_for_path(m_active); lang && lang->build == BuildKind::Node && run) {
+            if (m_ws.settings.flag("build", "save-before-build", true)) save_active();
+            run_node(m_active);
+            return;
+        }
         if (m_ws.settings.flag("build", "save-before-build", true)) save_active();
         BuildRequest request;
         request.file = m_active;
@@ -805,17 +876,25 @@ public:
             return;
         }
         std::error_code ec;
-        fs::create_directories(fs::path(plan.output).parent_path(), ec);
+        if (!plan.output.empty()) fs::create_directories(fs::path(plan.output).parent_path(), ec);
         std::vector<std::vector<std::string>> steps{ plan.command };
-        if (run) steps.push_back({ fs::absolute(plan.output, ec).string() });
+        for (const auto& step : plan.more_steps) steps.push_back(step);
+        if (run && !plan.run.empty()) steps.push_back(plan.run);
+        else if (run && plan.run_error.empty()) steps.push_back({ fs::absolute(plan.output, ec).string() });
+        m_build_folder = plan.folder;
         m_running_label = std::string(run ? "Running " : "Building ") + display_name(m_active);
         m_output = m_running_label + "\xE2\x80\xA6\n";
+        if (!plan.note.empty()) m_output += plan.note + "\n";
+        if (run && !plan.run_error.empty()) m_output += plan.run_error + "\n";
         sync_output();
         set_text(m_doc, "status-problems", m_running_label + "\xE2\x80\xA6");
         show_panel("output");
         refresh_problems();
         m_after_task = after_task;
-        m_job.start(std::move(steps));
+        m_job_steps = steps.size();
+        m_job_program = run && (!plan.run.empty() || plan.run_error.empty());
+        m_job_file = m_active;
+        m_job.start(std::move(steps), plan.folder);
     }
 
     static std::size_t output_chunk_end(const std::string& text, std::size_t from) {
@@ -934,6 +1013,7 @@ public:
             if (grove::Node* tab = m_doc.find_by_id("tab-" + v)) on ? (void)grove::add_class(m_doc, *tab, "active") : (void)grove::remove_class(m_doc, *tab, "active");
             if (grove::Node* view = m_doc.find_by_id("view-" + v)) on ? (void)grove::add_class(m_doc, *view, "active") : (void)grove::remove_class(m_doc, *view, "active");
         }
+        if (name == "console" && focus && m_console) m_console->focus_input();
         if (name == "terminal") {
             if (m_terms.empty()) add_terminal(m_roots.empty() ? std::string() : m_roots.front());
             if (TerminalSession* t = active_terminal()) start_terminal(*t);
@@ -987,6 +1067,11 @@ private:
         int rows = 0;
         bool started = false;
         bool exited = false;
+        std::string node_file;
+        std::string node_scan;
+        std::uint16_t node_port = 0;
+        bool node_open_browser = false;
+        LiveServer* node_proxy = nullptr;
     };
 
     static grove::Node* shown(const OpenFile& f) { return f.view ? f.view : f.editor; }
@@ -1075,6 +1160,11 @@ private:
             e.default_prevented = true;
             return;
         }
+        if (e.key == "Escape" && m_find && m_find->is_open() && e.target && e.target->tag() == "input_code") {
+            m_find->close();
+            e.default_prevented = true;
+            return;
+        }
         const std::optional<std::string> command = command_for(bindings(), grove::chord_of(e.key, e.modifiers));
         if (!command) return;
         if (e.target && e.target->tag() == "terminal") {
@@ -1110,6 +1200,11 @@ private:
         else if (command == "git-push" && m_git) m_git->push();
         else if (command == "git-pull" && m_git) m_git->pull();
         else if (command == "run-task" && m_git) m_git->pick_task();
+        else if (command == "find" && m_find) m_find->open(false);
+        else if (command == "replace" && m_find) m_find->open(true);
+        else if (command == "find-next" && m_find) m_find->next();
+        else if (command == "find-previous" && m_find) m_find->previous();
+        else if (command == "select-all-matches" && m_find && m_find->is_open()) m_find->select_all();
         else return false;
         return true;
     }
@@ -1375,6 +1470,7 @@ private:
     }
 
     void watch_explorer() {
+        load_walnut_names(false);
         if (m_drag.active || m_ws.root.empty()) return;
         if (explorer_times_changed()) refresh_explorer();
     }
@@ -2291,12 +2387,209 @@ private:
         if (index >= m_terms.size()) return;
         TerminalSession& t = *m_terms[index];
         if (t.process) t.process->stop();
+        if (t.node_proxy) {
+            for (std::size_t i = 0; i < m_servers.size(); ++i) {
+                if (m_servers[i].get() == t.node_proxy) {
+                    stop_server(i);
+                    break;
+                }
+            }
+            t.node_proxy = nullptr;
+        }
         if (t.view) {
             grove::forget_terminal(m_doc, *t.view);
             m_doc.remove(*t.view);
         }
         m_terms.erase(m_terms.begin() + static_cast<std::ptrdiff_t>(index));
         if (m_term >= m_terms.size()) m_term = m_terms.empty() ? 0 : m_terms.size() - 1;
+    }
+
+    std::string node_project_folder(const std::string& file) const {
+        std::error_code ec;
+        fs::path dir = fs::path(file).parent_path();
+        const std::string root = root_of(file);
+        for (fs::path d = dir; !d.empty(); d = d.parent_path()) {
+            if (fs::is_regular_file(d / "package.json", ec)) return d.string();
+            if (!root.empty() && normalized(d.string()) == normalized(root)) break;
+            if (d == d.parent_path()) break;
+        }
+        return dir.string();
+    }
+
+    std::string node_command(const TerminalSession& t, const std::string& node, const std::string& file) const {
+        std::error_code ec;
+        std::string rel = fs::relative(file, t.folder, ec).string();
+        if (ec || rel.empty() || rel.rfind("..", 0) == 0) rel = file;
+        auto quoted = [](const std::string& text) {
+            std::string out = "\"";
+            for (const char c : text) {
+                if (c == '"' || c == '$' || c == '`' || c == '\\') {
+#if defined(_WIN32)
+                    if (c == '"') out += '\\';
+#else
+                    out += '\\';
+#endif
+                }
+                out += c;
+            }
+            return out + "\"";
+        };
+        std::string shell = t.process ? t.process->shell() : std::string();
+        std::transform(shell.begin(), shell.end(), shell.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const bool powershell = shell.find("powershell") != std::string::npos || shell.find("pwsh") != std::string::npos;
+        return std::string(powershell ? "& " : "") + quoted(node) + " " + quoted(rel);
+    }
+
+    TerminalSession* node_session(const std::string& file) {
+        for (const auto& t : m_terms) {
+            if (normalized(t->node_file) == normalized(file)) return t.get();
+        }
+        return nullptr;
+    }
+
+    void run_node(const std::string& file) {
+        const Tool* node = m_ws.toolchain.get("node");
+        if (!node) {
+            m_output = "JavaScript files run with Node.js, which Canopy can't find. Install it from https://nodejs.org (or your package manager), or set toolchain { node: \"/path/to/node\"; } under Settings > Compilers.\n";
+            sync_output();
+            show_panel("output");
+            return;
+        }
+        TerminalSession* t = node_session(file);
+        bool created = false;
+        if (!t) {
+            created = true;
+            t = &add_terminal(node_project_folder(file));
+            t->name = "node " + fs::path(file).filename().string();
+            t->node_file = file;
+        }
+        for (std::size_t i = 0; i < m_terms.size(); ++i) {
+            if (m_terms[i].get() == t) m_term = i;
+        }
+        show_panel("terminal");
+        const bool fresh = created || !t->started || t->exited;
+        start_terminal(*t);
+        if (!fresh && t->process) t->process->interrupt();
+        t->node_port = 0;
+        t->node_scan.clear();
+        t->node_open_browser = true;
+        const std::string id = t->id;
+        const std::string node_path = node->path;
+        m_doc.events().set_timeout(fresh ? 500.0 : 350.0, [this, id, node_path, file] {
+            for (const auto& owned : m_terms) {
+                if (owned->id != id || !owned->process || owned->exited) continue;
+                owned->process->send_line(node_command(*owned, node_path, file));
+            }
+        });
+        refresh_terminal_ui(true);
+    }
+
+    void restart_node_apps(const std::string& saved) {
+        if (!m_ws.settings.flag("server", "restart-node", true)) return;
+        const Tool* node = m_ws.toolchain.get("node");
+        if (!node) return;
+        for (const auto& owned : m_terms) {
+            TerminalSession& t = *owned;
+            if (t.node_file.empty() || !t.started || t.exited || !t.process) continue;
+            const std::string folder = normalized(t.folder);
+            const std::string path = normalized(saved);
+            if (path.rfind(folder, 0) != 0) continue;
+            const std::string ext = fs::path(saved).extension().string();
+            if (ext != ".js" && ext != ".mjs" && ext != ".cjs" && ext != ".json") continue;
+            if (path.find("/node_modules/") != std::string::npos) continue;
+            t.process->interrupt();
+            t.node_port = 0;
+            t.node_scan.clear();
+            t.node_open_browser = false;
+            t.term->feed("\x1b[2m[Canopy: restarting after you saved " + fs::path(saved).filename().string() + "]\x1b[0m\r\n");
+            const std::string id = t.id;
+            const std::string node_path = node->path;
+            const std::string file = t.node_file;
+            m_doc.events().set_timeout(350.0, [this, id, node_path, file] {
+                for (const auto& o : m_terms) {
+                    if (o->id != id || !o->process || o->exited) continue;
+                    o->process->send_line(node_command(*o, node_path, file));
+                }
+            });
+        }
+    }
+
+    void scan_node_output(TerminalSession& t, const std::string& data) {
+        if (t.node_file.empty() || data.empty()) return;
+        std::string clean;
+        for (std::size_t i = 0; i < data.size(); ++i) {
+            if (data[i] == '\x1b') {
+                ++i;
+                if (i < data.size() && data[i] == '[') {
+                    while (i + 1 < data.size() && !(data[i + 1] >= '@' && data[i + 1] <= '~')) ++i;
+                    ++i;
+                }
+                continue;
+            }
+            clean += data[i];
+        }
+        t.node_scan += clean;
+        if (t.node_scan.size() > 8192) t.node_scan.erase(0, t.node_scan.size() - 8192);
+        static const std::regex missing_module(R"(Cannot find module '([^'./][^']*)')");
+        std::smatch mm;
+        if (std::regex_search(t.node_scan, mm, missing_module)) {
+            std::string name = mm[1].str();
+            if (name.rfind("node:", 0) != 0) {
+                const std::size_t slash = name.find('/');
+                if (name[0] != '@' && slash != std::string::npos) name = name.substr(0, slash);
+                notice(fs::path(t.node_file).filename().string() + " needs the '" + name + "' package: run  npm install " + name + "  in its terminal");
+                t.node_scan.clear();
+            }
+        }
+        if (t.node_port != 0) return;
+        static const std::regex port_re(R"((?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::\]|\[::1\]):(\d{2,5})|\bport\s*[:=]?\s*(\d{2,5})\b)", std::regex::icase);
+        std::smatch m;
+        if (!std::regex_search(t.node_scan, m, port_re)) return;
+        const int port = std::stoi(m[1].matched ? m[1].str() : m[2].str());
+        if (port <= 0 || port > 65535) return;
+        t.node_port = static_cast<std::uint16_t>(port);
+        node_listening(t);
+    }
+
+    void node_listening(TerminalSession& t) {
+        const std::string direct = "http://localhost:" + std::to_string(t.node_port) + "/";
+        if (!m_ws.settings.flag("server", "proxy-node", true)) {
+            if (t.node_open_browser && !open_in_browser(direct)) notice("Your app is at " + direct);
+            t.node_open_browser = false;
+            return;
+        }
+        LiveServer* proxy = nullptr;
+        for (const auto& s : m_servers) {
+            if (s.get() == t.node_proxy) proxy = s.get();
+        }
+        if (proxy) {
+            proxy->set_proxy(t.node_port);
+            proxy->changed(proxy->folder());
+        } else {
+            auto server = std::make_unique<LiveServer>();
+            server->set_console(m_ws.settings.flag("server", "console", true));
+            server->set_proxy(t.node_port);
+            std::string error;
+            std::uint16_t first = server_port_setting();
+            if (first == t.node_port) first = static_cast<std::uint16_t>(first + 1);
+            if (!server->start(t.folder, first, m_ws.settings.get_or("server", "host", "127.0.0.1"), m_ws.settings.flag("server", "live-reload", true), error)) {
+                notice(error + "; your app is at " + direct);
+                if (t.node_open_browser) open_in_browser(direct);
+                t.node_open_browser = false;
+                return;
+            }
+            proxy = server.get();
+            t.node_proxy = proxy;
+            m_servers.push_back(std::move(server));
+            refresh_ports(true);
+            if (m_console) m_console->servers_changed();
+            if (m_elements) m_elements->servers_changed();
+        }
+        if (t.node_open_browser) {
+            notice("Your app is listening on port " + std::to_string(t.node_port) + "; Canopy opened it through " + proxy->url() + " so the Console, Elements and live reload work");
+            if (!open_in_browser(proxy->url())) notice("Couldn't open a browser; your app is at " + proxy->url());
+        }
+        t.node_open_browser = false;
     }
 
     void start_terminal(TerminalSession& t) {
@@ -2480,6 +2773,7 @@ private:
                 const bool alive = t.process->running();
                 if (!alive) data += t.process->read();
                 if (!data.empty()) t.term->feed(data);
+                if (!data.empty() && !t.node_file.empty()) scan_node_output(t, data);
                 const std::string reply = t.term->take_reply();
                 if (!reply.empty() && alive) t.process->write(reply);
                 if (!alive) {
@@ -2571,7 +2865,14 @@ private:
             }
             ++errors;
         }
-        if (errors_list.size() == 0) errors_list.add("p", "No errors. C, C++, Walnut and Grove are ready to build.", "ok");
+        for (const ProjectNameProblem& p : m_names.problems) {
+            errors_list.add("p", display_name(m_names.path) + ":" + std::to_string(std::max<std::size_t>(1, p.line)) + "  Special characters: " + p.message, "problem error");
+            errors_list.set("data-path", m_names.path);
+            errors_list.set("data-line", std::to_string(std::max<std::size_t>(1, p.line)));
+            errors_list.set("data-column", "1");
+            ++errors;
+        }
+        if (errors_list.size() == 0) errors_list.add("p", "No errors.", "ok");
         if (warnings_list && warnings_list->size() == 0) warnings_list->add("p", "No warnings.", "ok");
         errors_list.finish();
         if (warnings_list) warnings_list->finish();
@@ -2594,6 +2895,18 @@ private:
             const Language* lang = language_for_path(m_active);
             const grove::CodeLanguage code = grove::code_language_for_path(m_active);
             std::string label = lang ? lang->name : code == grove::CodeLanguage::CMake ? std::string("CMake") : std::string("Plain text");
+            std::string tip;
+            if (lang && lang->id == LanguageId::Assembly) {
+                if (const OpenFile* f = find_file(m_active); f && f->editor) {
+                    const AsmInfo info = detect_assembly(grove::input_string(*f->editor).value_or(""), m_active, m_ws.settings.get_or("language.asm", "dialect", "auto"), m_ws.settings.get_or("language.asm", "arch", "auto"));
+                    label = "Assembly (" + assembly_summary(info) + ")";
+                    tip = assembly_report(info, m_ws.toolchain);
+                }
+            }
+            if (grove::Node* status = m_doc.find_by_id("status-language")) {
+                if (tip.empty()) status->remove_attribute("title");
+                else status->set_attribute("title", tip);
+            }
             if (m_active == k_settings_tab) label = "Settings";
             else if (m_active == k_developer_tab) label = "Developer";
             else if (virtual_tab(m_active)) label = m_active.rfind("canopy:diff:", 0) == 0 ? "Diff" : "Read-only";
@@ -2639,6 +2952,7 @@ private:
             if (s->running() && normalized(s->folder()) == normalized(folder)) return s.get();
         }
         auto server = std::make_unique<LiveServer>();
+        server->set_console(m_ws.settings.flag("server", "console", true));
         std::string error;
         if (!server->start(folder, port, m_ws.settings.get_or("server", "host", "127.0.0.1"), reload, error)) {
             notice(error);
@@ -2648,6 +2962,8 @@ private:
         notice("Serving " + folder + " at " + server->url());
         m_servers.push_back(std::move(server));
         refresh_ports(true);
+        if (m_console) m_console->servers_changed();
+        if (m_elements) m_elements->servers_changed();
         return m_servers.back().get();
     }
 
@@ -2689,9 +3005,12 @@ private:
         if (index >= m_servers.size()) return;
         notice("Stopped the server for " + m_servers[index]->folder());
         m_servers[index]->stop();
+        if (m_console) m_console->poll();
         m_servers.erase(m_servers.begin() + static_cast<std::ptrdiff_t>(index));
         m_server_last.clear();
         refresh_ports(true);
+        if (m_console) m_console->servers_changed();
+        if (m_elements) m_elements->servers_changed();
     }
 
     void server_click(grove::Event& e) {
@@ -2714,6 +3033,8 @@ private:
     void poll_servers() {
         if (m_servers.empty()) return;
         LiveServer::pump();
+        if (m_console) m_console->poll();
+        if (m_elements) m_elements->poll();
         bool changed = false;
         for (std::size_t i = 0; i < m_servers.size(); ++i) {
             const std::vector<std::string> log = m_servers[i]->take_log();
@@ -2761,6 +3082,7 @@ private:
             add(m_doc, *row, "text", folder_label(s.folder()), "server-folder-name")->set_attribute("title", s.folder());
             const std::size_t n = s.requests();
             std::string meta = std::to_string(n) + (n == 1 ? " request" : " requests");
+            if (s.proxy() != 0) meta += "  \xC2\xB7  in front of your app on port " + std::to_string(s.proxy());
             if (s.live_reload()) meta += "  \xC2\xB7  live reload";
             const auto last = m_server_last.find(i);
             if (last != m_server_last.end()) meta += "  \xC2\xB7  " + last->second;
@@ -2784,6 +3106,7 @@ private:
         m_ws.diagnostics = grove::Diagnostics{};
         m_ws.settings = load_settings(m_ws.root, m_ws.diagnostics);
         m_ws.toolchain = detect_toolchain(m_ws.settings);
+        for (const auto& s : m_servers) s->set_console(m_ws.settings.flag("server", "console", true));
         m_themes = load_themes(m_ws.diagnostics);
         setup_intel();
         for (OpenFile& f : m_files) {
@@ -2896,7 +3219,9 @@ private:
 
     std::vector<grove::CodeProblem> build_marks(const std::string& path, const std::vector<std::string>& lines) const {
         std::vector<grove::CodeProblem> out;
-        for (const CompilerMessage& m : m_messages) {
+        std::vector<CompilerMessage> messages = m_messages;
+        if (const auto web = m_web_problems.find(path); web != m_web_problems.end()) messages.insert(messages.end(), web->second.begin(), web->second.end());
+        for (const CompilerMessage& m : messages) {
             if (m.line == 0 || m.line > lines.size() || m.severity == "note") continue;
             fs::path file(m.file);
             if (file.is_relative() && !m_ws.root.empty()) file = fs::path(m_ws.root) / file;
@@ -2970,7 +3295,7 @@ private:
     }
 
     static const std::vector<std::string>& layout_views() {
-        static const std::vector<std::string> views = { "explorer", "terminal", "problems", "warnings", "output", "git", "history", "ports", "debug" };
+        static const std::vector<std::string> views = { "explorer", "terminal", "problems", "warnings", "output", "stats", "console", "elements", "git", "history", "ports", "debug" };
         return views;
     }
 
@@ -3336,6 +3661,61 @@ private:
         }
     }
 
+    void setup_find() {
+        FindBar::Hooks hooks;
+        hooks.editor = [this]() -> grove::Node* {
+            const OpenFile* f = find_file(m_active);
+            return f && f->editor && !virtual_tab(f->path) ? f->editor : nullptr;
+        };
+        hooks.focus_editor = [this] {
+            const OpenFile* f = find_file(m_active);
+            if (f && f->editor && m_doc.host().focus) m_doc.host().focus(f->editor);
+        };
+        m_find = std::make_unique<FindBar>(m_doc, std::move(hooks));
+        m_find->install();
+    }
+
+    void setup_console() {
+        ConsolePanel::Hooks hooks;
+        hooks.servers = [this] {
+            std::vector<LiveServer*> out;
+            for (const auto& s : m_servers) out.push_back(s.get());
+            return out;
+        };
+        hooks.open_at = [this](const std::string& path, int line, int column) {
+            open_file(path, static_cast<std::size_t>(std::max(1, line)), static_cast<std::size_t>(std::max(1, column)));
+        };
+        hooks.show_panel = [this](const std::string& name) { show_panel(name); };
+        hooks.serve_workspace = [this] {
+            show_panel("ports");
+            start_server_from_bar();
+        };
+        m_console = std::make_unique<ConsolePanel>(m_doc, std::move(hooks));
+        m_console->install();
+        setup_elements();
+    }
+
+    void setup_elements() {
+        ElementsPanel::Hooks hooks;
+        hooks.servers = [this] {
+            std::vector<LiveServer*> out;
+            for (const auto& s : m_servers) out.push_back(s.get());
+            return out;
+        };
+        hooks.visible = [this] { return area_showing("elements"); };
+        hooks.serve_workspace = [this] {
+            show_panel("ports");
+            start_server_from_bar();
+        };
+        hooks.style_editor = [this](grove::Node& editor) {
+            apply_editor_settings(editor);
+            editor.set_attribute("line-numbers", "false");
+            editor.set_attribute("autocomplete", "false");
+        };
+        m_elements = std::make_unique<ElementsPanel>(m_doc, std::move(hooks));
+        m_elements->install();
+    }
+
     void setup_git() {
         GitPanel::Hooks hooks;
         hooks.open_file = [this](const std::string& path) { open_file(path); };
@@ -3594,6 +3974,10 @@ private:
 
     void schedule_semantic(const std::string& path, double delay) {
         const OpenFile* f = find_file(path);
+        if (f && f->editor && !virtual_tab(path) && live_checked(f->editor->attribute_or("language", ""))) {
+            m_web_due[path] = now_seconds() + delay;
+            return;
+        }
         if (!f || !walnut_file(*f)) return;
         m_semantic_due[path] = now_seconds() + delay;
     }
@@ -3629,7 +4013,7 @@ private:
             return;
         }
         const std::string text = grove::input_string(*f->editor).value_or("");
-        m_semantic.start(pick, walnut_highlight_command(walnut->path, pick, m_ws.settings.get_or("language.walnut", "flags", "")), text);
+        m_semantic.start(pick, walnut_highlight_command(walnut->path, pick, m_ws.settings.get_or("language.walnut", "flags", "") + (m_ws.settings.flag("language.walnut", "ownership", false) ? " --ownership" : "")), text);
     }
 
     void finish_semantic(const SemanticJob::Done& done) {
@@ -3658,6 +4042,111 @@ private:
         else f->editor->set_attribute("links", links);
         refresh_problems();
         m_doc.touch();
+    }
+
+    static bool live_checked(const std::string& language) {
+        return is_web_language(language) || language == "python" || language == "lua" || language == "zig";
+    }
+
+    void poll_web_checks() {
+        if (std::optional<SemanticJob::Done> done = m_web_check.take()) {
+            const std::string source = m_web_check_source;
+            m_web_check_source.clear();
+            const OpenFile* f = find_file(done->path);
+            if (f && f->editor && grove::input_string(*f->editor).value_or("") == source) {
+                const std::string language = f->editor->attribute_or("language", "");
+                if (is_web_language(language)) {
+                    m_web_syntax[done->path] = parse_node_check(done->output, done->path);
+                } else {
+                    std::vector<CompilerMessage> found = parse_compiler_messages(done->output);
+                    for (CompilerMessage& m : found) m.file = done->path;
+                    if (found.size() > 1) found.resize(1);
+                    m_web_syntax[done->path] = found;
+                }
+                publish_web_problems(done->path);
+            }
+        }
+        if (m_web_due.empty()) return;
+        const double now = now_seconds();
+        std::string pick;
+        for (const auto& [path, due] : m_web_due) {
+            if (due > now) continue;
+            if (pick.empty() || path == m_active) pick = path;
+        }
+        if (pick.empty()) return;
+        m_web_due.erase(pick);
+        OpenFile* f = find_file(pick);
+        if (!f || !f->editor) return;
+        const std::string language = f->editor->attribute_or("language", "");
+        if (!m_ws.settings.flag("editor", "live-problems", true)) {
+            m_web_lint.erase(pick);
+            m_web_syntax.erase(pick);
+            publish_web_problems(pick);
+            return;
+        }
+        const std::string text = grove::input_string(*f->editor).value_or("");
+        if (!is_web_language(language)) {
+            std::vector<std::string> command;
+            if (language == "python") {
+                if (const Tool* python = m_ws.toolchain.get("python")) command = { python->path, "-c", "import ast,sys;ast.parse(sys.stdin.read(),sys.argv[1])", pick };
+            } else if (language == "lua") {
+                if (const Tool* luac = m_ws.toolchain.get("luac")) command = { luac->path, "-p", "-" };
+                else if (const Tool* lua = m_ws.toolchain.get("lua")) command = { lua->path, "-e", "local f,e=load(io.read('a'),'=stdin') if not f then io.stderr:write('lua: '..e..'\\n') os.exit(1) end" };
+            } else if (language == "zig") {
+                if (const Tool* zig = m_ws.toolchain.get("zig")) command = { zig->path, "ast-check", "--color", "off" };
+            }
+            m_web_lint.erase(pick);
+            if (command.empty()) {
+                m_web_syntax.erase(pick);
+            } else if (m_web_check.running()) {
+                m_web_due[pick] = now + 0.3;
+            } else {
+                m_web_check_source = text;
+                m_web_check.start_with_errors(pick, command, text);
+            }
+            publish_web_problems(pick);
+            return;
+        }
+        m_web_lint[pick] = lint_web(language, text, pick);
+        std::string js;
+        bool module = false;
+        if (language == "javascript") {
+            js = text;
+            module = javascript_is_module(text, pick);
+        } else if (language == "html") {
+            js = web_script_text(text, module);
+        }
+        const Tool* node = m_ws.toolchain.get("node");
+        if (js.empty() || !node) {
+            m_web_syntax.erase(pick);
+        } else if (m_web_check.running()) {
+            m_web_due[pick] = now + 0.3;
+        } else {
+            std::vector<std::string> command = { node->path, "--check" };
+            if (module) command.push_back("--input-type=module");
+            m_web_check_source = text;
+            m_web_check.start_with_errors(pick, command, js);
+        }
+        publish_web_problems(pick);
+    }
+
+    void publish_web_problems(const std::string& path) {
+        std::vector<CompilerMessage> all;
+        if (const auto it = m_web_lint.find(path); it != m_web_lint.end()) all = it->second;
+        if (const auto it = m_web_syntax.find(path); it != m_web_syntax.end()) all.insert(all.end(), it->second.begin(), it->second.end());
+        const auto before = m_web_problems.find(path);
+        bool same = before != m_web_problems.end() && before->second.size() == all.size();
+        for (std::size_t i = 0; same && i < all.size(); ++i) same = all[i].line == before->second[i].line && all[i].column == before->second[i].column && all[i].message == before->second[i].message;
+        if (same || (all.empty() && before == m_web_problems.end())) return;
+        if (all.empty()) {
+            m_web_problems.erase(path);
+            m_live.erase(path);
+        } else {
+            m_web_problems[path] = all;
+            m_live[path] = all;
+        }
+        if (OpenFile* f = find_file(path)) update_marks(*f);
+        refresh_problems();
     }
 
     struct WalnutInfo {
@@ -3834,7 +4323,9 @@ private:
                 out.push_back({ { problem.column, end - problem.column }, "**" + std::string(message.severity == "warning" ? "Warning" : "Error") + ":** " + message.message });
             }
         }
-        for (const CompilerMessage& m : m_messages) {
+        std::vector<CompilerMessage> messages = m_messages;
+        if (const auto web = m_web_problems.find(path); web != m_web_problems.end()) messages.insert(messages.end(), web->second.begin(), web->second.end());
+        for (const CompilerMessage& m : messages) {
             if (m.line != line + 1 || normalized(m.file) != normalized(path)) continue;
             const std::string& row = lines[line];
             std::size_t begin = m.column > 0 ? m.column - 1 : 0;
@@ -3891,7 +4382,7 @@ private:
         CompletionSources sources;
         const CompletionContext ctx = completion_context(request);
         const std::string& language = request.language;
-        if (ctx.site == CompletionSite::Module) {
+        if (ctx.site == CompletionSite::Module && !is_web_language(ctx.language)) {
             sources.extra = walnut_module_items(request.path, ctx.module_prefix);
             return complete_code(request, sources, ctx);
         }
@@ -4087,6 +4578,10 @@ private:
         } else if (intel_language(language)) {
             IntelRequest request{ f.path, language, text, line, column };
             hover = m_intel.hover(request);
+        } else if (is_web_language(language)) {
+            hover = web_hover(language, text, line, column);
+        } else if (is_more_language(language)) {
+            hover = more_hover(language, text, f.path, line, column);
         }
         const auto problems = problems_at(f.path, lines, line, column);
         if (!problems.empty()) {
@@ -4242,9 +4737,112 @@ private:
 
     void go_forward() { jump(m_forward, m_back); }
 
+    static std::string clock_text(std::int64_t ms) {
+        const std::time_t t = static_cast<std::time_t>(ms / 1000);
+        std::tm local{};
+#if defined(_WIN32)
+        localtime_s(&local, &t);
+#else
+        localtime_r(&t, &local);
+#endif
+        char text[32];
+        std::strftime(text, sizeof(text), "%H:%M:%S", &local);
+        return text;
+    }
+
+    static std::string percent_text(std::int64_t part, std::int64_t whole) {
+        if (whole <= 0) return "0%";
+        const double p = 100.0 * static_cast<double>(part) / static_cast<double>(whole);
+        char text[32];
+        std::snprintf(text, sizeof(text), p >= 10.0 ? "%.0f%%" : "%.1f%%", p);
+        return text;
+    }
+
+    static std::string short_command(const std::string& command) {
+        std::string name;
+        std::size_t rest = 0;
+        if (!command.empty() && (command[0] == '\'' || command[0] == '"')) {
+            const std::size_t end = command.find(command[0], 1);
+            name = command.substr(1, end == std::string::npos ? std::string::npos : end - 1);
+            rest = end == std::string::npos ? command.size() : end + 1;
+        } else {
+            rest = std::min(command.find(' '), command.size());
+            name = command.substr(0, rest);
+        }
+        std::string out = fs::path(name).filename().string();
+        std::string tail = command.substr(rest);
+        if (tail.size() > 60) tail = tail.substr(0, 57) + "...";
+        return out + tail;
+    }
+
+    void stats_row(grove::Node& table, const std::string& label, const std::string& value, const std::string& tip = {}) {
+        grove::Node* row = add(m_doc, table, "row", "", "stats-row");
+        add(m_doc, *row, "text", label, "stats-label");
+        grove::Node* v = add(m_doc, *row, "text", value, "stats-value");
+        if (!tip.empty()) v->set_attribute("title", tip);
+    }
+
+    void refresh_stats() {
+        grove::Node* view = m_doc.find_by_id("stats");
+        if (!view) return;
+        clear(m_doc, *view);
+        if (m_runs.empty()) {
+            add(m_doc, *view, "p", "Run a program (F5) to see how long it took and how much memory it used.", "muted");
+            m_doc.touch();
+            return;
+        }
+        const RunRecord& last = m_runs.front();
+        const RunStats& program = last.steps.back();
+        std::int64_t total_us = 0;
+        for (const RunStats& s : last.steps) total_us += s.wall_us;
+        add(m_doc, *view, "text", display_name(last.file) + (last.program ? " \xC2\xB7 ran at " : " \xC2\xB7 built at ") + clock_text(last.steps.front().started_ms), "stats-title");
+        grove::Node* columns = add(m_doc, *view, "row", "", "stats-columns");
+        if (last.program) {
+            grove::Node* table = add(m_doc, *columns, "column", "", "stats-table");
+            add(m_doc, *table, "text", "Program", "stats-heading");
+            stats_row(*table, "Command", short_command(program.command), program.command);
+            stats_row(*table, "Exit code", std::to_string(program.exit_code));
+            stats_row(*table, "Wall time", format_duration_us(program.wall_us), "From starting the program until it ended");
+            stats_row(*table, "CPU time", format_duration_us(program.user_us + program.system_us), "Time the processor spent on the program, on every core added together");
+            stats_row(*table, "  in the program", format_duration_us(program.user_us), "User time: running the program's own code");
+            stats_row(*table, "  in the system", format_duration_us(program.system_us), "System time: the operating system working for the program (files, memory, output)");
+            stats_row(*table, "CPU use", percent_text(program.user_us + program.system_us, program.wall_us), "CPU time divided by wall time; above 100% means it used more than one core");
+            stats_row(*table, program.peak_is_commit ? "Peak memory (committed)" : "Peak memory", format_bytes(program.peak_bytes), program.peak_is_commit ? "The most memory the program had committed at once" : "The most memory the program had in RAM at once (peak resident set size)");
+            if (program.minor_faults || program.major_faults) stats_row(*table, "Page faults", std::to_string(program.minor_faults) + " minor \xC2\xB7 " + std::to_string(program.major_faults) + " major", "Major faults had to read from disk");
+            if (program.voluntary_switches || program.involuntary_switches) stats_row(*table, "Context switches", std::to_string(program.voluntary_switches) + " waiting \xC2\xB7 " + std::to_string(program.involuntary_switches) + " preempted", "Waiting: the program gave up the CPU to wait for something. Preempted: the system switched to another program");
+            if (program.read_bytes || program.written_bytes) stats_row(*table, "Disk", format_bytes(program.read_bytes) + " read \xC2\xB7 " + format_bytes(program.written_bytes) + " written");
+        }
+        const std::size_t build_steps = last.program ? last.steps.size() - 1 : last.steps.size();
+        if (build_steps > 0) {
+            grove::Node* table = add(m_doc, *columns, "column", "", "stats-table");
+            add(m_doc, *table, "text", "Build", "stats-heading");
+            std::int64_t build_us = 0;
+            for (std::size_t i = 0; i < build_steps; ++i) {
+                const RunStats& s = last.steps[i];
+                build_us += s.wall_us;
+                const std::string name = short_command(s.command);
+                stats_row(*table, name.substr(0, name.find(' ')), format_duration_us(s.wall_us) + " \xC2\xB7 " + format_bytes(s.peak_bytes), s.command);
+            }
+            stats_row(*table, "Build total", format_duration_us(build_us));
+            stats_row(*table, "Everything", format_duration_us(total_us));
+        }
+        if (m_runs.size() > 1) {
+            grove::Node* table = add(m_doc, *columns, "column", "", "stats-table");
+            add(m_doc, *table, "text", "Earlier runs", "stats-heading");
+            for (std::size_t i = 1; i < m_runs.size(); ++i) {
+                const RunRecord& r = m_runs[i];
+                const RunStats& s = r.steps.back();
+                const std::string what = r.program ? format_duration_us(s.wall_us) + " \xC2\xB7 " + format_bytes(s.peak_bytes) + " \xC2\xB7 exit " + std::to_string(s.exit_code) : "build only";
+                stats_row(*table, clock_text(r.steps.front().started_ms) + "  " + display_name(r.file), what);
+            }
+        }
+        m_doc.touch();
+    }
+
     void poll_job() {
         if (m_git) m_git->poll(now_seconds());
         poll_semantic();
+        poll_web_checks();
         poll_viewers();
         poll_markdown();
         poll_servers();
@@ -4257,7 +4855,27 @@ private:
         const std::optional<int> result = m_job.take_result();
         if (!result) return;
         m_messages = parse_compiler_messages(m_output);
+        if (!m_build_folder.empty()) {
+            for (CompilerMessage& m : m_messages) {
+                std::error_code ec;
+                if (m.file.empty() || fs::path(m.file).is_absolute()) continue;
+                const fs::path there = fs::path(m_build_folder) / m.file;
+                if (fs::exists(there, ec)) m.file = there.lexically_normal().string();
+            }
+        }
         update_all_marks();
+        std::vector<RunStats> stats = m_job.take_stats();
+        const bool program_ran = m_job_program && !stats.empty() && stats.size() == m_job_steps;
+        if (program_ran) m_output += "\n" + run_stats_summary(stats.back()) + "\n";
+        if (!stats.empty()) {
+            RunRecord record;
+            record.file = m_job_file;
+            record.program = program_ran;
+            record.steps = std::move(stats);
+            m_runs.insert(m_runs.begin(), std::move(record));
+            if (m_runs.size() > 20) m_runs.resize(20);
+            refresh_stats();
+        }
         m_output += *result == 0 ? std::string("\n") + m_running_label + " finished.\n" : "\n" + m_running_label + " failed (exit " + std::to_string(*result) + ").\n";
         sync_output();
         refresh_problems();
@@ -5185,7 +5803,20 @@ private:
     std::string m_tab_menu_view;
     std::string m_tab_menu_area;
     std::unique_ptr<GitPanel> m_git;
+    std::unique_ptr<ConsolePanel> m_console;
+    std::unique_ptr<ElementsPanel> m_elements;
+    SemanticJob m_web_check;
+    std::string m_web_check_source;
+    std::map<std::string, double> m_web_due;
+    std::map<std::string, std::vector<CompilerMessage>> m_web_lint;
+    std::map<std::string, std::vector<CompilerMessage>> m_web_syntax;
+    std::map<std::string, std::vector<CompilerMessage>> m_web_problems;
+    std::unique_ptr<FindBar> m_find;
+    std::string m_names_file;
+    ProjectNames m_names;
+    fs::file_time_type m_names_time{};
     std::string m_after_task;
+    std::string m_build_folder;
     std::string m_active;
     std::set<std::string> m_expanded;
     std::vector<CompilerMessage> m_messages;
@@ -5215,6 +5846,15 @@ private:
     std::map<std::string, std::vector<CompilerMessage>> m_live;
     std::string m_output;
     std::string m_running_label;
+    struct RunRecord {
+        std::string file;
+        bool program = false;
+        std::vector<RunStats> steps;
+    };
+    std::vector<RunRecord> m_runs;
+    std::size_t m_job_steps = 0;
+    bool m_job_program = false;
+    std::string m_job_file;
     std::size_t m_caret_serial = 0;
     std::map<std::string, Viewer> m_viewers;
     std::map<std::string, std::vector<grove::CodeProblem>> m_marks;
@@ -5308,7 +5948,7 @@ void populate_shell(grove::Project& project, const Workspace& workspace) {
             add(doc, *problems, "p", d.file + ":" + std::to_string(d.span.begin.line) + ": " + d.message, "problem");
             ++count;
         }
-        if (count == 0) add(doc, *problems, "p", "Everything's set up: C, C++, Walnut and Grove are ready to build.", "ok");
+        if (count == 0) add(doc, *problems, "p", "Everything's set up and ready to build.", "ok");
     }
 }
 

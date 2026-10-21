@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(canopy VERSION 0.1.4 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
+project(canopy VERSION 0.1.6 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -11,8 +11,8 @@ option(CANOPY_WITH_WALNUT "Build Walnut alongside Canopy so .wal files work out 
 option(CANOPY_BUILD_TESTS "Build the Canopy tests" ON)
 option(CANOPY_PACKAGE "Build Canopy as a self-contained download and set up CPack" OFF)
 option(CANOPY_BUNDLE_WALNUT "With CANOPY_PACKAGE: put Walnut's release package for this platform inside Canopy's" ON)
-set(CANOPY_GROVE_TAG "v0.1.29" CACHE STRING "Grove git tag to fetch")
-set(CANOPY_WALNUT_VERSION "0.1.22" CACHE STRING "Walnut release bundled into packages")
+set(CANOPY_GROVE_TAG "v0.1.32" CACHE STRING "Grove git tag to fetch")
+set(CANOPY_WALNUT_VERSION "0.1.25" CACHE STRING "Walnut release bundled into packages")
 
 if(CANOPY_PACKAGE AND CANOPY_BUNDLE_WALNUT)
     set(CANOPY_WITH_WALNUT OFF CACHE BOOL "" FORCE)
@@ -43,6 +43,21 @@ FetchContent_Declare(grove
 FetchContent_MakeAvailable(grove)
 
 set(CANOPY_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
+set(CANOPY_SPECIAL_NAMES_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/Source/special_names.cpp")
+if(TARGET walnut_special_names_gen AND DEFINED WALNUT_SPECIAL_NAMES_JSON AND EXISTS "${WALNUT_SPECIAL_NAMES_JSON}")
+    set(CANOPY_SPECIAL_NAMES_SOURCE "${CANOPY_GENERATED_DIR}/special_names.cpp")
+    file(MAKE_DIRECTORY "${CANOPY_GENERATED_DIR}")
+    add_custom_command(
+        OUTPUT "${CANOPY_SPECIAL_NAMES_SOURCE}"
+        COMMAND walnut_special_names_gen canopy "${WALNUT_SPECIAL_NAMES_JSON}" "${CANOPY_SPECIAL_NAMES_SOURCE}"
+        DEPENDS walnut_special_names_gen "${WALNUT_SPECIAL_NAMES_JSON}"
+        COMMENT "Generating Canopy's \\s{...} character names from Walnut's special_names.json"
+        VERBATIM)
+    message(STATUS "Canopy: \\s{...} names come from ${WALNUT_SPECIAL_NAMES_JSON}")
+else()
+    message(STATUS "Canopy: this Walnut has no special_names.json, so \\s{...} names come from Source/special_names.cpp")
+endif()
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.hpp.in" "${CANOPY_GENERATED_DIR}/canopy/version.hpp" @ONLY)
 file(GLOB CANOPY_CONFIG_FILES CONFIGURE_DEPENDS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/Config"
     "${CMAKE_CURRENT_SOURCE_DIR}/Config/*.bark"
@@ -55,6 +70,32 @@ foreach(config_file IN LISTS CANOPY_CONFIG_FILES)
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Config/${config_file}")
 endforeach()
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/defaults.cpp.in" "${CANOPY_GENERATED_DIR}/defaults.cpp" @ONLY)
+
+set(CANOPY_JQUERY_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Assets/jquery/jquery.min.js")
+file(READ "${CANOPY_JQUERY_FILE}" CANOPY_JQUERY_HEX HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," CANOPY_JQUERY_BYTES "${CANOPY_JQUERY_HEX}")
+file(STRINGS "${CANOPY_JQUERY_FILE}" CANOPY_JQUERY_HEAD LIMIT_COUNT 1)
+string(REGEX MATCH "v([0-9]+\\.[0-9]+\\.[0-9]+)" _canopy_jquery_match "${CANOPY_JQUERY_HEAD}")
+set(CANOPY_JQUERY_VERSION "${CMAKE_MATCH_1}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CANOPY_JQUERY_FILE}")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/jquery.cpp.in" "${CANOPY_GENERATED_DIR}/jquery.cpp" @ONLY)
+
+set(CANOPY_WEB_DOCS_FILE "${CMAKE_CURRENT_SOURCE_DIR}/Assets/web/web_docs.txt")
+file(READ "${CANOPY_WEB_DOCS_FILE}" CANOPY_WEB_DOCS_HEX HEX)
+string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," CANOPY_WEB_DOCS_BYTES "${CANOPY_WEB_DOCS_HEX}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CANOPY_WEB_DOCS_FILE}")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/web_docs.cpp.in" "${CANOPY_GENERATED_DIR}/web_docs_data.cpp" @ONLY)
+
+file(GLOB CANOPY_LANGUAGE_DOC_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Assets/languages/*.txt")
+list(SORT CANOPY_LANGUAGE_DOC_FILES)
+set(CANOPY_LANGUAGE_DOCS_BYTES "")
+foreach(_canopy_doc ${CANOPY_LANGUAGE_DOC_FILES})
+    file(READ "${_canopy_doc}" _canopy_doc_hex HEX)
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _canopy_doc_bytes "${_canopy_doc_hex}")
+    string(APPEND CANOPY_LANGUAGE_DOCS_BYTES "${_canopy_doc_bytes}0x0a,")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_canopy_doc}")
+endforeach()
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/language_docs.cpp.in" "${CANOPY_GENERATED_DIR}/language_docs_data.cpp" @ONLY)
 
 function(canopy_warnings target)
     if(MSVC)
@@ -69,17 +110,29 @@ add_library(canopy_core STATIC
     Source/languages.cpp
     Source/toolchain.cpp
     Source/build.cpp
+    Source/run_stats.cpp
+    Source/asm_info.cpp
     Source/workspace.cpp
     Source/shortcuts.cpp
     Source/desktop.cpp
     Source/terminal.cpp
     Source/markdown.cpp
     Source/live_server.cpp
+    Source/github_auth.cpp
+    Source/secure_store.cpp
+    ${CANOPY_SPECIAL_NAMES_SOURCE}
+    Source/project_names.cpp
     Source/git.cpp
     Source/history.cpp
     Source/tasks.cpp
-    "${CANOPY_GENERATED_DIR}/defaults.cpp")
+    "${CANOPY_GENERATED_DIR}/defaults.cpp"
+    Source/web_docs.cpp
+    "${CANOPY_GENERATED_DIR}/jquery.cpp"
+    "${CANOPY_GENERATED_DIR}/web_docs_data.cpp"
+    "${CANOPY_GENERATED_DIR}/language_docs_data.cpp")
 add_library(canopy::core ALIAS canopy_core)
+set(CANOPY_GITHUB_CLIENT_ID "" CACHE STRING "Client ID of the GitHub OAuth app that Sign in to GitHub uses (empty: sign in with a pasted token)")
+set_source_files_properties(Source/github_auth.cpp PROPERTIES COMPILE_DEFINITIONS "CANOPY_GITHUB_CLIENT_ID=\"${CANOPY_GITHUB_CLIENT_ID}\"")
 target_compile_features(canopy_core PUBLIC cxx_std_17)
 target_include_directories(canopy_core PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/Include"
@@ -93,6 +146,9 @@ endif()
 if(WIN32)
     target_link_libraries(canopy_core PUBLIC ole32 uuid shell32 advapi32 user32)
 endif()
+if(APPLE)
+    target_link_libraries(canopy_core PUBLIC "-framework Security" "-framework CoreFoundation")
+endif()
 if(NOT CANOPY_PACKAGE)
     target_compile_definitions(canopy_core PRIVATE "CANOPY_SOURCE_PACKAGING_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/Packaging\"")
 endif()
@@ -103,10 +159,15 @@ add_library(canopy_app STATIC
     Source/settings_page.cpp
     Source/developer.cpp
     Source/git_panel.cpp
+    Source/console_panel.cpp
+    Source/elements_panel.cpp
+    Source/find_bar.cpp
     Source/walnut_semantic.cpp
     Source/viewers.cpp
     Source/code_intel.cpp
     Source/literal_hover.cpp
+    Source/web_intel.cpp
+    Source/lang_intel.cpp
     Source/completion.cpp
     Source/language_docs.cpp
     Source/cli.cpp

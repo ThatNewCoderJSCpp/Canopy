@@ -13,6 +13,17 @@ enum class LanguageId {
     C,
     Cpp,
     Walnut,
+    Html,
+    Css,
+    JavaScript,
+    Json,
+    Rust,
+    Zig,
+    Python,
+    Lua,
+    Java,
+    CSharp,
+    Assembly,
     Unknown
 };
 
@@ -21,7 +32,16 @@ enum class BuildKind {
     CCompiler,
     CppCompiler,
     Walnut,
-    Grove
+    Grove,
+    Web,
+    Node,
+    Rust,
+    Zig,
+    Python,
+    Lua,
+    Java,
+    CSharp,
+    Assembly
 };
 
 struct Language {

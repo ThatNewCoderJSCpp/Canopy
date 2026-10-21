@@ -5,9 +5,31 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace canopy {
+
+struct ConsoleMessage {
+    std::string level;
+    std::string text;
+    std::string source;
+    std::string page;
+    std::string page_id;
+    int line = 0;
+    int column = 0;
+};
+
+struct LivePage {
+    std::string id;
+    std::string path;
+};
+
+struct PageDom {
+    std::string page_id;
+    unsigned long long serial = 0;
+    std::string tree;
+};
 
 struct ServedFile {
     int status = 200;
@@ -21,7 +43,16 @@ std::string url_decode(const std::string& text);
 std::string url_encode_path(const std::string& path);
 ServedFile resolve_served(const std::string& root, const std::string& url);
 std::string inject_live_reload(const std::string& html);
+std::string inject_page_script(const std::string& html, bool live_reload, bool console);
+std::string page_script(bool live_reload, bool console);
+std::vector<ConsoleMessage> parse_console_messages(const std::string& body);
+std::string_view bundled_jquery() noexcept;
+const char* bundled_jquery_version() noexcept;
+bool is_jquery_request(const std::string& url);
 std::string folder_listing_html(const std::string& root, const std::string& folder, const std::string& url_path);
+
+void network_loop_acquire();
+void network_loop_release();
 
 class LiveServer {
 public:
@@ -43,6 +74,20 @@ public:
     bool contains(const std::string& path) const;
     void changed(const std::string& path);
     std::vector<std::string> take_log();
+    void set_console(bool on);
+    bool console() const;
+    std::vector<ConsoleMessage> take_console();
+    std::size_t evaluate(const std::string& code);
+    std::size_t pages() const;
+    std::vector<LivePage> live_pages() const;
+    std::size_t evaluate_in(const std::string& page_id, const std::string& code);
+    void page_command(const std::string& page_id, const std::string& code);
+    void watch_dom(const std::string& page_id);
+    void stop_watching_dom();
+    bool page_dom(const std::string& page_id, unsigned long long after, PageDom& out) const;
+    std::string file_for_url(const std::string& url) const;
+    void set_proxy(std::uint16_t port);
+    std::uint16_t proxy() const;
 
     static void pump();
 

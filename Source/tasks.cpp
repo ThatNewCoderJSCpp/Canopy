@@ -10,6 +10,7 @@
 #include <cctype>
 #include <cmath>
 #include <ctime>
+#include <algorithm>
 #include <filesystem>
 #include <regex>
 
@@ -147,6 +148,29 @@ std::string tasks_path(const std::string& workspace_root) {
     return workspace_config_file(workspace_root, "tasks.bark");
 }
 
+std::string local_tasks_path(const std::string& workspace_root) {
+    return workspace_config_file(workspace_root, "tasks.local.bark");
+}
+
+bool keep_local_tasks_out_of_git(const std::string& workspace_root) {
+    const fs::path ignore = fs::path(workspace_config_file(workspace_root, ".gitignore"));
+    std::string text = read_text_file(ignore.string()).value_or("");
+    std::size_t start = 0;
+    while (start < text.size()) {
+        std::size_t end = text.find('\n', start);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(start, end - start);
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+        if (line == "*.local.bark") return true;
+        start = end + 1;
+    }
+    std::error_code ec;
+    fs::create_directories(ignore.parent_path(), ec);
+    if (!text.empty() && text.back() != '\n') text += '\n';
+    text += "*.local.bark\n";
+    return write_text_file(ignore.string(), text);
+}
+
 std::string tasks_template() {
     return R"(release {
     label: "Release";
@@ -274,9 +298,26 @@ TaskFile load_tasks(const std::string& workspace_root) {
     if (workspace_root.empty()) return file;
     const std::string path = tasks_path(workspace_root);
     file.path = path;
-    const std::optional<std::string> text = read_text_file(path);
-    if (!text) return file;
-    return parse_tasks(*text, path);
+    if (const std::optional<std::string> text = read_text_file(path)) {
+        file = parse_tasks(*text, path);
+        file.shared_exists = true;
+    }
+    for (Task& t : file.tasks) t.file = path;
+    file.local_path = local_tasks_path(workspace_root);
+    if (const std::optional<std::string> text = read_text_file(file.local_path)) {
+        TaskFile mine = parse_tasks(*text, file.local_path);
+        file.local_exists = true;
+        file.exists = true;
+        for (const std::string& problem : mine.problems) file.problems.push_back("tasks.local.bark " + problem);
+        for (Task& t : mine.tasks) {
+            t.file = file.local_path;
+            t.personal = true;
+            auto same = std::find_if(file.tasks.begin(), file.tasks.end(), [&](const Task& o) { return o.id == t.id; });
+            if (same != file.tasks.end()) *same = std::move(t);
+            else file.tasks.push_back(std::move(t));
+        }
+    }
+    return file;
 }
 
 std::vector<std::string> tokenize_command(const std::string& text) {

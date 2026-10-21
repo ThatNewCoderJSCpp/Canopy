@@ -1,4 +1,5 @@
 #include "canopy/askpass.hpp"
+#include "canopy/github_auth.hpp"
 
 #include <grove/input/input.hpp>
 #include <grove/project.hpp>
@@ -75,6 +76,11 @@ int run_askpass(const std::string& prompt_in) {
     std::string prompt = prompt_in;
     while (!prompt.empty() && (prompt.back() == ' ' || prompt.back() == '\n' || prompt.back() == '\r')) prompt.pop_back();
     if (prompt.empty()) prompt = "Password:";
+    if (const std::string saved = github_askpass_answer(prompt); !saved.empty()) {
+        std::cout << saved << '\n';
+        std::cout.flush();
+        return 0;
+    }
     grove::Project project = grove::load_project_from_source(k_askpass_source, "askpass.grove", ".");
     if (!project.diagnostics.ok()) {
         project.diagnostics.print(std::cerr);
@@ -88,7 +94,7 @@ int run_askpass(const std::string& prompt_in) {
     if (grove::Node* body = doc.first_by_tag("body")) body->set_attribute("title", askpass_title(prompt) + " \xE2\x80\x94 Canopy");
     if (askpass_secret(prompt)) answer->set_attribute("masked", "true");
     if (grove::Node* hint = doc.find_by_id("askpass-hint"); hint && lower(prompt).find("github.com") != std::string::npos && lower(prompt).find("password") != std::string::npos) {
-        hint->set_inner_text("GitHub doesn't take account passwords here: paste a personal access token (github.com/settings/tokens). Canopy hands it to Git and doesn't keep it.");
+        hint->set_inner_text("GitHub doesn't take account passwords here: paste a personal access token (github.com/settings/tokens), or cancel and use More > Sign in to GitHub in the Git tab so Canopy remembers you.");
     }
     bool answered = false;
     std::string value;

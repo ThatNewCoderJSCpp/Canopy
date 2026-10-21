@@ -52,7 +52,8 @@ enum class CompletionSite {
     Variable,
     Command,
     Argument,
-    Module
+    Module,
+    SpecialCharacter
 };
 
 struct CompletionRequest {
@@ -79,6 +80,7 @@ struct CompletionContext {
     bool rest_has_colon = false;
     bool rest_has_paren = false;
     bool rest_has_quote = false;
+    bool rest_has_brace = false;
 };
 
 std::string completion_word_chars(const std::string& language);

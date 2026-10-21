@@ -177,17 +177,39 @@ int build(const std::vector<std::string>& args, bool run) {
         std::cerr << "canopy: " << plan.error << '\n';
         return 1;
     }
-    fs::create_directories(fs::path(plan.output).parent_path(), ec);
-    if (verbose) std::cerr << command_line(plan.command) << '\n';
-    const int status = run_command(plan.command);
-    if (status != 0) {
-        std::cerr << "canopy: build failed (exit " << status << ")\n";
-        return status;
+    if (!plan.output.empty()) fs::create_directories(fs::path(plan.output).parent_path(), ec);
+    if (!plan.note.empty()) std::cerr << "canopy: " << plan.note << '\n';
+    std::vector<std::vector<std::string>> steps{ plan.command };
+    for (const auto& step : plan.more_steps) steps.push_back(step);
+    const fs::path previous = fs::current_path(ec);
+    if (!plan.folder.empty()) fs::current_path(plan.folder, ec);
+    for (const auto& step : steps) {
+        if (verbose) std::cerr << command_line(step) << '\n';
+        const int status = run_command(step);
+        if (status != 0) {
+            std::cerr << "canopy: build failed (exit " << status << ")\n";
+            fs::current_path(previous, ec);
+            return status;
+        }
     }
     if (!run) {
-        std::cerr << "canopy: built " << plan.output << '\n';
+        fs::current_path(previous, ec);
+        std::cerr << "canopy: built " << (plan.output.empty() ? request.file : plan.output) << '\n';
         return 0;
     }
+    if (!plan.run_error.empty()) {
+        fs::current_path(previous, ec);
+        std::cerr << "canopy: " << plan.run_error << '\n';
+        return 1;
+    }
+    if (!plan.run.empty()) {
+        std::vector<std::string> command = plan.run;
+        command.insert(command.end(), program_args.begin(), program_args.end());
+        const int code = run_command(command);
+        fs::current_path(previous, ec);
+        return code;
+    }
+    fs::current_path(previous, ec);
     std::vector<std::string> command = { fs::absolute(plan.output, ec).string() };
     command.insert(command.end(), program_args.begin(), program_args.end());
     return run_command(command);

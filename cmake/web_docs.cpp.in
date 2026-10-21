@@ -1,0 +1,15 @@
+#include <canopy/web_docs.hpp>
+
+namespace canopy {
+
+namespace {
+
+const unsigned char k_web_docs[] = { @CANOPY_WEB_DOCS_BYTES@ 0x00 };
+
+} // namespace
+
+std::string_view web_docs_text() noexcept {
+    return std::string_view(reinterpret_cast<const char*>(k_web_docs), sizeof(k_web_docs) - 1);
+}
+
+} // namespace canopy
