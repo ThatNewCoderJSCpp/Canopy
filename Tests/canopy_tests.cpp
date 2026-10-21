@@ -910,22 +910,32 @@ void test_live_server() {
         }
     }
 
+    auto step = [](const char* what) { std::cout << "  test_live_server: " << what << std::endl; };
     canopy::LiveServer a;
     canopy::LiveServer b;
     std::string error;
+    step("starting server a");
     const bool started = a.start(r, 5590, "127.0.0.1", true, error);
+    step(started ? "server a started" : "server a didn't start");
     check(started, "a local server starts: " + error);
     if (started) {
-        check(b.start(r, a.port(), "127.0.0.1", false, error) && b.port() != a.port(), "a busy port moves on to the next free one");
+        step("starting server b on a's port");
+        const bool b_started = b.start(r, a.port(), "127.0.0.1", false, error);
+        std::cout << "  test_live_server: server b " << (b_started ? "started on " + std::to_string(b.port()) : "didn't start: " + error) << " (a is on " << a.port() << ")" << std::endl;
+        check(b_started && b.port() != a.port(), "a busy port moves on to the next free one");
         check(a.url() == "http://localhost:" + std::to_string(a.port()) + "/", "server URL");
         check(a.url((root / "sub" / "a b.css").string()) == a.url() + "sub/a%20b.css", "URL of a file in the folder");
         check(a.contains((root / "sub").string()) && !a.contains(root.parent_path().string()), "contains only its folder");
         check(a.file_for_url("/sub/a%20b.css?v=1") == (root / "sub" / "a b.css").string() && a.file_for_url("http://localhost:1/about") == (root / "about.html").string() && a.file_for_url("/nope.js").empty(), "console sources map back to files");
+        step("asking the console");
         check(a.console() && a.evaluate("1 + 1") == 0 && a.pages() == 0, "the console starts on and has no pages yet");
         a.set_console(false);
         check(!a.console() && a.take_console().empty(), "the console can be turned off");
+        step("stopping server a");
         a.stop();
+        step("stopping server b, which stops the network thread");
         b.stop();
+        step("both stopped");
         check(!a.running(), "servers stop");
     }
     fs::remove_all(root, ec);
