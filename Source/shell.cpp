@@ -4088,7 +4088,7 @@ private:
             return;
         }
         const std::string text = grove::input_string(*f->editor).value_or("");
-        m_semantic.start(pick, walnut_highlight_command(walnut->path, pick, m_ws.settings.get_or("language.walnut", "flags", "") + (m_ws.settings.flag("language.walnut", "ownership", false) ? " --ownership" : "")), text);
+        m_semantic.start(pick, walnut_highlight_command(walnut->path, pick, m_ws.settings.get_or("language.walnut", "flags", "") + (m_ws.settings.flag("language.walnut", "ownership", false) ? " --ownership" : "") + (m_ws.settings.flag("language.walnut", "unused-warnings", false) ? " --warn-unused" : "")), text);
     }
 
     void finish_semantic(const SemanticJob::Done& done) {

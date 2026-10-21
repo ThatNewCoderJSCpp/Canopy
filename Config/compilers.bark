@@ -43,6 +43,7 @@ language.walnut {
     leak-check: "off";
     gc: false;
     ownership: false;
+    unused-warnings: false;
 }
 
 language.grove {

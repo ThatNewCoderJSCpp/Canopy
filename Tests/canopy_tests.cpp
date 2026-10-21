@@ -1669,6 +1669,11 @@ void test_walnut_safety_settings() {
     check(canopy::walnut_safety_flags(some) == std::vector<std::string>{ "--check-null", "--check-dangling" }, "several runtime checks can be picked together");
     const std::vector<std::string> live = canopy::walnut_highlight_command("walnut", "a.wal", "-O2 --ownership");
     check(std::find(live.begin(), live.end(), "--ownership") != live.end(), "ownership checks reach live problems");
+    canopy::Settings unused = canopy::Settings::defaults();
+    unused.load_text("language.walnut {\n    unused-warnings: true;\n}\n", "user.bark", canopy::SettingSource::User, d);
+    check(d.empty() && canopy::walnut_safety_flags(unused) == std::vector<std::string>{ "--warn-unused" }, "the unused-variables setting becomes --warn-unused");
+    const std::vector<std::string> live_unused = canopy::walnut_highlight_command("walnut", "a.wal", "--warn-unused");
+    check(std::find(live_unused.begin(), live_unused.end(), "--warn-unused") != live_unused.end(), "unused-variable warnings reach live problems");
 }
 
 void test_more_language_builds() {

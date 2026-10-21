@@ -48,15 +48,43 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          update: true
-          install: >-
-            git
-            mingw-w64-ucrt-x86_64-cc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-zlib
-            mingw-w64-ucrt-x86_64-libjpeg-turbo
-            mingw-w64-ucrt-x86_64-vulkan-headers
+          update: false
+
+      - name: Refresh the MSYS2 keyring
+        run: |
+          base=https://repo.msys2.org/msys/x86_64
+          keyring=""
+          for attempt in 1 2 3 4; do
+            keyring=$(curl -fsSL "$base/" | grep -o 'msys2-keyring-[^"]*\.pkg\.tar\.zst' | sort -uV | tail -n 1)
+            if [ -n "$keyring" ] && curl -fsSLO "$base/$keyring"; then
+              break
+            fi
+            keyring=""
+            sleep $((attempt * 20))
+          done
+          if [ -z "$keyring" ]; then
+            echo "::error::couldn't download the MSYS2 keyring"
+            exit 1
+          fi
+          sed 's/^SigLevel.*/SigLevel = Never/' /etc/pacman.conf > /tmp/pacman-keyring.conf
+          pacman -U --noconfirm --config /tmp/pacman-keyring.conf "$keyring"
+          pacman-key --populate msys2
+
+      - name: Update MSYS2
+        run: pacman -Syuu --noconfirm --overwrite '*'
+
+      - name: Finish updating MSYS2
+        run: pacman -Syuu --noconfirm --overwrite '*'
+
+      - name: Install packages
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if pacman -S --needed --noconfirm --overwrite '*' git mingw-w64-ucrt-x86_64-cc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libjpeg-turbo mingw-w64-ucrt-x86_64-vulkan-headers; then
+              exit 0
+            fi
+            sleep $((attempt * 30))
+          done
+          exit 1
 
       - name: Configure
         run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFIZMO_TUNE=OFF

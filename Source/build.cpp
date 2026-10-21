@@ -174,6 +174,7 @@ std::vector<std::string> walnut_safety_flags(const Settings& settings) {
     if (leaks == "warn" || leaks == "error") out.push_back("--leak-check=" + leaks);
     if (settings.flag("language.walnut", "gc", false)) out.push_back("--gc");
     if (settings.flag("language.walnut", "ownership", false)) out.push_back("--ownership");
+    if (settings.flag("language.walnut", "unused-warnings", false)) out.push_back("--warn-unused");
     return out;
 }
 

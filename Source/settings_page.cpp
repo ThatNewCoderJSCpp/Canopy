@@ -310,6 +310,7 @@ const std::vector<SettingDoc>& setting_docs() {
         { "language.walnut", "leak-check", "Leak check", "When the program ends, list the memory from new that was never deleted. error also makes the program exit with code 3." },
         { "language.walnut", "gc", "Garbage collector", "Free objects made with new automatically once nothing points to them. delete still works. Slower, and memory hidden in C or C++ code doesn't count as a pointer." },
         { "language.walnut", "ownership", "Ownership checks", "While compiling, report use after move or delete, deleting twice, pointers and references to variables that no longer exist, and memory from new that's never deleted. Also shows them in Problems as you type." },
+        { "language.walnut", "unused-warnings", "Unused variables", "Warn about local variables that are defined but never used in their scope, when building and in Problems as you type. Names starting with _ are left alone." },
         { "language.rust", "edition", "Edition", "The Rust edition single .rs files build with. Cargo projects use the one in Cargo.toml." },
         { "language.asm", "dialect", "Syntax", "Which assembler syntax .asm and .s files use. auto works it out from the file: NASM, GAS (AT&T or Intel), MASM or FASM." },
         { "language.asm", "arch", "CPU", "Which processor the assembly is for. auto works it out from the registers and instructions: x86-64, x86, ARM64, ARM, RISC-V or MIPS. Code for another CPU builds with a cross compiler and runs through QEMU." },
@@ -1783,6 +1784,8 @@ void SettingsPage::compiler_section(grove::Node& body, const std::string& id) {
         bool_control(*row, "language.walnut", "gc");
         row = setting_row(body, "language.walnut", "ownership");
         bool_control(*row, "language.walnut", "ownership");
+        row = setting_row(body, "language.walnut", "unused-warnings");
+        bool_control(*row, "language.walnut", "unused-warnings");
     } else if (id == "grove") {
         flags("language.grove", false);
     } else if (id == "rust") {
