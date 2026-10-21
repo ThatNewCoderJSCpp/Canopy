@@ -70,6 +70,7 @@ public:
     void active_changed(const std::string& path);
     void panel_shown(const std::string& name);
     void set_visible(bool git, bool history);
+    void set_visible(bool git, bool history, bool tasks);
     void show_history(const std::string& path);
 
     void reload_tasks();
@@ -236,6 +237,7 @@ private:
     std::string m_panel;
     bool m_git_visible = false;
     bool m_history_visible = false;
+    bool m_tasks_visible = false;
     std::string m_side = "commits";
     std::string m_sig_repos;
     std::string m_sig_bar;

@@ -2053,11 +2053,11 @@ input_code.dump {
     padding: 0 0 6px 0;
 }
 
-#git-tasks-col {
-    width: 250px;
+#tasks-view {
     gap: 4px;
-    padding: 4px 10px 0 10px;
-    background: $surface;
+    padding: 4px 14px 0 14px;
+    height: 100%;
+    overflow-y: auto;
 }
 
 #git-side {
@@ -2445,12 +2445,6 @@ input_code.dump {
     flex: 3;
 }
 
-#view-git.narrow #git-tasks-col {
-    width: 100%;
-    max-height: 140px;
-    overflow: auto;
-}
-
 #view-git.narrow #git-side {
     flex: 3;
 }
@@ -2609,4 +2603,113 @@ input_code.dump {
 
 .clone-repo-empty {
     padding: 4px 8px;
+}
+
+body {
+    min-size: 760px 480px;
+}
+
+.sidebar-actions,
+#terminal-bar,
+#git-bar,
+#git-pickers,
+#git-commit-row,
+#git-state-row,
+.git-heading,
+.git-task-buttons,
+#ports-bar,
+#console-bar,
+#elements-bar,
+.elements-side-buttons,
+#history-bar,
+#find-row,
+#replace-row {
+    flex-wrap: wrap;
+    row-gap: 4px;
+}
+
+#history-bar {
+    height: auto;
+    min-height: 24px;
+}
+
+.workspace,
+.entry-name,
+#recent item,
+.panel-tab,
+.git-title,
+.git-view-tab,
+.git-note,
+.git-state,
+.ports-label,
+#tabs text,
+.status-left,
+.status-right {
+    white-space: nowrap;
+}
+
+.workspace,
+#explorer item,
+#recent item,
+.status-left {
+    overflow: hidden;
+}
+
+.status-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.git-message-box {
+    min-width: 180px;
+}
+
+.terminal-picker,
+.server-folder,
+.elements-page {
+    min-width: 120px;
+}
+
+#git {
+    flex-wrap: wrap;
+}
+
+#git-main {
+    min-width: 220px;
+}
+
+#git-side {
+    min-width: 220px;
+}
+
+#view-git.narrow .git-message-box {
+    min-width: 100%;
+}
+
+#main.layout-fill,
+.layout-box.layout-fill {
+    min-width: 300px;
+}
+
+#welcome {
+    min-width: 260px;
+}
+
+#status {
+    overflow: hidden;
+}
+
+.status-right {
+    min-width: 0;
+}
+
+.area-tabs,
+#panel-tabs {
+    height: auto;
+    min-height: 30px;
+    overflow-x: visible;
+    overflow-y: visible;
+    flex-wrap: wrap;
+    row-gap: 2px;
+    gap: 14px;
 }

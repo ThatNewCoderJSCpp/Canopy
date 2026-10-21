@@ -760,6 +760,13 @@ void GitPanel::active_changed(const std::string& path) {
     show_history(path);
 }
 
+void GitPanel::set_visible(bool git, bool history, bool tasks) {
+    const bool tasks_appeared = tasks && !m_tasks_visible;
+    m_tasks_visible = tasks;
+    set_visible(git, history);
+    if (tasks_appeared) panel_shown("tasks");
+}
+
 void GitPanel::set_visible(bool git, bool history) {
     const bool git_appeared = git && !m_git_visible;
     const bool history_appeared = history && !m_history_visible;
@@ -773,7 +780,8 @@ void GitPanel::panel_shown(const std::string& name) {
     m_panel = name;
     if (name == "git") m_git_visible = true;
     if (name == "history") m_history_visible = true;
-    if (name == "git") {
+    if (name == "tasks") m_tasks_visible = true;
+    if (name == "git" || name == "tasks") {
         reload_tasks();
         render_tasks();
         refresh();

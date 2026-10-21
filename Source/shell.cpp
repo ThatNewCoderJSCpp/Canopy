@@ -538,7 +538,10 @@ public:
         m_doc.events().set_interval(1500.0, [this] { watch_explorer(); });
         m_doc.events().set_interval(30.0, [this] { poll_completion(); });
         reset_terminals();
-        m_doc.events().add_listener(nullptr, "resize", [this](grove::Event&) { apply_gui(); });
+        m_doc.events().add_listener(nullptr, "resize", [this](grove::Event&) {
+            apply_gui();
+            refit_layout();
+        });
         listen_by_id("theme-picker", "change", [this](grove::Event& e) {
             if (e.target) pick_theme(grove::input_string(*e.target).value_or(""));
         });
@@ -1030,8 +1033,8 @@ public:
             if (focus) focus_terminal();
         }
         if (m_git) {
-            m_git->set_visible(area_showing("git"), area_showing("history"));
-            if (focus && (name == "git" || name == "history")) m_git->panel_shown(name);
+            m_git->set_visible(area_showing("git"), area_showing("history"), area_showing("tasks"));
+            if (focus && (name == "git" || name == "history" || name == "tasks")) m_git->panel_shown(name);
         }
         m_doc.touch();
     }
@@ -3325,7 +3328,7 @@ private:
     }
 
     static const std::vector<std::string>& layout_views() {
-        static const std::vector<std::string> views = { "explorer", "terminal", "problems", "warnings", "output", "stats", "console", "elements", "git", "history", "ports", "debug" };
+        static const std::vector<std::string> views = { "explorer", "terminal", "problems", "warnings", "output", "stats", "console", "elements", "git", "tasks", "history", "ports", "debug" };
         return views;
     }
 
@@ -3360,10 +3363,51 @@ private:
         return fallback;
     }
 
-    double area_size(const std::string& area) const {
+    double wanted_area_size(const std::string& area) const {
         const double fallback = area == "sidebar" ? 250.0 : area == "aside" ? 340.0 : 230.0;
-        const double v = m_ws.settings.number("layout", area + "-size").value_or(fallback);
-        return std::clamp(v, 80.0, 4000.0);
+        return m_ws.settings.number("layout", area + "-size").value_or(fallback);
+    }
+
+    double area_size(const std::string& area) const {
+        const bool across = side_position(area_position(area));
+        const double own = clamp_area(wanted_area_size(area), across);
+        double together = 0.0;
+        for (const std::string& other : layout_areas()) {
+            if (!area_has_views(other) || side_position(area_position(other)) != across) continue;
+            together += clamp_area(wanted_area_size(other), across);
+        }
+        const double room = max_area(across);
+        if (together <= room || together <= 0.0) return own;
+        return std::max(min_area(across), std::floor(own * room / together));
+    }
+
+    static double min_area(bool across) { return across ? 180.0 : 110.0; }
+
+    double max_area(bool across) const {
+        const double zoom = m_zoom > 0.0 ? m_zoom : 1.0;
+        const double total = (across ? m_doc.host().viewport_width : m_doc.host().viewport_height) / zoom;
+        if (total <= 0.0) return 4000.0;
+        const double keep = across ? 360.0 : 200.0;
+        return std::max(min_area(across), total - keep);
+    }
+
+    double clamp_area(double px, bool across) const {
+        return std::clamp(px, min_area(across), std::min(4000.0, max_area(across)));
+    }
+
+    void refit_layout() {
+        const double across = max_area(true);
+        const double down = max_area(false);
+        if (across == m_fit_across && down == m_fit_down) return;
+        const double tightest = std::min({ across, down, m_fit_across < 0.0 ? across : m_fit_across, m_fit_down < 0.0 ? down : m_fit_down });
+        m_fit_across = across;
+        m_fit_down = down;
+        for (const std::string& area : layout_areas()) {
+            if (wanted_area_size(area) > tightest / 2.0) {
+                build_layout();
+                return;
+            }
+        }
     }
 
     bool area_has_views(const std::string& area) const {
@@ -3542,7 +3586,7 @@ private:
             }
             activate_view(active, false);
         }
-        if (m_git) m_git->set_visible(area_showing("git"), area_showing("history"));
+        if (m_git) m_git->set_visible(area_showing("git"), area_showing("history"), area_showing("tasks"));
         m_doc.touch();
     }
 
@@ -3638,7 +3682,7 @@ private:
         if (m_split_drag.active && m_split_drag.target) {
             const double zoom = m_zoom > 0.0 ? m_zoom : 1.0;
             const double pos = m_split_drag.across ? e.x : e.y;
-            const double size = std::clamp(m_split_drag.size + m_split_drag.sign * (pos - m_split_drag.start) / zoom, 80.0, 4000.0);
+            const double size = clamp_area(m_split_drag.size + m_split_drag.sign * (pos - m_split_drag.start) / zoom, m_split_drag.target_across);
             m_split_drag.current = size;
             set_area_size(*m_split_drag.target, m_split_drag.target_across, size);
             m_doc.touch();
@@ -5959,6 +6003,8 @@ private:
     std::map<std::string, std::string> m_explorer_lists;
     std::map<std::string, grove::Node*> m_explorer_old;
     Drag m_drag;
+    double m_fit_across = -1.0;
+    double m_fit_down = -1.0;
     grove::Node* m_drop_node = nullptr;
     double m_suppress_click_until = 0.0;
     std::vector<std::string> m_clip;

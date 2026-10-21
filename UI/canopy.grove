@@ -74,6 +74,7 @@
                         <text class="panel-tab" id="tab-console" data-view="console" title="What pages served from the Ports tab log, and JavaScript to run in them">CONSOLE</text>
                         <text class="panel-tab" id="tab-elements" data-view="elements" title="The live HTML of a served page; try changes in the page without touching your files">ELEMENTS</text>
                         <text class="panel-tab" id="tab-git" data-view="git">GIT</text>
+                        <text class="panel-tab" id="tab-tasks" data-view="tasks" title="One-click routines from .canopy/tasks.bark, like a release">TASKS</text>
                         <text class="panel-tab" id="tab-history" data-view="history">HISTORY</text>
                         <text class="panel-tab" id="tab-ports" data-view="ports">PORTS</text>
                         <text class="panel-tab" id="tab-debug" data-view="debug">DEBUG CONSOLE</text>
@@ -183,14 +184,6 @@
                                 </row>
                                 <column id="git-changes"></column>
                             </column>
-                            <column id="git-tasks-col">
-                                <row class="git-heading">
-                                    <text class="git-title">TASKS</text>
-                                    <div class="viewer-spacer"></div>
-                                    <text id="git-tasks-edit" class="view-button" title="Open .canopy/tasks.bark">Edit</text>
-                                </row>
-                                <column id="git-tasks"></column>
-                            </column>
                             <column id="git-side">
                                 <row class="git-heading">
                                     <text id="git-view-commits" class="git-view-tab active" data-git-view="commits">COMMITS</text>
@@ -205,6 +198,16 @@
                                 <column id="git-tags" class="hidden"></column>
                             </column>
                         </row>
+                    </panel>
+                    <panel id="view-tasks" class="panel-view">
+                        <column id="tasks-view">
+                            <row class="git-heading">
+                                <text class="git-title">TASKS</text>
+                                <div class="viewer-spacer"></div>
+                                <text id="git-tasks-edit" class="view-button" title="Open .canopy/tasks.bark">Edit</text>
+                            </row>
+                            <column id="git-tasks"></column>
+                        </column>
                     </panel>
                     <panel id="view-history" class="panel-view">
                         <column id="history">

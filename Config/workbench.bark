@@ -48,6 +48,7 @@ layout {
     warnings: panel;
     output: panel;
     git: panel;
+    tasks: panel;
     history: panel;
     ports: panel;
     debug: panel;
