@@ -6,7 +6,7 @@ A grove is where the trees are, and the canopy is the part that covers all of th
 
 Out of the box it builds **Grove**, **C**, **C++** and **Walnut**, with no setup, and Rust, Zig, Python, Lua, Java, C#, assembly and JavaScript once their tools are installed:
 
-- **Compilers are found for you.** Walnut and Grove ship next to Canopy. For C and C++, Canopy looks on your `PATH`, then in the usual install folders (MSYS2's `ucrt64`/`mingw64`/`clang64` on Windows, Homebrew on macOS). `canopy doctor` says exactly what it found, where, and what to install if something is missing.
+- **Compilers are found for you.** Walnut and Grove ship next to Canopy. For C and C++, Canopy looks on your `PATH`, then in the usual install folders (MSYS2's `ucrt64`/`mingw64`/`clang64` on Windows, Homebrew on macOS), then in the compiler `walnut init` set up. No compiler at all? **Settings > Compilers > Set up a compiler** (or `canopy setup-compiler`) gets one ready for you. `canopy doctor` says exactly what it found, where, and what to install if something is missing.
 - **Settings are a page, and a few small Bark files.** The **Settings** tab (`Ctrl+,`) has a page each for the editor, highlighting, compilers and building, and saves as you change things. Underneath, your settings are Bark files that only hold the lines you changed, so they're easy to read, edit by hand or copy to another computer. `canopy settings` lists every value in effect with the file and line it came from, and a misspelled setting is a warning with a "did you mean" instead of being silently ignored. Hovering a setting in any of those files shows what it does, its default, the value in use and where it came from, and (in a folder with the code that reads it, like Canopy's own) the lines that read it; Ctrl+click goes there. In a Grove app's stylesheets, your own properties work too: a custom property like `--glow: 4px;` is inherited, can be used in other values with `var(--glow)`, and is read from Walnut, C++ or C scripts with `computed_number("--glow")`, `computed_color`, `computed_bool` or `computed_style`. Hovering one shows the code that reads it, the `var()`s that use it and the other rules that set it (Ctrl+click goes to the first reader, or from a `var()` to where it's set); a name without `--` that Grove doesn't know still works but gets a "did you mean" in case it's a typo.
 
 ```
@@ -48,7 +48,7 @@ highlight {
 
 ## Installing
 
-Download the package for your system from the [releases page](https://github.com/ThatNewCoderJSCpp/Canopy/releases). Every package has Canopy, Grove and Walnut in it; you only need a C/C++ compiler for C, C++ and Walnut (`canopy doctor` tells you which one to install if it can't find one).
+Download the package for your system from the [releases page](https://github.com/ThatNewCoderJSCpp/Canopy/releases). Every package has Canopy, Grove and Walnut in it; you only need a C/C++ compiler for C, C++ and Walnut. If you don't have one, **Settings > Compilers > Set up a compiler** gets one ready (see [Setting up a compiler](#setting-up-a-compiler)), and `canopy doctor` tells you what Canopy found.
 
 | System | Download | |
 |---|---|---|
@@ -72,6 +72,19 @@ With the `.zip` or a tarball, `canopy install` does the same for just your user:
 | file types | `.wal`, `.walh`/`.hwal`, `.grove` and `.bark` get their own icons and open in Canopy | the same, with "Open with" entries; Canopy only becomes the default if nothing else is |
 
 `canopy uninstall` takes it all away again, and `canopy doctor` shows what's installed. Leave out a part with `--no-command`, `--no-menu`, `--no-context-menu` or `--no-file-types`.
+
+
+### Setting up a compiler
+
+C, C++ and Walnut need a C/C++ compiler. **Settings > Compilers > Set up a compiler** opens a terminal and runs [`walnut init`](https://github.com/ThatNewCoderJSCpp/Walnut#setting-up-a-compiler) there, so you see what it does and answer its questions:
+
+| System | What happens |
+|---|---|
+| Windows | a compiler that matches your Canopy download (GCC from WinLibs, or llvm-mingw on ARM) is downloaded, checked against its SHA-256 and unpacked into `%LOCALAPPDATA%\walnut\toolchain`; nothing is installed system-wide and no admin rights are needed |
+| Linux | your distribution's `g++` is installed with its package manager, which asks for your password |
+| macOS | Apple's installer for the Command Line Tools opens |
+
+Canopy notices the new compiler by itself when `walnut init` finishes. It uses a compiler on your `PATH` or in the usual install folders first, then the one `walnut init` set up, and Walnut and Grove use the same one. From a terminal, `canopy setup-compiler` does the same thing.
 
 ## The editor
 
@@ -218,6 +231,7 @@ Placeholders, asks and steps aren't special to Canopy: they're Grove's Bark acti
 | `canopy build <file>` | build one file (C, C++, Walnut, Grove, Rust, Zig, Python, Lua, Java, C# or assembly) |
 | `canopy run <file> [-- args]` | build it and run it |
 | `canopy languages` | the languages Canopy knows |
+| `canopy setup-compiler` | get a C/C++ compiler ready with `walnut init`; `--yes` skips the question, `--status` shows the compiler in use |
 
 ## Building
 
@@ -258,12 +272,12 @@ cmake -S . -B build -G Ninja -DFETCHCONTENT_SOURCE_DIR_GROVE=../Grove
 
 | Option | Default | |
 |---|---|---|
-| `CANOPY_GROVE_TAG` | `v0.1.22` | Grove tag to fetch |
+| `CANOPY_GROVE_TAG` | `v0.1.40` | Grove tag to fetch |
 | `CANOPY_WITH_WALNUT` | `ON` | build and ship Walnut |
 | `CANOPY_BUILD_TESTS` | `ON` | build the tests |
 | `CANOPY_PACKAGE` | `OFF` | build a self-contained download and set up CPack |
 | `CANOPY_BUNDLE_WALNUT` | `ON` | with `CANOPY_PACKAGE`: put Walnut's release package for this platform inside Canopy's instead of building Walnut |
-| `CANOPY_WALNUT_VERSION` | `0.1.7` | the Walnut release to bundle |
+| `CANOPY_WALNUT_VERSION` | `0.1.28` | the Walnut release to bundle |
 | `CANOPY_WALNUT_ARCHIVE` | | a Walnut release archive on disk to bundle instead of downloading one |
 
 ## Making packages

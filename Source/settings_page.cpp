@@ -218,6 +218,7 @@ std::string origin_text(ToolOrigin origin) {
     case ToolOrigin::Bundled: return "shipped with Canopy";
     case ToolOrigin::Path: return "on your PATH";
     case ToolOrigin::KnownFolder: return "found in a usual install folder";
+    case ToolOrigin::WalnutInit: return "set up by walnut init";
     }
     return "";
 }
@@ -1727,6 +1728,14 @@ void SettingsPage::tool_row(grove::Node& body, const std::string& key, const std
 
 void SettingsPage::build_compilers(grove::Node& body) {
     heading(body, "Compilers", "Where each tool lives and the flags each language builds with. Open a language to change it; changes are saved to your compilers.bark as you make them.");
+    {
+        const bool missing = !m_ws.toolchain.cpp || !m_ws.toolchain.c;
+        add(body, "p", missing ? "Canopy can't find a C or C++ compiler. Set up a compiler gets one ready: on Windows it downloads one into a folder of its own, on Linux it installs your system's g++ (asking for your password), and on macOS it opens Apple's installer. It runs walnut init in the terminal, so you can see what it does and answer its questions."
+                               : "C and C++ are ready. Set up a compiler runs walnut init in the terminal, which gets a compiler ready on a computer that doesn't have one.", "settings-note");
+        grove::Node* actions = add(body, "row", "", "hl-section-actions");
+        grove::Node* setup = add(*actions, "button", "Set up a compiler", "theme-action");
+        setup->set_attribute("data-setup-compiler", "1");
+    }
     for (const auto& [id, label] : compiler_groups()) {
         std::string summary;
         for (const auto& [key, name] : compiler_tools(id)) {
@@ -2545,6 +2554,10 @@ void SettingsPage::on_click(grove::Event& e) {
             return;
         }
         rebuild();
+        return;
+    }
+    if (with_attribute(e.target, "data-setup-compiler")) {
+        if (m_hooks.setup_compiler) m_hooks.setup_compiler();
         return;
     }
     if (const grove::Node* n = with_attribute(e.target, "data-compiler-copy")) {

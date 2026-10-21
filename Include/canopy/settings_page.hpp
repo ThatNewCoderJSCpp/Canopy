@@ -54,6 +54,7 @@ public:
         std::function<void(const std::string&)> open_file;
         std::function<std::string()> project_file;
         std::function<void(const std::string&)> project_names_changed;
+        std::function<void()> setup_compiler;
     };
 
     SettingsPage(grove::Document& doc, Workspace& workspace, std::vector<Theme>& themes, Hooks hooks);

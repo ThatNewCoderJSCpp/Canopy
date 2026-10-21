@@ -23,12 +23,13 @@ std::string env(const char* name) {
 
 std::string install_hint(const std::string& key) {
     if (key == "c" || key == "cpp") {
+        const std::string setup = "Settings > Compilers > Set up a compiler (or 'canopy setup-compiler', or 'walnut init') sets one up for you; ";
 #if defined(_WIN32)
-        return "install MSYS2 (https://www.msys2.org), then run: pacman -S mingw-w64-ucrt-x86_64-gcc";
+        return setup + "or install MSYS2 (https://www.msys2.org), then run: pacman -S mingw-w64-ucrt-x86_64-gcc";
 #elif defined(__APPLE__)
-        return "run: xcode-select --install";
+        return setup + "or run: xcode-select --install";
 #else
-        return "install a compiler, e.g. Fedora: sudo dnf install gcc gcc-c++   Ubuntu/Debian: sudo apt install build-essential";
+        return setup + "or install one, e.g. Fedora: sudo dnf install gcc gcc-c++   Ubuntu/Debian: sudo apt install build-essential";
 #endif
     }
     if (key == "walnut") return "Canopy normally ships walnut next to itself; reinstall Canopy or set toolchain { walnut: \"/path/to/walnut\"; }";
@@ -108,6 +109,19 @@ std::optional<Tool> make_tool(const std::string& key, const std::string& path, T
     return t;
 }
 
+void add_to_path_once(const std::string& folder) {
+    static std::vector<std::string> added;
+    if (std::find(added.begin(), added.end(), folder) != added.end()) return;
+    added.push_back(folder);
+#if defined(_WIN32)
+    const std::string value = folder + ";" + env("PATH");
+    _putenv_s("PATH", value.c_str());
+#else
+    const std::string value = folder + ":" + env("PATH");
+    setenv("PATH", value.c_str(), 1);
+#endif
+}
+
 std::optional<Tool> detect_one(const std::string& key, const Settings& settings, std::vector<ToolProblem>& problems) {
     const std::string chosen = settings.get_or("toolchain", key, "auto");
     if (!chosen.empty() && chosen != "auto") {
@@ -140,6 +154,17 @@ std::optional<Tool> detect_one(const std::string& key, const Settings& settings,
             if (const auto found = find_in(folder, n)) return make_tool(key, *found, ToolOrigin::KnownFolder);
         }
     }
+    if (key == "c" || key == "cpp") {
+        const std::vector<std::string> walnut_folders = walnut_toolchain_folders();
+        for (const std::string& folder : walnut_folders) {
+            for (const std::string& n : names) {
+                const auto found = find_in(folder, n);
+                if (!found) continue;
+                for (const std::string& f : walnut_folders) add_to_path_once(f);
+                return make_tool(key, *found, ToolOrigin::WalnutInit);
+            }
+        }
+    }
     problems.push_back({ key, "no " + key + " tool found; " + install_hint(key) });
     return std::nullopt;
 }
@@ -152,6 +177,7 @@ const char* to_string(ToolOrigin origin) noexcept {
     case ToolOrigin::Bundled: return "bundled";
     case ToolOrigin::Path: return "PATH";
     case ToolOrigin::KnownFolder: return "install folder";
+    case ToolOrigin::WalnutInit: return "walnut init";
     }
     return "?";
 }
@@ -226,6 +252,45 @@ std::vector<std::string> known_tool_folders() {
     if (!home.empty()) folders.push_back((fs::path(home) / ".local" / "bin").string());
     return folders;
 #endif
+}
+
+std::vector<std::string> walnut_toolchain_folders() {
+    fs::path root;
+    if (!env("WALNUT_TOOLCHAIN_DIR").empty()) root = env("WALNUT_TOOLCHAIN_DIR");
+#if defined(_WIN32)
+    else if (!env("LOCALAPPDATA").empty()) root = fs::path(env("LOCALAPPDATA")) / "walnut" / "toolchain";
+#else
+    else if (!env("XDG_DATA_HOME").empty()) root = fs::path(env("XDG_DATA_HOME")) / "walnut" / "toolchain";
+    else if (!env("HOME").empty()) root = fs::path(env("HOME")) / ".local" / "share" / "walnut" / "toolchain";
+#endif
+    std::vector<std::string> out;
+    if (root.empty()) return out;
+    std::error_code ec;
+    std::vector<fs::path> installs;
+    for (fs::directory_iterator it(root, ec), end; !ec && it != end; it.increment(ec)) {
+        if (fs::is_regular_file(it->path() / "walnut-toolchain.txt", ec)) installs.push_back(it->path());
+    }
+    std::sort(installs.begin(), installs.end());
+    for (auto install = installs.rbegin(); install != installs.rend(); ++install) {
+        std::vector<fs::path> tops;
+        for (fs::directory_iterator it(*install, ec), end; !ec && it != end; it.increment(ec)) {
+            if (fs::is_directory(it->path() / "bin", ec)) tops.push_back(it->path());
+        }
+        std::sort(tops.begin(), tops.end());
+        for (const fs::path& top : tops) {
+            out.push_back(fs::path(top / "bin").make_preferred().string());
+            for (const char* runtime : { "aarch64-w64-mingw32/bin", "x86_64-w64-mingw32/bin" }) {
+                fs::path dll_dir = top / runtime;
+                if (fs::is_regular_file(dll_dir / "libc++.dll", ec)) out.push_back(dll_dir.make_preferred().string());
+            }
+        }
+    }
+    return out;
+}
+
+std::optional<Tool> detect_tool(const std::string& key, const Settings& settings) {
+    std::vector<ToolProblem> ignored;
+    return detect_one(key, settings, ignored);
 }
 
 CompilerFamily compiler_family(const std::string& path) {

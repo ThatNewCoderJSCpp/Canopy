@@ -48,6 +48,7 @@ void print_usage(std::ostream& os) {
           "  build <file>           build one C, C++, Walnut or Grove file\n"
           "  run <file> [-- args]   build one file and run it\n"
           "  languages              list the languages Canopy knows\n"
+          "  setup-compiler         get a C/C++ compiler ready with walnut init (options after it go to walnut init, e.g. --yes, --status)\n"
           "  dump [folder]          print the editor's element tree instead of opening a window\n"
           "  install                put the canopy command on your PATH and Canopy in your applications menu\n"
           "      --desktop          also put a shortcut on your desktop\n"
@@ -65,6 +66,19 @@ void print_usage(std::ostream& os) {
 void print_problems(const Workspace& w) {
     for (const ToolProblem& p : w.toolchain.problems) std::cerr << "canopy: " << p.message << '\n';
     w.diagnostics.print(std::cerr);
+}
+
+int setup_compiler(const Workspace& w, const std::vector<std::string>& args) {
+    const Tool* walnut = w.toolchain.get("walnut");
+    if (!walnut) {
+        std::cerr << "canopy: setting up a compiler needs Walnut, which Canopy can't find; " << tool_install_hint("walnut") << '\n';
+        return 1;
+    }
+    std::vector<std::string> command = { walnut->path, "init" };
+    for (const std::string& a : args) {
+        if (!a.empty() && a[0] == '-') command.push_back(a);
+    }
+    return run_command(command);
 }
 
 int doctor(const Workspace& w) {
@@ -305,7 +319,7 @@ int run_cli(std::vector<std::string> args, const CliOptions& cli) {
             std::cout << "canopy " << CANOPY_VERSION_STRING << '\n';
             return 0;
         }
-        if (first == "open" || first == "doctor" || first == "settings" || first == "build" || first == "run" || first == "languages" || first == "dump" || first == "install" || first == "uninstall") {
+        if (first == "open" || first == "doctor" || first == "settings" || first == "build" || first == "run" || first == "languages" || first == "dump" || first == "install" || first == "uninstall" || first == "setup-compiler") {
             command = first;
             args.erase(args.begin());
         }
@@ -334,6 +348,7 @@ int run_cli(std::vector<std::string> args, const CliOptions& cli) {
 
     const canopy::Workspace w = canopy::open_workspace(folder_argument(args));
     if (command == "doctor") return doctor(w);
+    if (command == "setup-compiler") return setup_compiler(w, args);
     if (command == "settings") return settings(w, args);
     if (command == "dump") return canopy::dump_shell(w, std::cout);
     return 2;

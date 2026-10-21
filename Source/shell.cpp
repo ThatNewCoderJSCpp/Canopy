@@ -528,6 +528,7 @@ public:
             load_walnut_names(true);
             reload_from_disk();
         };
+        hooks.setup_compiler = [this] { setup_compiler(); };
         m_settings = std::make_unique<SettingsPage>(m_doc, m_ws, m_themes, std::move(hooks));
         load_walnut_names(true);
         setup_git();
@@ -4913,7 +4914,66 @@ private:
         m_doc.touch();
     }
 
+    std::string command_for_shell(const std::string& program, const std::string& args) const {
+        const bool plain = program.find_first_of(" \t'\"&()") == std::string::npos;
+#if defined(_WIN32)
+        const std::string shell = fs::path(terminal_shell(m_ws.settings)).stem().string();
+        if (plain) return program + " " + args;
+        if (shell == "powershell" || shell == "pwsh") return "& \"" + program + "\" " + args;
+        return "\"" + program + "\" " + args;
+#else
+        if (plain) return program + " " + args;
+        std::string quoted = "'";
+        for (char c : program) {
+            if (c == '\'') quoted += "'\\''";
+            else quoted += c;
+        }
+        return quoted + "' " + args;
+#endif
+    }
+
+    void setup_compiler() {
+        const Tool* walnut = m_ws.toolchain.get("walnut");
+        if (!walnut) {
+            notice("Setting up a compiler needs Walnut, which Canopy can't find; " + tool_install_hint("walnut"));
+            return;
+        }
+        new_terminal(m_ws.root, true);
+        TerminalSession* t = active_terminal();
+        if (!t) return;
+        start_terminal(*t);
+        if (!t->process || !t->started || t->exited) {
+            notice("Couldn't start a terminal to run walnut init");
+            return;
+        }
+        t->process->write(command_for_shell(walnut->path, "init") + "\r");
+        m_compiler_setup_started = std::chrono::steady_clock::now();
+        m_compiler_setup_checked = m_compiler_setup_started;
+        m_compiler_setup_watching = true;
+        m_compiler_setup_had_cpp = m_ws.toolchain.cpp.has_value();
+        m_compiler_setup_cpp = m_ws.toolchain.cpp ? m_ws.toolchain.cpp->path : std::string();
+        refresh_terminal_ui(true);
+        focus_terminal();
+    }
+
+    void watch_compiler_setup() {
+        if (!m_compiler_setup_watching) return;
+        const auto now = std::chrono::steady_clock::now();
+        if (now - m_compiler_setup_checked < std::chrono::seconds(2)) return;
+        m_compiler_setup_checked = now;
+        if (now - m_compiler_setup_started > std::chrono::minutes(30)) {
+            m_compiler_setup_watching = false;
+            return;
+        }
+        const std::optional<Tool> cpp = detect_tool("cpp", m_ws.settings);
+        if (!cpp || (m_compiler_setup_had_cpp && cpp->path == m_compiler_setup_cpp)) return;
+        m_compiler_setup_watching = false;
+        reload_settings();
+        notice("C++ compiler ready: " + cpp->path);
+    }
+
     void poll_job() {
+        watch_compiler_setup();
         if (m_git) m_git->poll(now_seconds());
         poll_semantic();
         poll_web_checks();
@@ -6013,6 +6073,11 @@ private:
     std::string m_menu_folder;
     std::vector<std::unique_ptr<TerminalSession>> m_terms;
     std::size_t m_term = 0;
+    bool m_compiler_setup_watching = false;
+    bool m_compiler_setup_had_cpp = false;
+    std::string m_compiler_setup_cpp;
+    std::chrono::steady_clock::time_point m_compiler_setup_started{};
+    std::chrono::steady_clock::time_point m_compiler_setup_checked{};
     std::size_t m_term_serial = 0;
     std::size_t m_log_serial = 0;
     std::string m_log_owner;

@@ -29,6 +29,31 @@ jobs:
             exit 1
           fi
 
+      - name: Wait for the Walnut release Canopy bundles
+        shell: bash
+        run: |
+          walnut=$(sed -n 's/^set(CANOPY_WALNUT_VERSION "\([0-9][0-9.]*\)".*/\1/p' CMakeLists.txt | head -n 1)
+          if [ -z "$walnut" ]; then
+            echo "::error::couldn't read CANOPY_WALNUT_VERSION from CMakeLists.txt"
+            exit 1
+          fi
+          base="https://github.com/ThatNewCoderJSCpp/Walnut/releases/download/v$walnut"
+          files="linux-x86_64.tar.gz linux-arm64.tar.gz linux-i686.tar.gz windows-ucrt64.zip windows-mingw64.zip windows-clangarm64.zip"
+          for attempt in $(seq 1 60); do
+            missing=""
+            for f in $files; do
+              curl -sfIL -o /dev/null "$base/Walnut-$walnut-$f" || missing="$missing Walnut-$walnut-$f"
+            done
+            if [ -z "$missing" ]; then
+              echo "Walnut $walnut's release has every package"
+              exit 0
+            fi
+            echo "Walnut $walnut's release doesn't have$missing yet (check $attempt of 60); its release workflow is probably still running, so waiting a minute"
+            sleep 60
+          done
+          echo "::error::Walnut $walnut's release still doesn't have$missing after an hour. Check that Walnut's v$walnut release workflow finished, or change CANOPY_WALNUT_VERSION in CMakeLists.txt"
+          exit 1
+
       - name: Check the GitHub sign-in app
         shell: bash
         run: |
