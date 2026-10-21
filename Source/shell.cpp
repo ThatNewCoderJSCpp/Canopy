@@ -518,6 +518,7 @@ public:
             m_doc.events().add_listener(body, "mouse_up", [this](grove::Event& e) { drag_up(e); });
             m_doc.events().add_listener(body, "mouse_move", [this](grove::Event& e) { layout_mouse_move(e); });
             m_doc.events().add_listener(body, "mouse_up", [this](grove::Event& e) { layout_mouse_up(e); });
+            m_doc.events().add_listener(body, "drop", [this](grove::Event& e) { files_dropped(e); });
         }
         SettingsPage::Hooks hooks;
         hooks.changed = [this] { reload_settings(); };
@@ -1685,6 +1686,26 @@ private:
     void update_drag_hint(const std::string& folder) {
         const std::string text = folder.empty() ? "Drop on a folder" : std::string(m_drag.copy ? "Copy to " : "Move to ") + folder_label(folder);
         set_text(m_doc, "drag-hint", text);
+    }
+
+    void files_dropped(grove::Event& e) {
+        std::vector<std::string> paths;
+        for (const std::string& p : e.paths) {
+            std::error_code ec;
+            if (!p.empty() && fs::exists(p, ec)) paths.push_back(fs::path(p).lexically_normal().make_preferred().string());
+        }
+        if (paths.empty()) return;
+        e.default_prevented = true;
+        const std::string folder = m_ws.root.empty() ? std::string() : folder_for_item(e.target);
+        if (!folder.empty()) {
+            transfer(paths, folder, true, true);
+            return;
+        }
+        for (const std::string& p : paths) {
+            std::error_code ec;
+            if (fs::is_directory(p, ec)) add_folder(p);
+            else open_file(p);
+        }
     }
 
     void hide_drag_preview() {

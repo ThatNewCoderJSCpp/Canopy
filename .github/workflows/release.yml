@@ -69,11 +69,13 @@ jobs:
             -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
 
       - name: Build
+        timeout-minutes: 100
         run: cmake --build build -j 4
 
       - name: Test
+        timeout-minutes: 20
         working-directory: build
-        run: ctest --output-on-failure
+        run: ctest --output-on-failure --timeout 300
 
       - name: Check canopy only needs common system libraries
         run: |
@@ -177,6 +179,7 @@ jobs:
     name: Windows ${{ matrix.platform }}
     needs: version
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
@@ -234,11 +237,13 @@ jobs:
             -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
 
       - name: Build
+        timeout-minutes: 100
         run: cmake --build build -j 4
 
       - name: Test
+        timeout-minutes: 20
         working-directory: build
-        run: ctest --output-on-failure
+        run: ctest --output-on-failure --timeout 300
 
       - name: Check canopy only needs DLLs that come with Windows
         run: |

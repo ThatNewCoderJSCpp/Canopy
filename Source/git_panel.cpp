@@ -10,12 +10,17 @@
 #include <grove/native.hpp>
 #include <grove/windowing.hpp>
 
+#include <fizmo/../../Source/Windows/dialogs.hpp>
+
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
+#include <memory>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -2013,42 +2018,425 @@ void GitPanel::clone() {
         set_state("Git isn't installed");
         return;
     }
-    ask_text("Clone repository", "URL of the repository to clone (https://github.com/you/project.git or git@github.com:you/project.git).", "", [this](const std::string& url_in) {
-        const std::string url = trim(url_in);
-        if (url.empty()) return;
-        const std::string base = m_root.empty() ? home_folder() : m_root;
-        const std::string dest_default = (fs::path(base) / repo_name_from_url(url)).make_preferred().string();
-        ask_text("Clone repository", "Folder to clone into. It must not exist yet, or be empty.", dest_default, [this, url](const std::string& dest_in) {
-            const std::string dest = trim(dest_in);
-            if (dest.empty()) return;
-            const fs::path target = fs::absolute(fs::path(dest)).lexically_normal();
-            std::error_code ec;
-            if (fs::exists(target, ec) && !fs::is_empty(target, ec)) {
-                set_state(target.string() + " already has files in it");
+    const std::optional<GitHubLogin> login = load_github_login();
+    if (!login || login->token.empty()) {
+        ask_clone_url();
+        return;
+    }
+    if (m_listing_repos) return;
+    m_listing_repos = true;
+    set_state("Getting your GitHub repositories\xE2\x80\xA6");
+    auto list = std::make_shared<GitHubRepoList>();
+    CommandBatch::Step s;
+    s.internal = [list, token = login->token](std::string&) {
+        *list = github_list_repos(token);
+        return list->ok;
+    };
+    const std::string user = login->user;
+    if (!request({ std::move(s) }, [this, list, user](std::vector<CommandOutput>&) {
+            m_listing_repos = false;
+            if (!list->ok) {
+                set_state("Couldn't get your GitHub repositories");
+                if (m_hooks.output) m_hooks.output("\n" + list->error + "\n");
+                ask_clone_url();
                 return;
             }
-            fs::create_directories(target.parent_path(), ec);
-            const std::string where = target.string();
-            action({ step(git({ "clone", url, where })) }, "Clone " + repo_name_from_url(url), [this, where](bool ok) {
+            set_state(std::to_string(list->repos.size()) + (list->repos.size() == 1 ? " GitHub repository" : " GitHub repositories"));
+            show_repo_picker(std::move(list->repos), user);
+        })) {
+        m_listing_repos = false;
+        ask_clone_url();
+    }
+}
+
+void GitPanel::ask_clone_url() {
+    ask_text("Clone repository", "URL of the repository to clone (https://github.com/you/project.git or git@github.com:you/project.git).", "", [this](const std::string& url_in) {
+        const std::string url = trim(url_in);
+        if (!url.empty()) choose_clone_folder(url);
+    });
+}
+
+std::string GitPanel::clone_protocol() const {
+    std::string p = m_hooks.setting ? m_hooks.setting("git", "clone-protocol", "https") : std::string("https");
+    for (char& c : p) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return p == "ssh" ? p : std::string("https");
+}
+
+void GitPanel::show_repo_picker(std::vector<GitHubRepo> repos, const std::string& user) {
+    struct Pick {
+        std::vector<GitHubRepo> repos;
+        std::vector<std::size_t> shown;
+        std::string chosen;
+        bool ssh = false;
+    };
+    auto pick = std::make_shared<Pick>();
+    pick->repos = std::move(repos);
+    pick->ssh = clone_protocol() == "ssh";
+    grove::PopupOptions options;
+    options.kind = "question";
+    options.title = "Clone from GitHub";
+    options.message = "Pick one of the repositories " + user + " can see, type to narrow the list, or paste the URL of any repository." + std::string(pick->ssh ? " Clones use SSH (Settings > Explorer, Terminal and Git > Clone with)." : "");
+    options.input = "string";
+    grove::Node* popup = grove::create_popup(m_doc, nullptr, options);
+    if (!popup) {
+        ask_clone_url();
+        return;
+    }
+    grove::Node* field = grove::query(*popup, ".popup-input");
+    grove::Node* text = grove::query(*popup, ".popup-text");
+    if (!field || !text) {
+        grove::answer_popup(m_doc, *popup, false);
+        ask_clone_url();
+        return;
+    }
+    field->set_attribute("placeholder", "Filter, or paste a URL");
+    grove::Node* list = add(m_doc, *text, "column", "", "clone-repos");
+    auto url_of = [pick](const GitHubRepo& r) { return pick->ssh && !r.ssh_url.empty() ? r.ssh_url : r.clone_url; };
+    auto fill = [this, pick, list, url_of](const std::string& filter_in) {
+        std::string filter = trim(filter_in);
+        for (char& c : filter) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        std::vector<std::string> words;
+        std::string word;
+        for (char c : filter + " ") {
+            if (c == ' ') {
+                if (!word.empty()) words.push_back(word);
+                word.clear();
+            } else {
+                word += c;
+            }
+        }
+        const bool url = parse_remote_url(filter_in).ok;
+        clear(m_doc, *list);
+        pick->shown.clear();
+        for (std::size_t i = 0; i < pick->repos.size() && !url; ++i) {
+            const GitHubRepo& r = pick->repos[i];
+            std::string hay = r.full_name + " " + r.description;
+            for (char& c : hay) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            bool all = true;
+            for (const std::string& w : words) all = all && hay.find(w) != std::string::npos;
+            if (!all) continue;
+            pick->shown.push_back(i);
+            if (pick->shown.size() > 200) continue;
+            grove::Node* row = add(m_doc, *list, "column", "", "clone-repo");
+            row->set_attribute("data-url", url_of(r));
+            row->set_attribute("title", url_of(r));
+            grove::Node* head = add(m_doc, *row, "row", "", "clone-repo-head");
+            add(m_doc, *head, "text", r.full_name, "clone-repo-name");
+            std::string tags;
+            if (r.is_private) tags += "private";
+            if (r.fork) tags += std::string(tags.empty() ? "" : " \xC2\xB7 ") + "fork";
+            if (r.archived) tags += std::string(tags.empty() ? "" : " \xC2\xB7 ") + "archived";
+            if (!tags.empty()) add(m_doc, *head, "text", tags, "clone-repo-tag");
+            if (!r.description.empty()) add(m_doc, *row, "text", r.description, "clone-repo-desc");
+        }
+        if (url) add(m_doc, *list, "text", "Press OK to clone this URL", "clone-repo-empty");
+        else if (pick->shown.empty()) add(m_doc, *list, "text", pick->repos.empty() ? "No repositories yet. Paste a URL instead." : "No repository matches", "clone-repo-empty");
+        else if (pick->shown.size() > 200) add(m_doc, *list, "text", "and " + std::to_string(pick->shown.size() - 200) + " more; type to narrow the list", "clone-repo-empty");
+        m_doc.touch();
+    };
+    fill(std::string());
+    m_doc.events().add_listener(field, "input", [fill](grove::Event& e) {
+        if (e.has_edit_text) fill(e.edit_text);
+    });
+    m_doc.events().add_listener(list, "click", [this, popup, pick](grove::Event& e) {
+        const grove::Node* row = with_attribute(e.target, "data-url");
+        if (!row) return;
+        pick->chosen = row->attribute_or("data-url", "");
+        grove::answer_popup(m_doc, *popup, true);
+    });
+    m_doc.events().add_listener(popup, "ok", [this, popup, pick, url_of](grove::Event&) {
+        std::string url = pick->chosen;
+        if (url.empty()) {
+            const std::string typed = trim(popup->attribute_or("value", ""));
+            if (parse_remote_url(typed).ok) url = typed;
+            else if (!pick->shown.empty()) url = url_of(pick->repos[pick->shown.front()]);
+            else if (!typed.empty()) set_state("No repository matches " + typed);
+        }
+        if (url.empty()) return;
+        m_doc.events().set_timeout(1.0, [this, url] { choose_clone_folder(url); });
+    });
+}
+
+void GitPanel::choose_clone_folder(const std::string& url) {
+    if (!m_doc.host().file_dialog || !fizmo::windows::dialogs::file_dialogs_available()) {
+        ask_clone_folder(url);
+        return;
+    }
+    const std::string name = repo_name_from_url(url);
+    std::string start = home_folder();
+    if (!m_root.empty()) {
+        const fs::path parent = fs::path(m_root).parent_path();
+        start = parent.empty() ? m_root : parent.string();
+    }
+    grove::FileDialogRequest request;
+    request.mode = "folder";
+    request.title = "Clone " + name + " into a new " + name + " folder in\xE2\x80\xA6";
+    request.start = start;
+    const std::vector<std::string> chosen = m_doc.host().file_dialog(request);
+    if (chosen.empty() || chosen.front().empty()) {
+        set_state("Clone cancelled");
+        return;
+    }
+    const fs::path parent = fs::path(chosen.front());
+    fs::path target = parent / name;
+    std::error_code ec;
+    if (parent.filename() == name && fs::is_directory(parent, ec) && fs::is_empty(parent, ec)) target = parent;
+    clone_into(url, target.lexically_normal().make_preferred().string());
+}
+
+void GitPanel::ask_clone_folder(const std::string& url) {
+    const std::string base = m_root.empty() ? home_folder() : m_root;
+    const std::string dest_default = (fs::path(base) / repo_name_from_url(url)).make_preferred().string();
+    ask_text("Clone repository", "Folder to clone into. It must not exist yet, or be empty.", dest_default, [this, url](const std::string& dest_in) {
+        const std::string dest = trim(dest_in);
+        if (dest.empty()) return;
+        clone_into(url, fs::absolute(fs::path(dest)).lexically_normal().string());
+    });
+}
+
+void GitPanel::clone_into(const std::string& url, const std::string& where) {
+    const fs::path target = fs::path(where);
+    std::error_code ec;
+    if (fs::exists(target, ec) && !fs::is_empty(target, ec)) {
+        set_state(target.string() + " already has files in it");
+        if (m_hooks.output) m_hooks.output("\nCan't clone into " + target.string() + ": that folder already has files in it. Pick another folder.\n");
+        return;
+    }
+    fs::create_directories(target.parent_path(), ec);
+    action({ step(git({ "clone", url, where })) }, "Clone " + repo_name_from_url(url), [this, where](bool ok) {
+        if (!ok) return;
+        const std::vector<std::string> roots = m_hooks.roots ? m_hooks.roots() : std::vector<std::string>{ m_root };
+        bool inside = false;
+        for (const std::string& r : roots) {
+            if (r.empty()) continue;
+            const std::string rel = relative_to(where, r);
+            inside = inside || !fs::path(rel).is_absolute();
+        }
+        if (inside) {
+            rescan_repos();
+            const std::string norm = fs::path(where).lexically_normal().make_preferred().string();
+            if (std::find(m_repos.begin(), m_repos.end(), norm) != m_repos.end()) select_repo(norm);
+            if (m_hooks.files_changed) m_hooks.files_changed();
+            return;
+        }
+        confirm("Cloned", "Open " + where + " now?", [this, where] {
+            if (m_hooks.open_folder) m_hooks.open_folder(where);
+        });
+    });
+}
+
+namespace {
+
+std::string machine_name() {
+    for (const char* name : { "COMPUTERNAME", "HOSTNAME" }) {
+        if (const char* v = std::getenv(name); v && *v) return v;
+    }
+    std::ifstream in("/etc/hostname");
+    std::string line;
+    if (in && std::getline(in, line)) {
+        while (!line.empty() && std::isspace(static_cast<unsigned char>(line.back()))) line.pop_back();
+        if (!line.empty()) return line;
+    }
+    return "this computer";
+}
+
+std::string read_key_text(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::ostringstream out;
+    out << in.rdbuf();
+    std::string text = out.str();
+    while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) text.pop_back();
+    return text;
+}
+
+} // namespace
+
+void GitPanel::ask_secret(const std::string& title, const std::string& message, std::function<void(const std::string&)> then) {
+    grove::PopupOptions options;
+    options.kind = "question";
+    options.title = title;
+    options.message = message;
+    options.input = "string";
+    grove::Node* popup = grove::create_popup(m_doc, nullptr, options);
+    if (!popup) return;
+    if (grove::Node* field = grove::query(*popup, ".popup-input")) field->set_attribute("masked", "true");
+    m_doc.events().add_listener(popup, "ok", [this, popup, then](grove::Event&) {
+        const std::string value = popup->attribute_or("value", "");
+        m_doc.events().set_timeout(1.0, [then, value] { then(value); });
+    });
+}
+
+void GitPanel::pick_ssh_key(const std::string& title, const std::string& message, std::function<void(const std::string&)> then) {
+    const std::vector<std::string> keys = ssh_public_keys(home_folder());
+    if (keys.empty()) {
+        confirm(title, "You don't have an SSH key yet. Create one now?", [this] { create_ssh_key(); });
+        return;
+    }
+    if (keys.size() == 1) {
+        then(keys.front());
+        return;
+    }
+    std::vector<std::string> names;
+    for (const std::string& k : keys) names.push_back(fs::path(k).filename().string());
+    ask_choice(title, message, names, [keys, names, then](const std::string& name) {
+        for (std::size_t i = 0; i < names.size(); ++i) {
+            if (names[i] == name) then(keys[i]);
+        }
+    });
+}
+
+void GitPanel::create_ssh_key() {
+    const std::string home = home_folder();
+    if (home.empty()) {
+        set_state("Canopy can't find your home folder");
+        return;
+    }
+    const fs::path dir = fs::path(home) / ".ssh";
+    fs::path file = dir / "id_ed25519";
+    std::error_code ec;
+    for (int n = 2; fs::exists(file, ec) || fs::exists(fs::path(file.string() + ".pub"), ec); ++n) file = dir / ("id_ed25519_" + std::to_string(n));
+    std::string label = trim(run_in_folder({ "git", "config", "--get", "user.email" }, std::string(), false).text);
+    if (label.empty()) {
+        const char* user = std::getenv("USER");
+        if (!user || !*user) user = std::getenv("USERNAME");
+        label = std::string(user && *user ? user : "me") + "@" + machine_name();
+    }
+    const std::string path = file.make_preferred().string();
+    ask_text("Create SSH key", "A label for the new key, so you can tell it apart on GitHub, GitLab or a server (your email is usual). It's saved as " + path + ".", label, [this, path, dir](const std::string& label_in) {
+        const std::string label = trim(label_in);
+        ask_secret("Create SSH key", "A passphrase protects the key if someone copies it; leave it empty for none. With one, Canopy asks for it when Git uses the key.", [this, path, dir, label](const std::string& pass) {
+            CommandBatch::Step folder;
+            folder.label = "create " + dir.string();
+            folder.internal = [dir](std::string& text) {
+                std::error_code ec;
+                fs::create_directories(dir, ec);
+                if (ec) {
+                    text = "Couldn't create " + dir.string() + ": " + ec.message();
+                    return false;
+                }
+#if !defined(_WIN32)
+                fs::permissions(dir, fs::perms::owner_all, fs::perm_options::replace, ec);
+#endif
+                return true;
+            };
+            CommandBatch::Step keygen = step({ "ssh-keygen", "-t", "ed25519", "-C", label, "-f", path, "-N", pass });
+            keygen.label = command_line({ "ssh-keygen", "-t", "ed25519", "-C", label, "-f", path }) + (pass.empty() ? " -N \"\"" : " -N ********");
+            action({ std::move(folder), std::move(keygen) }, "Create SSH key", [this, path](bool ok) {
                 if (!ok) return;
-                const std::vector<std::string> roots = m_hooks.roots ? m_hooks.roots() : std::vector<std::string>{ m_root };
-                bool inside = false;
-                for (const std::string& r : roots) {
-                    if (r.empty()) continue;
-                    const std::string rel = relative_to(where, r);
-                    inside = inside || !fs::path(rel).is_absolute();
+                const std::string pub = path + ".pub";
+                const std::string key = read_key_text(pub);
+                if (!key.empty()) grove::set_clipboard_text(m_doc, key);
+                if (m_hooks.output) m_hooks.output("Your public key is " + pub + " and it's copied. Give that one (never the file without .pub) to GitHub, GitLab or the server you push to.\n");
+                set_state("SSH key created and copied");
+                if (const std::optional<GitHubLogin> login = load_github_login()) {
+                    confirm("Add to GitHub", "Add the new key to " + login->user + "'s GitHub account, so git@github.com remotes work with it?", [this, pub] { add_ssh_key_to_github(pub); });
                 }
-                if (inside) {
-                    rescan_repos();
-                    const std::string norm = fs::path(where).lexically_normal().make_preferred().string();
-                    if (std::find(m_repos.begin(), m_repos.end(), norm) != m_repos.end()) select_repo(norm);
-                    if (m_hooks.files_changed) m_hooks.files_changed();
-                    return;
-                }
-                confirm("Cloned", "Open " + where + " now?", [this, where] {
-                    if (m_hooks.open_folder) m_hooks.open_folder(where);
-                });
-            }, fs::path(where).parent_path().string());
+            }, dir.string());
+        });
+    });
+}
+
+void GitPanel::copy_ssh_key() {
+    pick_ssh_key("Copy SSH public key", "Copy which public key?", [this](const std::string& pub) {
+        const std::string key = read_key_text(pub);
+        if (key.empty()) {
+            set_state("Couldn't read " + pub);
+            return;
+        }
+        grove::set_clipboard_text(m_doc, key);
+        set_state("Copied " + fs::path(pub).filename().string() + " (" + ssh_key_type(key) + ")");
+    });
+}
+
+void GitPanel::add_ssh_key_to_github(const std::string& public_key_path) {
+    const std::optional<GitHubLogin> login = load_github_login();
+    if (!login) {
+        confirm("Add SSH key to GitHub", "Sign in to GitHub first?", [this] { sign_in_to_github(); });
+        return;
+    }
+    auto go = [this, token = login->token, user = login->user](const std::string& pub) {
+        const std::string key = read_key_text(pub);
+        if (key.empty()) {
+            set_state("Couldn't read " + pub);
+            return;
+        }
+        auto result = std::make_shared<GitHubKeyResult>();
+        CommandBatch::Step s;
+        s.label = "add " + fs::path(pub).filename().string() + " to " + user + "'s GitHub account";
+        s.internal = [result, token, key](std::string& text) {
+            *result = github_add_ssh_key(token, "Canopy (" + machine_name() + ")", key);
+            if (!result->ok) text = result->error;
+            else if (result->already_there) text = "GitHub already has this key.";
+            else text = "Added. git@github.com remotes can use it now.";
+            return result->ok;
+        };
+        action({ std::move(s) }, "Add SSH key to GitHub", [this, result, key](bool) {
+            if (!result->needs_permission) return;
+            grove::set_clipboard_text(m_doc, key);
+            open_in_browser(github_ssh_keys_page());
+            if (m_hooks.output) m_hooks.output("Your sign-in is older than Canopy's SSH support, so GitHub opened its New SSH key page instead. The key is copied: paste it there and press Add SSH key. Signing out and in again lets Canopy add keys itself next time.\n");
+        });
+    };
+    if (!public_key_path.empty()) go(public_key_path);
+    else pick_ssh_key("Add SSH key to GitHub", "Add which public key to GitHub?", go);
+}
+
+void GitPanel::test_ssh_connection() {
+    auto run = [this](const std::string& target_in) {
+        const std::string target = trim(target_in);
+        const std::vector<std::string> cmd = ssh_test_command(target);
+        if (cmd.empty()) {
+            set_state("Canopy can't tell which server " + target + " is");
+            return;
+        }
+        const std::string host = cmd.back();
+        CommandBatch::Step s;
+        s.label = command_line(cmd);
+        s.internal = [cmd](std::string& text) {
+            const CommandOutput r = run_in_folder(cmd, std::string(), true);
+            text = r.text;
+            return ssh_test_succeeded(r.text);
+        };
+        action({ std::move(s) }, "Test SSH connection to " + host, [this, host](bool ok) {
+            if (ok) {
+                set_state("SSH to " + host + " works");
+                return;
+            }
+            if (m_hooks.output) m_hooks.output("If ssh said Permission denied (publickey), the server doesn't have your public key yet: use More > Add SSH Key to GitHub, or More > Copy SSH Public Key and add it on GitLab, Bitbucket or your server. If it couldn't resolve or reach the host, check the name and your connection.\n");
+        });
+    };
+    if (m_repo.empty() || m_remotes.empty()) {
+        ask_text("Test SSH connection", "Which server? Canopy runs ssh -T to it with your key. Type a host like github.com, gitlab.com or you@your-server.", "github.com", run);
+        return;
+    }
+    request({ step(git({ "remote", "get-url", remote_name() })) }, [this, run](std::vector<CommandOutput>& r) {
+        std::string suggestion = "github.com";
+        if (!r.empty() && r[0].code == 0) {
+            const RemoteUrl u = parse_remote_url(trim(r[0].text));
+            if (u.ok) suggestion = u.ssh && !u.user.empty() ? u.user + "@" + u.host : u.host;
+        }
+        ask_text("Test SSH connection", "Which server? Canopy runs ssh -T to it with your key. Type a host like github.com, gitlab.com or you@your-server.", suggestion, run);
+    });
+}
+
+void GitPanel::switch_remote_protocol() {
+    const std::string remote = remote_name();
+    request({ step(git({ "remote", "get-url", remote })) }, [this, remote](std::vector<CommandOutput>& r) {
+        if (r.empty() || r[0].code != 0) {
+            set_state("This repository has no " + remote + " remote");
+            return;
+        }
+        const std::string url = trim(r[0].text);
+        const bool ssh = is_ssh_url(url);
+        const std::string to = ssh ? https_url_for(url) : ssh_url_for(url);
+        if (to.empty() || to == url) {
+            set_state("Canopy can't turn " + url + " into the other form");
+            return;
+        }
+        const std::string what = ssh ? "HTTPS" : "SSH";
+        const std::string note = ssh ? "\nPushing and pulling will then use your GitHub sign-in, a token or a password." : "\nPushing and pulling will then use your SSH key. The server needs your public key (More > Add SSH Key to GitHub, or Copy SSH Public Key).";
+        confirm("Use " + what, "Change " + remote + " from\n" + url + "\nto\n" + to + "?" + note, [this, remote, to, what] {
+            action({ step(git({ "remote", "set-url", remote, to })) }, "Switch " + remote + " to " + what);
         });
     });
 }
@@ -2306,9 +2694,18 @@ void GitPanel::more_menu(grove::Event& e) {
     }
     items.push_back(grove::menu_separator());
     if (repo) items.push_back(grove::menu_item("clone", "Clone Repository\xE2\x80\xA6"));
+    const std::optional<GitHubLogin> login = load_github_login();
+    const bool keys = !ssh_public_keys(home_folder()).empty();
+    items.push_back(grove::menu_separator());
+    items.push_back(grove::menu_item("ssh-create", keys ? "Create Another SSH Key\xE2\x80\xA6" : "Create SSH Key\xE2\x80\xA6", {}, m_git_missing));
+    items.push_back(grove::menu_item("ssh-copy", "Copy SSH Public Key", {}, !keys));
+    if (login) items.push_back(grove::menu_item("ssh-github", "Add SSH Key to GitHub", {}, !keys));
+    items.push_back(grove::menu_item("ssh-test", "Test SSH Connection\xE2\x80\xA6", {}, m_git_missing));
+    if (repo && !m_remotes.empty()) items.push_back(grove::menu_item("ssh-switch", "Switch " + remote_name() + " Between SSH and HTTPS\xE2\x80\xA6"));
+    items.push_back(grove::menu_separator());
     items.push_back(grove::menu_item("tasks", m_tasks.shared_exists ? "Edit Shared Tasks (tasks.bark)" : "Create Shared Tasks (tasks.bark)", {}, m_root.empty()));
     items.push_back(grove::menu_item("my-tasks", m_tasks.local_exists ? "Edit My Tasks (not shared)" : "Create My Tasks (not shared)", {}, m_root.empty()));
-    if (const std::optional<GitHubLogin> login = load_github_login()) items.push_back(grove::menu_item("github-sign-out", "Sign Out of GitHub (" + login->user + ")"));
+    if (login) items.push_back(grove::menu_item("github-sign-out", "Sign Out of GitHub (" + login->user + ")"));
     else items.push_back(grove::menu_item("github-sign-in", "Sign in to GitHub\xE2\x80\xA6", {}, m_github && m_github->busy()));
     items.push_back(grove::menu_item("refresh", "Refresh"));
     grove::open_menu(m_doc, *owner, items, e.x, e.y);
@@ -2330,6 +2727,16 @@ void GitPanel::more_action(const std::string& act) {
         new_branch();
     } else if (act == "clone") {
         clone();
+    } else if (act == "ssh-create") {
+        create_ssh_key();
+    } else if (act == "ssh-copy") {
+        copy_ssh_key();
+    } else if (act == "ssh-github") {
+        add_ssh_key_to_github(std::string());
+    } else if (act == "ssh-test") {
+        test_ssh_connection();
+    } else if (act == "ssh-switch") {
+        switch_remote_protocol();
     } else if (act == "branches" || act == "tags") {
         m_side = act;
         render_side();

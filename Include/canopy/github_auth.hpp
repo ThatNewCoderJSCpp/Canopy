@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace canopy {
 
@@ -21,6 +22,29 @@ struct GitHubResult {
     std::string user;
     std::string token;
     std::string scopes;
+    std::string error;
+};
+
+struct GitHubRepo {
+    std::string full_name;
+    std::string description;
+    std::string clone_url;
+    std::string ssh_url;
+    bool        is_private = false;
+    bool        fork = false;
+    bool        archived = false;
+};
+
+struct GitHubRepoList {
+    bool                    ok = false;
+    std::vector<GitHubRepo> repos;
+    std::string             error;
+};
+
+struct GitHubKeyResult {
+    bool        ok = false;
+    bool        needs_permission = false;
+    bool        already_there = false;
     std::string error;
 };
 
@@ -54,6 +78,10 @@ GitHubResult github_check_token(const std::string& token);
 GitHubDeviceCode github_device_code(const std::string& client_id);
 GitHubResult github_device_wait(const std::string& client_id, const GitHubDeviceCode& code, const std::atomic<bool>& cancel);
 bool github_share_with_git(const GitHubLogin& login, std::string& helper);
+std::vector<GitHubRepo> parse_github_repos(const std::string& json);
+GitHubRepoList github_list_repos(const std::string& token);
+GitHubKeyResult github_add_ssh_key(const std::string& token, const std::string& title, const std::string& public_key);
+std::string github_ssh_keys_page();
 
 class GitHubSignIn {
 public:

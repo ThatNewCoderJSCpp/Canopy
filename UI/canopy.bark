@@ -2566,3 +2566,47 @@ input_code.dump {
     background: $accent;
     border-radius: 2px;
 }
+
+.clone-repos {
+    width: 100%;
+    max-height: 320px;
+    overflow-y: auto;
+    gap: 2px;
+    margin: 8px 0 0 0;
+}
+
+.clone-repo {
+    padding: 4px 8px;
+    gap: 2px;
+    border-radius: 4px;
+    cursor: pointer;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.clone-repo-head {
+    gap: 8px;
+}
+
+.clone-repo-name {
+    color: $text;
+    font-weight: bold;
+}
+
+.clone-repo-tag,
+.clone-repo-desc,
+.clone-repo-empty {
+    color: $muted;
+    font-size: 12px;
+}
+
+.clone-repo-desc {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.clone-repo-empty {
+    padding: 4px 8px;
+}

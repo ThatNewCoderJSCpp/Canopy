@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -261,7 +262,11 @@ std::string github_api_base() {
 }
 
 std::string github_token_page() {
-    return github_web_base() + "/settings/tokens/new?scopes=repo,workflow&description=Canopy";
+    return github_web_base() + "/settings/tokens/new?scopes=repo,workflow,write:public_key&description=Canopy";
+}
+
+std::string github_ssh_keys_page() {
+    return github_web_base() + "/settings/ssh/new";
 }
 
 std::string github_askpass_answer(const std::string& prompt) {
@@ -359,7 +364,7 @@ GitHubDeviceCode github_device_code(const std::string& client_id) {
     GitHubDeviceCode code;
     fnet::http::Headers headers;
     headers.set("Content-Type", "application/x-www-form-urlencoded");
-    const Reply reply = fetch_blocking(github_web_base() + "/login/device/code", "POST", "client_id=" + url_escape(client_id) + "&scope=" + url_escape("repo workflow"), headers);
+    const Reply reply = fetch_blocking(github_web_base() + "/login/device/code", "POST", "client_id=" + url_escape(client_id) + "&scope=" + url_escape("repo workflow write:public_key"), headers);
     if (!reply.ok) {
         code.error = connect_error(reply);
         return code;
@@ -535,6 +540,281 @@ std::optional<GitHubSignIn::Update> GitHubSignIn::take() {
     std::optional<Update> u = std::move(m_state->update);
     m_state->update.reset();
     return u;
+}
+
+namespace {
+
+void put_utf8(std::uint32_t cp, std::string& out) {
+    if (cp < 0x80u) {
+        out += static_cast<char>(cp);
+    } else if (cp < 0x800u) {
+        out += static_cast<char>(0xC0u | (cp >> 6));
+        out += static_cast<char>(0x80u | (cp & 0x3Fu));
+    } else if (cp < 0x10000u) {
+        out += static_cast<char>(0xE0u | (cp >> 12));
+        out += static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu));
+        out += static_cast<char>(0x80u | (cp & 0x3Fu));
+    } else {
+        out += static_cast<char>(0xF0u | (cp >> 18));
+        out += static_cast<char>(0x80u | ((cp >> 12) & 0x3Fu));
+        out += static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu));
+        out += static_cast<char>(0x80u | (cp & 0x3Fu));
+    }
+}
+
+class JsonScan {
+public:
+    explicit JsonScan(const std::string& text) : m_s(text) {}
+
+    void space() {
+        while (m_i < m_s.size() && std::isspace(static_cast<unsigned char>(m_s[m_i]))) ++m_i;
+    }
+
+    bool take(char c) {
+        space();
+        if (m_i < m_s.size() && m_s[m_i] == c) {
+            ++m_i;
+            return true;
+        }
+        return false;
+    }
+
+    bool peek(char c) {
+        space();
+        return m_i < m_s.size() && m_s[m_i] == c;
+    }
+
+    bool done() {
+        space();
+        return m_i >= m_s.size();
+    }
+
+    bool string(std::string& out) {
+        out.clear();
+        if (!take('"')) return false;
+        while (m_i < m_s.size()) {
+            const char c = m_s[m_i++];
+            if (c == '"') return true;
+            if (c != '\\') {
+                out += c;
+                continue;
+            }
+            if (m_i >= m_s.size()) return false;
+            const char e = m_s[m_i++];
+            switch (e) {
+                case 'n': out += '\n'; break;
+                case 't': out += '\t'; break;
+                case 'r': out += '\r'; break;
+                case 'b': out += '\b'; break;
+                case 'f': out += '\f'; break;
+                case 'u': {
+                    std::uint32_t cp = 0;
+                    if (!hex4(cp)) return false;
+                    if (cp >= 0xD800u && cp <= 0xDBFFu && m_i + 1 < m_s.size() && m_s[m_i] == '\\' && m_s[m_i + 1] == 'u') {
+                        m_i += 2;
+                        std::uint32_t low = 0;
+                        if (!hex4(low)) return false;
+                        if (low >= 0xDC00u && low <= 0xDFFFu) cp = 0x10000u + ((cp - 0xD800u) << 10) + (low - 0xDC00u);
+                    }
+                    if (cp >= 0xD800u && cp <= 0xDFFFu) cp = 0xFFFDu;
+                    put_utf8(cp, out);
+                    break;
+                }
+                default: out += e; break;
+            }
+        }
+        return false;
+    }
+
+    bool literal(std::string& out) {
+        space();
+        out.clear();
+        while (m_i < m_s.size() && (std::isalnum(static_cast<unsigned char>(m_s[m_i])) || m_s[m_i] == '-' || m_s[m_i] == '+' || m_s[m_i] == '.')) out += m_s[m_i++];
+        return !out.empty();
+    }
+
+    bool skip() {
+        space();
+        if (m_i >= m_s.size()) return false;
+        std::string ignored;
+        const char c = m_s[m_i];
+        if (c == '"') return string(ignored);
+        if (c == '{' || c == '[') {
+            const char close = c == '{' ? '}' : ']';
+            ++m_i;
+            if (take(close)) return true;
+            do {
+                if (c == '{') {
+                    if (!string(ignored) || !take(':')) return false;
+                }
+                if (!skip()) return false;
+            } while (take(','));
+            return take(close);
+        }
+        return literal(ignored);
+    }
+
+private:
+    bool hex4(std::uint32_t& cp) {
+        if (m_i + 4 > m_s.size()) return false;
+        cp = 0;
+        for (int k = 0; k < 4; ++k) {
+            const char h = m_s[m_i++];
+            cp <<= 4;
+            if (h >= '0' && h <= '9') cp |= static_cast<std::uint32_t>(h - '0');
+            else if (h >= 'a' && h <= 'f') cp |= static_cast<std::uint32_t>(h - 'a' + 10);
+            else if (h >= 'A' && h <= 'F') cp |= static_cast<std::uint32_t>(h - 'A' + 10);
+            else return false;
+        }
+        return true;
+    }
+
+    const std::string& m_s;
+    std::size_t        m_i = 0;
+};
+
+std::string json_quote(const std::string& text) {
+    static const char* hex = "0123456789abcdef";
+    std::string out = "\"";
+    for (const unsigned char c : text) {
+        if (c == '"') out += "\\\"";
+        else if (c == '\\') out += "\\\\";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else if (c == '\t') out += "\\t";
+        else if (c < 0x20) {
+            out += "\\u00";
+            out += hex[c >> 4];
+            out += hex[c & 15];
+        } else {
+            out += static_cast<char>(c);
+        }
+    }
+    return out + "\"";
+}
+
+} // namespace
+
+std::vector<GitHubRepo> parse_github_repos(const std::string& json) {
+    std::vector<GitHubRepo> out;
+    JsonScan scan(json);
+    if (!scan.take('[')) return out;
+    if (scan.take(']')) return out;
+    do {
+        if (!scan.peek('{')) {
+            if (!scan.skip()) return out;
+            continue;
+        }
+        scan.take('{');
+        GitHubRepo repo;
+        if (!scan.take('}')) {
+            do {
+                std::string key;
+                if (!scan.string(key) || !scan.take(':')) return out;
+                std::string value;
+                if (key == "full_name" || key == "description" || key == "clone_url" || key == "ssh_url") {
+                    if (scan.peek('"')) {
+                        if (!scan.string(value)) return out;
+                    } else if (!scan.skip()) {
+                        return out;
+                    }
+                    if (key == "full_name") repo.full_name = value;
+                    else if (key == "description") repo.description = value;
+                    else if (key == "clone_url") repo.clone_url = value;
+                    else repo.ssh_url = value;
+                } else if (key == "private" || key == "fork" || key == "archived") {
+                    if (!scan.literal(value)) return out;
+                    const bool on = value == "true";
+                    if (key == "private") repo.is_private = on;
+                    else if (key == "fork") repo.fork = on;
+                    else repo.archived = on;
+                } else if (!scan.skip()) {
+                    return out;
+                }
+            } while (scan.take(','));
+            if (!scan.take('}')) return out;
+        }
+        if (!repo.full_name.empty() && !repo.clone_url.empty()) out.push_back(std::move(repo));
+    } while (scan.take(','));
+    return out;
+}
+
+GitHubRepoList github_list_repos(const std::string& token_in) {
+    GitHubRepoList result;
+    const std::string token = trim(token_in);
+    if (token.empty()) {
+        result.error = "Sign in to GitHub first.";
+        return result;
+    }
+    fnet::http::Headers headers;
+    headers.set("Authorization", "Bearer " + token);
+    headers.set("Accept", "application/vnd.github+json");
+    for (int page = 1; page <= 10; ++page) {
+        const std::string url = github_api_base() + "/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member&page=" + std::to_string(page);
+        const Reply reply = fetch_blocking(url, "GET", std::string(), headers);
+        if (!reply.ok) {
+            result.error = connect_error(reply);
+            return result;
+        }
+        if (reply.status == 401) {
+            result.error = "GitHub didn't accept your sign-in any more. Sign in again (More > Sign in to GitHub).";
+            return result;
+        }
+        if (reply.status != 200) {
+            result.error = "GitHub answered " + std::to_string(reply.status) + " when Canopy asked for your repositories.";
+            return result;
+        }
+        std::vector<GitHubRepo> batch = parse_github_repos(reply.body);
+        const std::size_t got = batch.size();
+        for (GitHubRepo& r : batch) result.repos.push_back(std::move(r));
+        if (got < 100) break;
+    }
+    result.ok = true;
+    return result;
+}
+
+GitHubKeyResult github_add_ssh_key(const std::string& token_in, const std::string& title, const std::string& public_key) {
+    GitHubKeyResult result;
+    const std::string token = trim(token_in);
+    const std::string key = trim(public_key);
+    if (token.empty()) {
+        result.error = "Sign in to GitHub first.";
+        return result;
+    }
+    if (key.empty()) {
+        result.error = "There's no public key to add.";
+        return result;
+    }
+    fnet::http::Headers headers;
+    headers.set("Authorization", "Bearer " + token);
+    headers.set("Accept", "application/vnd.github+json");
+    headers.set("Content-Type", "application/json");
+    const std::string body = "{\"title\":" + json_quote(title) + ",\"key\":" + json_quote(key) + "}";
+    const Reply reply = fetch_blocking(github_api_base() + "/user/keys", "POST", body, headers);
+    if (!reply.ok) {
+        result.error = connect_error(reply);
+        return result;
+    }
+    if (reply.status == 201) {
+        result.ok = true;
+        return result;
+    }
+    if (reply.status == 422 && lower(reply.body).find("already in use") != std::string::npos) {
+        result.ok = true;
+        result.already_there = true;
+        return result;
+    }
+    if (reply.status == 401) {
+        result.error = "GitHub didn't accept your sign-in any more. Sign in again (More > Sign in to GitHub).";
+        return result;
+    }
+    if (reply.status == 403 || reply.status == 404) {
+        result.needs_permission = true;
+        result.error = "Your GitHub sign-in can't add SSH keys (it needs the write:public_key permission).";
+        return result;
+    }
+    result.error = "GitHub answered " + std::to_string(reply.status) + " when Canopy added the key.";
+    return result;
 }
 
 } // namespace canopy

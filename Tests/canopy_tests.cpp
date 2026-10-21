@@ -1561,6 +1561,47 @@ void test_personal_tasks() {
     fs::remove_all(dir, ec);
 }
 
+void test_remote_urls() {
+    const canopy::RemoteUrl https = canopy::parse_remote_url("https://github.com/ThatNewCoderJSCpp/Canopy.git");
+    check(https.ok && !https.ssh && https.host == "github.com" && https.path == "ThatNewCoderJSCpp/Canopy.git", "https remotes parse");
+    const canopy::RemoteUrl scp = canopy::parse_remote_url("git@gitlab.com:me/project.git");
+    check(scp.ok && scp.ssh && scp.user == "git" && scp.host == "gitlab.com" && scp.path == "me/project.git", "scp-style ssh remotes parse");
+    const canopy::RemoteUrl ssh = canopy::parse_remote_url("ssh://git@example.org:2222/team/app.git");
+    check(ssh.ok && ssh.ssh && ssh.port == "2222" && ssh.host == "example.org" && ssh.path == "team/app.git", "ssh:// remotes keep their port");
+    check(!canopy::parse_remote_url("C:\\Users\\me\\repo").ok, "a Windows path isn't a remote");
+    check(!canopy::parse_remote_url("Canopy").ok && !canopy::parse_remote_url("").ok, "a plain word isn't a remote");
+    check(canopy::ssh_url_for("https://github.com/a/b") == "git@github.com:a/b.git", "https turns into ssh");
+    check(canopy::ssh_url_for("https://user:secret@github.com/a/b.git") == "git@github.com:a/b.git", "credentials in an https URL are dropped");
+    check(canopy::https_url_for("git@github.com:a/b.git") == "https://github.com/a/b.git", "ssh turns into https");
+    check(canopy::https_url_for("ssh://git@example.org:2222/team/app.git") == "https://example.org/team/app.git", "the ssh port isn't kept for https");
+    check(canopy::is_ssh_url("git@github.com:a/b.git") && !canopy::is_ssh_url("https://github.com/a/b.git"), "ssh remotes are told apart");
+    check(canopy::ssh_test_command("github.com") == std::vector<std::string>{ "ssh", "-T", "-o", "ConnectTimeout=15", "git@github.com" }, "a bare host is tested as git@host");
+    check(canopy::ssh_test_command("ssh://deploy@example.org:2222/x.git") == std::vector<std::string>{ "ssh", "-T", "-o", "ConnectTimeout=15", "-p", "2222", "deploy@example.org" }, "an ssh URL keeps its user and port");
+    check(canopy::ssh_test_command("https://gitlab.com/me/p.git").back() == "git@gitlab.com", "an https remote is tested over ssh as git@host");
+    check(canopy::ssh_test_command("bad host").empty(), "a host with spaces is refused");
+    check(canopy::ssh_test_succeeded("Hi octo! You've successfully authenticated, but GitHub does not provide shell access."), "GitHub's ssh greeting counts as working");
+    check(canopy::ssh_test_succeeded("Welcome to GitLab, @me!"), "GitLab's ssh greeting counts as working");
+    check(!canopy::ssh_test_succeeded("git@github.com: Permission denied (publickey)."), "a refused key isn't working");
+    check(canopy::ssh_key_type("ssh-ed25519 AAAA me@host") == "Ed25519" && canopy::ssh_key_type("ssh-rsa AAAA") == "RSA", "key types are named");
+    check(canopy::askpass_yes_no("Are you sure you want to continue connecting (yes/no/[fingerprint])? ") && !canopy::askpass_yes_no("Enter passphrase for key: "), "askpass knows ssh's trust question");
+}
+
+void test_github_repos() {
+    const std::string json = R"([
+        {"id": 1, "full_name": "me/Canopy", "private": false, "owner": {"login": "me", "url": "https://api.github.com/users/me"}, "description": "An editor \u2014 built with \"Grove\"", "fork": false, "clone_url": "https://github.com/me/Canopy.git", "ssh_url": "git@github.com:me/Canopy.git", "archived": false, "topics": ["editor", "grove"]},
+        {"id": 2, "full_name": "team/secret", "private": true, "description": null, "fork": true, "clone_url": "https://github.com/team/secret.git", "ssh_url": "git@github.com:team/secret.git", "archived": true, "permissions": {"admin": false, "push": true}}
+    ])";
+    const std::vector<canopy::GitHubRepo> repos = canopy::parse_github_repos(json);
+    check(repos.size() == 2, "both repositories are read");
+    if (repos.size() == 2) {
+        check(repos[0].full_name == "me/Canopy" && repos[0].clone_url == "https://github.com/me/Canopy.git" && repos[0].ssh_url == "git@github.com:me/Canopy.git", "names and URLs are read, not the owner's nested url");
+        check(repos[0].description == "An editor \xE2\x80\x94 built with \"Grove\"", "escapes in descriptions are decoded");
+        check(!repos[0].is_private && !repos[0].fork && !repos[0].archived, "flags default off");
+        check(repos[1].is_private && repos[1].fork && repos[1].archived && repos[1].description.empty(), "private, fork, archived and a null description");
+    }
+    check(canopy::parse_github_repos("[]").empty() && canopy::parse_github_repos("{\"message\": \"Bad credentials\"}").empty(), "empty lists and errors give no repositories");
+}
+
 void test_github_auth() {
     const std::map<std::string, std::string> form = canopy::parse_form("device_code=dc1&user_code=ABCD-1234&verification_uri=https%3A%2F%2Fgithub.com%2Flogin%2Fdevice&interval=5");
     check(form.at("user_code") == "ABCD-1234" && form.at("verification_uri") == "https://github.com/login/device", "GitHub's form answers are decoded");
@@ -2030,6 +2071,8 @@ int main() {
     test_personal_tasks();
     test_task_values();
     test_github_auth();
+    test_remote_urls();
+    test_github_repos();
     test_run_stats();
     test_walnut_safety_settings();
     test_more_language_builds();

@@ -29,6 +29,12 @@ bool is_git(const std::vector<std::string>& command) {
     return name == "git";
 }
 
+bool is_ssh(const std::vector<std::string>& command) {
+    if (command.empty()) return false;
+    const std::string name = fs::path(command.front()).stem().string();
+    return name == "ssh";
+}
+
 std::string folder_prefix(const std::string& folder) {
     if (folder.empty()) return std::string();
 #if defined(_WIN32)
@@ -210,7 +216,7 @@ std::string git_askpass() {
 
 std::string git_command_line(const std::vector<std::string>& command, const std::string& folder, bool merge_errors) {
     std::string line = folder_prefix(folder);
-    if (is_git(command)) line += git_environment(merge_errors);
+    if (is_git(command) || is_ssh(command)) line += git_environment(merge_errors);
     line += command_line(command);
     line += error_redirect(merge_errors);
     return wrap_line(line);
@@ -572,6 +578,161 @@ std::string repo_name_from_url(const std::string& url_in) {
     std::string name = cut == std::string::npos ? url : url.substr(cut + 1);
     if (name.size() > 4 && name.compare(name.size() - 4, 4, ".git") == 0) name.erase(name.size() - 4);
     return name.empty() ? std::string("repository") : name;
+}
+
+RemoteUrl parse_remote_url(const std::string& url_in) {
+    RemoteUrl out;
+    std::string url = url_in;
+    while (!url.empty() && std::isspace(static_cast<unsigned char>(url.back()))) url.pop_back();
+    std::size_t lead = 0;
+    while (lead < url.size() && std::isspace(static_cast<unsigned char>(url[lead]))) ++lead;
+    url = url.substr(lead);
+    if (url.empty()) return out;
+    std::string rest;
+    const std::size_t scheme_end = url.find("://");
+    if (scheme_end != std::string::npos) {
+        std::string scheme = url.substr(0, scheme_end);
+        for (char& c : scheme) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (scheme == "ssh" || scheme == "git+ssh" || scheme == "ssh+git") out.ssh = true;
+        else if (scheme != "https" && scheme != "http") return out;
+        rest = url.substr(scheme_end + 3);
+        const std::size_t slash = rest.find('/');
+        std::string authority = slash == std::string::npos ? rest : rest.substr(0, slash);
+        out.path = slash == std::string::npos ? std::string() : rest.substr(slash + 1);
+        const std::size_t at = authority.rfind('@');
+        if (at != std::string::npos) {
+            out.user = authority.substr(0, at);
+            authority = authority.substr(at + 1);
+            if (!out.ssh) out.user.clear();
+        }
+        const std::size_t colon = authority.rfind(':');
+        if (colon != std::string::npos && authority.find(']') == std::string::npos) {
+            out.port = authority.substr(colon + 1);
+            authority = authority.substr(0, colon);
+        }
+        out.host = authority;
+    } else {
+        const std::size_t colon = url.find(':');
+        const std::size_t slash = url.find('/');
+        if (colon == std::string::npos || (slash != std::string::npos && slash < colon) || colon == 1) return out;
+        out.ssh = true;
+        std::string authority = url.substr(0, colon);
+        out.path = url.substr(colon + 1);
+        const std::size_t at = authority.rfind('@');
+        if (at != std::string::npos) {
+            out.user = authority.substr(0, at);
+            authority = authority.substr(at + 1);
+        }
+        out.host = authority;
+    }
+    while (!out.path.empty() && out.path.front() == '/') out.path.erase(0, 1);
+    while (!out.path.empty() && out.path.back() == '/') out.path.pop_back();
+    out.ok = !out.host.empty() && !out.path.empty();
+    return out;
+}
+
+bool is_ssh_url(const std::string& url) {
+    const RemoteUrl r = parse_remote_url(url);
+    return r.ok && r.ssh;
+}
+
+namespace {
+
+std::string with_git_suffix(std::string path) {
+    if (path.size() < 4 || path.compare(path.size() - 4, 4, ".git") != 0) path += ".git";
+    return path;
+}
+
+} // namespace
+
+std::string ssh_url_for(const std::string& url) {
+    const RemoteUrl r = parse_remote_url(url);
+    if (!r.ok) return std::string();
+    if (r.ssh) return url;
+    return "git@" + r.host + ":" + with_git_suffix(r.path);
+}
+
+std::string https_url_for(const std::string& url) {
+    const RemoteUrl r = parse_remote_url(url);
+    if (!r.ok) return std::string();
+    if (!r.ssh) return url;
+    return "https://" + r.host + "/" + with_git_suffix(r.path);
+}
+
+std::vector<std::string> ssh_test_command(const std::string& url_or_host) {
+    std::string user = "git";
+    std::string host;
+    std::string port;
+    const RemoteUrl r = parse_remote_url(url_or_host);
+    if (r.ok) {
+        host = r.host;
+        if (r.ssh) {
+            if (!r.user.empty()) user = r.user;
+            port = r.port;
+        }
+    } else {
+        std::string text = url_or_host;
+        while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) text.pop_back();
+        std::size_t lead = 0;
+        while (lead < text.size() && std::isspace(static_cast<unsigned char>(text[lead]))) ++lead;
+        text = text.substr(lead);
+        const std::size_t at = text.rfind('@');
+        if (at != std::string::npos) {
+            user = text.substr(0, at);
+            text = text.substr(at + 1);
+        }
+        host = text;
+    }
+    if (host.empty() || host.find_first_of(" \t/\\") != std::string::npos || user.empty()) return {};
+    std::vector<std::string> out{ "ssh", "-T", "-o", "ConnectTimeout=15" };
+    if (!port.empty()) {
+        out.push_back("-p");
+        out.push_back(port);
+    }
+    out.push_back(user + "@" + host);
+    return out;
+}
+
+bool ssh_test_succeeded(const std::string& output) {
+    std::string text = output;
+    for (char& c : text) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return text.find("successfully authenticated") != std::string::npos
+        || text.find("welcome to gitlab") != std::string::npos
+        || text.find("authenticated via") != std::string::npos
+        || text.find("logged in as") != std::string::npos;
+}
+
+std::vector<std::string> ssh_public_keys(const std::string& home) {
+    std::vector<std::string> out;
+    if (home.empty()) return out;
+    const fs::path dir = fs::path(home) / ".ssh";
+    std::error_code ec;
+    if (!fs::is_directory(dir, ec)) return out;
+    static const char* preferred[] = { "id_ed25519.pub", "id_ecdsa.pub", "id_ed25519_sk.pub", "id_ecdsa_sk.pub", "id_rsa.pub" };
+    for (const char* name : preferred) {
+        const fs::path p = dir / name;
+        if (fs::is_regular_file(p, ec)) out.push_back(p.string());
+    }
+    std::vector<std::string> others;
+    for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
+        if (!it->is_regular_file(ec) || it->path().extension() != ".pub") continue;
+        const std::string p = it->path().string();
+        if (std::find(out.begin(), out.end(), p) == out.end()) others.push_back(p);
+    }
+    std::sort(others.begin(), others.end());
+    out.insert(out.end(), others.begin(), others.end());
+    return out;
+}
+
+std::string ssh_key_type(const std::string& public_key) {
+    const std::size_t space = public_key.find(' ');
+    const std::string type = public_key.substr(0, space);
+    if (type == "ssh-ed25519") return "Ed25519";
+    if (type == "ssh-rsa") return "RSA";
+    if (type.rfind("ecdsa-", 0) == 0) return "ECDSA";
+    if (type.rfind("sk-ssh-ed25519", 0) == 0) return "Ed25519 security key";
+    if (type.rfind("sk-ecdsa", 0) == 0) return "ECDSA security key";
+    return type;
 }
 
 std::vector<std::string> parse_lines(const std::string& text) {

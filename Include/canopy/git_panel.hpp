@@ -158,6 +158,19 @@ private:
     void sign_out_of_github();
     void poll_github_sign_in();
     void close_sign_in_popup();
+    void ask_clone_url();
+    void show_repo_picker(std::vector<GitHubRepo> repos, const std::string& user);
+    void choose_clone_folder(const std::string& url);
+    void ask_clone_folder(const std::string& url);
+    void clone_into(const std::string& url, const std::string& where);
+    std::string clone_protocol() const;
+    void ask_secret(const std::string& title, const std::string& message, std::function<void(const std::string&)> then);
+    void pick_ssh_key(const std::string& title, const std::string& message, std::function<void(const std::string&)> then);
+    void create_ssh_key();
+    void copy_ssh_key();
+    void add_ssh_key_to_github(const std::string& public_key_path);
+    void test_ssh_connection();
+    void switch_remote_protocol();
     void branch_picked(const std::string& value);
     void repo_picked(const std::string& value);
 
@@ -244,6 +257,7 @@ private:
     std::unique_ptr<GitHubSignIn> m_github;
     grove::Node* m_github_popup = nullptr;
     bool m_github_closing = false;
+    bool m_listing_repos = false;
 };
 
 } // namespace canopy

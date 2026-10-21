@@ -34,6 +34,7 @@ const char* k_askpass_source = R"(<!grove>
             #askpass-buttons { gap: 8px; justify-content: end; }
             #askpass-buttons button { margin: 0; padding: 4px 16px; }
             #askpass-ok { background: #89b4fa; color: #11111b; }
+            .hidden { display: none; }
         </style>
     </head>
     <body title="Git">
@@ -57,6 +58,11 @@ std::string lower(std::string s) {
 }
 
 } // namespace
+
+bool askpass_yes_no(const std::string& prompt) {
+    const std::string p = lower(prompt);
+    return p.find("(yes/no") != std::string::npos;
+}
 
 bool askpass_secret(const std::string& prompt) {
     const std::string p = lower(prompt);
@@ -93,6 +99,18 @@ int run_askpass(const std::string& prompt_in) {
     if (grove::Node* text = doc.find_by_id("askpass-prompt")) text->set_inner_text(prompt);
     if (grove::Node* body = doc.first_by_tag("body")) body->set_attribute("title", askpass_title(prompt) + " \xE2\x80\x94 Canopy");
     if (askpass_secret(prompt)) answer->set_attribute("masked", "true");
+    const bool yes_no = askpass_yes_no(prompt);
+    if (yes_no) {
+        answer->set_attribute("class", "hidden");
+        answer->remove_attribute("autofocus");
+        if (grove::Node* body = doc.first_by_tag("body")) body->set_attribute("style", "size: 600px 300px");
+        if (grove::Node* ok = doc.find_by_id("askpass-ok")) {
+            ok->set_inner_text("Trust and connect");
+            ok->set_attribute("autofocus", "");
+        }
+        if (grove::Node* cancel = doc.find_by_id("askpass-cancel")) cancel->set_inner_text("Don't connect");
+        if (grove::Node* hint = doc.find_by_id("askpass-hint")) hint->set_inner_text("Check the fingerprint against the one the server's owner publishes (GitHub's are in its docs under \"GitHub's SSH key fingerprints\"). Trusting it saves it to known_hosts, so you're only asked once.");
+    }
     if (grove::Node* hint = doc.find_by_id("askpass-hint"); hint && lower(prompt).find("github.com") != std::string::npos && lower(prompt).find("password") != std::string::npos) {
         hint->set_inner_text("GitHub doesn't take account passwords here: paste a personal access token (github.com/settings/tokens), or cancel and use More > Sign in to GitHub in the Git tab so Canopy remembers you.");
     }
@@ -100,7 +118,7 @@ int run_askpass(const std::string& prompt_in) {
     std::string value;
     auto finish = [&](bool ok) {
         if (ok) {
-            value = grove::input_string(*answer).value_or("");
+            value = yes_no ? std::string("yes") : grove::input_string(*answer).value_or("");
             answered = true;
         }
         doc.events().request_quit();

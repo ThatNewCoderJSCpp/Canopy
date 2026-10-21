@@ -138,6 +138,24 @@ std::optional<DiffHunk> diff_hunk(const std::vector<DiffLine>& lines, std::size_
 std::string hunk_patch(const std::string& path, const std::vector<DiffLine>& lines, std::size_t index, const std::string& before, const std::string& after);
 std::optional<std::string> revert_hunk(const std::vector<DiffLine>& lines, std::size_t index, const std::string& before, const std::string& after);
 std::string repo_name_from_url(const std::string& url);
+
+struct RemoteUrl {
+    bool        ok = false;
+    bool        ssh = false;
+    std::string user;
+    std::string host;
+    std::string port;
+    std::string path;
+};
+
+RemoteUrl parse_remote_url(const std::string& url);
+bool is_ssh_url(const std::string& url);
+std::string ssh_url_for(const std::string& url);
+std::string https_url_for(const std::string& url);
+std::vector<std::string> ssh_test_command(const std::string& url_or_host);
+bool ssh_test_succeeded(const std::string& output);
+std::vector<std::string> ssh_public_keys(const std::string& home);
+std::string ssh_key_type(const std::string& public_key);
 std::vector<std::string> parse_lines(const std::string& text);
 std::vector<DiffLine> parse_unified_diff(const std::string& text);
 std::vector<DiffLine> diff_texts(const std::string& before, const std::string& after, std::size_t context = 3);

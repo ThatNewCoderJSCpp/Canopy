@@ -279,6 +279,7 @@ const std::vector<SettingDoc>& setting_docs() {
         { "server", "restart-node", "Restart Node apps on save", "Restart a running Node app when you save a .js or .json file in its folder." },
         { "git", "refresh-seconds", "Git refresh", "How often, in seconds, the Git tab checks for changes made outside Canopy while it's showing (three times slower while it's hidden)." },
         { "git", "github-client-id", "GitHub app client ID", "The client ID of a GitHub OAuth app with Device Flow turned on. With one, Sign in to GitHub (More in the Git tab) signs in through the browser; without one, it asks you to paste a token." },
+        { "git", "clone-protocol", "Clone with", "Whether repositories picked from your GitHub list are cloned over https (your GitHub sign-in, a token or a password) or ssh (your SSH key; More > Create SSH Key in the Git tab makes one)." },
         { "git", "protected-branches", "Protected branches", "Branches that need their name typed before Canopy deletes them or undoes a pushed commit on them, separated by spaces. Real protection belongs on the server (GitHub's branch rules); this guards against slips." },
         { "history", "enabled", "Local history", "Keep a copy of a file each time you save it, so the History tab can compare and restore older versions." },
         { "history", "limit", "Versions kept", "How many saved copies of each file to keep; the oldest go first." },
@@ -1909,6 +1910,8 @@ void SettingsPage::build_workbench(grove::Node& body) {
     text_control(*row, "git", "protected-branches", "260px");
     row = setting_row(body, "git", "github-client-id");
     text_control(*row, "git", "github-client-id", "260px");
+    row = setting_row(body, "git", "clone-protocol");
+    choice_control(*row, "git", "clone-protocol", { "https", "ssh" });
     row = setting_row(body, "history", "enabled");
     bool_control(*row, "history", "enabled");
     row = setting_row(body, "history", "limit");
