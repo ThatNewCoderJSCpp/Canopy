@@ -20,7 +20,8 @@ enum class ViewerKind {
     Pdf,
     Latex,
     Binary,
-    Markdown
+    Markdown,
+    Math
 };
 
 const char* to_string(ViewerKind kind) noexcept;
@@ -29,6 +30,9 @@ std::optional<ViewerKind> viewer_kind_from_name(const std::string& name);
 bool is_image_path(const std::string& path);
 bool is_pdf_path(const std::string& path);
 bool is_latex_path(const std::string& path);
+bool is_math_path(const std::string& path);
+bool is_brace_math_path(const std::string& path);
+std::vector<std::string> math_blocks(const std::string& text);
 bool is_binary_path(const std::string& path);
 bool looks_binary(std::string_view bytes);
 ViewerKind viewer_kind_for(const std::string& path, std::string_view head);

@@ -895,6 +895,7 @@ const char* to_string(ViewerKind kind) noexcept {
     case ViewerKind::Latex: return "latex";
     case ViewerKind::Binary: return "binary";
     case ViewerKind::Markdown: return "markdown";
+    case ViewerKind::Math: return "math";
     }
     return "text";
 }
@@ -907,6 +908,7 @@ std::optional<ViewerKind> viewer_kind_from_name(const std::string& name) {
     if (n == "latex" || n == "tex") return ViewerKind::Latex;
     if (n == "binary" || n == "hex") return ViewerKind::Binary;
     if (n == "markdown" || n == "md") return ViewerKind::Markdown;
+    if (n == "math" || n == "mathtext") return ViewerKind::Math;
     return std::nullopt;
 }
 
@@ -921,6 +923,38 @@ bool is_pdf_path(const std::string& path) {
 
 bool is_latex_path(const std::string& path) {
     return has_extension(path, { ".tex", ".latex", ".ltx" });
+}
+
+bool is_math_path(const std::string& path) {
+    return has_extension(path, { ".math", ".mt", ".mathtext", ".mtb", ".brace", ".mtbrace" });
+}
+
+bool is_brace_math_path(const std::string& path) {
+    return has_extension(path, { ".mtb", ".brace", ".mtbrace" });
+}
+
+std::vector<std::string> math_blocks(const std::string& text) {
+    std::vector<std::string> out;
+    std::string current;
+    std::size_t start = 0;
+    while (start <= text.size()) {
+        std::size_t end = text.find('\n', start);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(start, end - start);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        const bool blank = line.find_first_not_of(" \t") == std::string::npos;
+        if (blank) {
+            if (!current.empty()) out.push_back(current);
+            current.clear();
+        } else {
+            if (!current.empty()) current += '\n';
+            current += line;
+        }
+        if (end == text.size()) break;
+        start = end + 1;
+    }
+    if (!current.empty()) out.push_back(current);
+    return out;
 }
 
 bool is_binary_path(const std::string& path) {
@@ -972,6 +1006,7 @@ ViewerKind viewer_kind_for(const std::string& path, std::string_view head) {
     if (is_pdf_path(path)) return ViewerKind::Pdf;
     if (is_latex_path(path)) return ViewerKind::Latex;
     if (is_markdown_path(path) && !looks_binary(head)) return ViewerKind::Markdown;
+    if (is_math_path(path) && !looks_binary(head)) return ViewerKind::Math;
     if (is_image_path(path)) return ViewerKind::Image;
     if (is_binary_path(path)) return ViewerKind::Binary;
     if (starts_with(head, "%PDF-")) return ViewerKind::Pdf;

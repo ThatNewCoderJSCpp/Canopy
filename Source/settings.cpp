@@ -458,7 +458,7 @@ const std::vector<std::string>& highlight_kinds() {
 }
 
 const std::vector<std::string>& highlight_languages() {
-    static const std::vector<std::string> languages = { "c", "cpp", "walnut", "grove", "bark", "cmake" };
+    static const std::vector<std::string> languages = { "c", "cpp", "walnut", "grove", "bark", "cmake", "html", "css", "javascript", "json", "rust", "zig", "python", "lua", "java", "csharp", "asm", "mathtext", "markdown", "text" };
     return languages;
 }
 

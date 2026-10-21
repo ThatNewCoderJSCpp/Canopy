@@ -28,4 +28,5 @@ viewer {
     latex-flags: "";
     latex-preview: true;
     markdown-preview: true;
+    math-preview: true;
 }

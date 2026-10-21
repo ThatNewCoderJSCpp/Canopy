@@ -101,6 +101,33 @@ std::string kind_what(const std::string& language, const std::string& kind) {
         { "c:constant", "true, NULL, macros" },
         { "walnut:keyword", "function, if, then, end" },
         { "walnut:type", "int, string, let" },
+        { "markdown:keyword", "# Headings" },
+        { "markdown:control-keyword", "**bold**" },
+        { "markdown:type", "*italic*" },
+        { "markdown:string", "`code` and code blocks" },
+        { "markdown:preprocessor", "``` code fences" },
+        { "markdown:function", "[link text]" },
+        { "markdown:attribute", "(link targets) and <urls>" },
+        { "markdown:tag", "<html> tags" },
+        { "markdown:comment", "> quotes and <!-- comments -->" },
+        { "markdown:operator", "list markers, --- rules, table bars" },
+        { "markdown:constant", "[x] checkboxes" },
+        { "markdown:escape", "\\* escapes" },
+        { "mathtext:function", "sqrt(x), fraction{a, b}" },
+        { "mathtext:variable", "x, alpha, n" },
+        { "mathtext:keyword", "\\approx\\ and other \\commands\\" },
+        { "mathtext:constant", "pi, e, inf" },
+        { "mathtext:string", "\"quoted text\"" },
+        { "mathtext:operator", "+ - * / ^ _ =" },
+        { "text:function", "links like https://example.com" },
+        { "text:string", "\"quoted text\"" },
+        { "text:number", "numbers and times like 10:30" },
+        { "asm:keyword", "mov, add, push" },
+        { "asm:control-keyword", "jmp, call, ret" },
+        { "asm:variable", "registers like rax, x0" },
+        { "asm:function", "labels" },
+        { "asm:preprocessor", "directives like section, .globl" },
+        { "asm:builtin-type", "sizes like qword, dword" },
     };
     const std::string key = language + ":" + kind;
     for (const auto& s : special) {
@@ -126,14 +153,49 @@ std::vector<std::string> kinds_for(const std::string& language) {
     if (language == "grove") return { "tag", "attribute", "string", "constant", "comment", "operator", "plain" };
     if (language == "bark") return { "tag", "attribute", "property", "keyword", "function", "constant", "number", "string", "comment", "operator", "plain" };
     if (language == "cmake") return { "function", "keyword", "variable", "attribute", "constant", "string", "escape", "number", "comment", "plain" };
-    return highlight_kinds();
+    std::vector<std::string> kinds;
+    for (const grove::CodeTokenKind kind : grove::code_token_kinds_for(grove::code_language_from_name(language))) kinds.push_back(grove::to_string(kind));
+    kinds.push_back("plain");
+    if (language != "text" && language != "markdown" && language != "mathtext") {
+        kinds.push_back("error-underline");
+        kinds.push_back("warning-underline");
+        kinds.push_back("error-line");
+    }
+    return kinds;
 }
 
 const std::vector<std::pair<std::string, std::string>>& language_names() {
     static const std::vector<std::pair<std::string, std::string>> names = {
-        { "all", "All languages" }, { "c", "C" }, { "cpp", "C++" }, { "walnut", "Walnut" }, { "grove", "Grove" }, { "bark", "Bark" }, { "cmake", "CMake" },
+        { "c", "C" }, { "cpp", "C++" }, { "walnut", "Walnut" }, { "grove", "Grove" }, { "bark", "Bark" }, { "cmake", "CMake" },
+        { "html", "HTML" }, { "css", "CSS" }, { "javascript", "JavaScript" }, { "json", "JSON" }, { "rust", "Rust" }, { "zig", "Zig" },
+        { "python", "Python" }, { "lua", "Lua" }, { "java", "Java" }, { "csharp", "C#" }, { "asm", "Assembly" },
+        { "mathtext", "MathText" }, { "markdown", "Markdown" }, { "text", "Plain text" },
     };
     return names;
+}
+
+const std::vector<std::pair<std::string, std::string>>& compiler_groups() {
+    static const std::vector<std::pair<std::string, std::string>> groups = {
+        { "c", "C" }, { "cpp", "C++" }, { "walnut", "Walnut" }, { "grove", "Grove" }, { "javascript", "JavaScript (Node.js)" }, { "rust", "Rust" },
+        { "zig", "Zig" }, { "python", "Python" }, { "lua", "Lua" }, { "java", "Java" }, { "csharp", "C#" }, { "asm", "Assembly" },
+    };
+    return groups;
+}
+
+std::vector<std::pair<std::string, std::string>> compiler_tools(const std::string& id) {
+    if (id == "c") return { { "c", "C compiler" } };
+    if (id == "cpp") return { { "cpp", "C++ compiler" } };
+    if (id == "walnut") return { { "walnut", "Walnut" } };
+    if (id == "grove") return { { "grove", "Grove" } };
+    if (id == "javascript") return { { "node", "Node.js" } };
+    if (id == "rust") return { { "rustc", "Rust compiler (rustc)" }, { "cargo", "Cargo" } };
+    if (id == "zig") return { { "zig", "Zig" } };
+    if (id == "python") return { { "python", "Python" } };
+    if (id == "lua") return { { "lua", "Lua" }, { "luac", "Lua checker (luac)" } };
+    if (id == "java") return { { "java", "Java" }, { "javac", "Java compiler (javac)" } };
+    if (id == "csharp") return { { "dotnet", ".NET SDK (dotnet)" }, { "mcs", "Mono C# compiler (mcs or csc)" }, { "mono", "Mono runtime" } };
+    if (id == "asm") return { { "nasm", "NASM" }, { "yasm", "YASM" }, { "fasm", "FASM" }, { "masm", "MASM (ml64)" } };
+    return {};
 }
 
 std::string hex_color(const grove::bark::Rgba& c) {
@@ -196,6 +258,7 @@ const std::vector<SettingDoc>& setting_docs() {
         { "viewer", "latex-flags", "Flags", "Added to the LaTeX command, like -xelatex for latexmk." },
         { "viewer", "latex-preview", "Live preview", "Show the preview beside .tex files and rebuild it when you save." },
         { "viewer", "markdown-preview", "Live preview", "Show the rendered page beside .md files and update it as you type." },
+        { "viewer", "math-preview", "Live preview", "Draw .math files (MathText, like Walnut's to_mathtext_infix output) beside the text and update as you type. .mtb and .brace files use the brace form." },
         { "build", "mode", "Mode", "Debug builds are quick to make and easy to debug; release builds run fast." },
         { "build", "output-dir", "Output folder", "Where programs are built, inside the open folder." },
         { "build", "save-before-build", "Save before building", "Save the file you're building first." },
@@ -600,6 +663,262 @@ std::string highlight_sample(const std::string& language) {
                "    target_compile_definitions(scores PRIVATE $<$<CONFIG:Debug>:DEBUG>)\n"
                "endif()\n";
     }
+    if (language == "javascript") {
+        return "// Totals the scores that count\n"
+               "import { readFile } from 'fs/promises';\n"
+               "\n"
+               "const LIMIT = 100;\n"
+               "\n"
+               "export async function total(path) {\n"
+               "    const scores = JSON.parse(await readFile(path, 'utf8'));\n"
+               "    let sum = 0;\n"
+               "    for (const s of scores) {\n"
+               "        if (s <= LIMIT && s !== null) sum += s;\n"
+               "    }\n"
+               "    console.log(`total: ${sum}\\n`);\n"
+               "    return this ? sum : 0x7f;\n"
+               "}\n";
+    }
+    if (language == "html") {
+        return "<!DOCTYPE html>\n"
+               "<html lang=\"en\">\n"
+               "<head>\n"
+               "    <title>Scores</title>\n"
+               "    <link rel=\"stylesheet\" href=\"scores.css\">\n"
+               "</head>\n"
+               "<body>\n"
+               "    <!-- filled in by the script -->\n"
+               "    <h1 class=\"title\">High scores</h1>\n"
+               "    <ul id=\"scores\"></ul>\n"
+               "    <script>\n"
+               "        const list = document.getElementById('scores');\n"
+               "        list.textContent = 'none yet';\n"
+               "    </script>\n"
+               "</body>\n"
+               "</html>\n";
+    }
+    if (language == "css") {
+        return "/* The page */\n"
+               ":root {\n"
+               "    --accent: #89b4fa;\n"
+               "}\n"
+               "\n"
+               "body {\n"
+               "    background: #1e1e2e;\n"
+               "    font-size: 14px;\n"
+               "}\n"
+               "\n"
+               "#scores li:hover {\n"
+               "    color: var(--accent);\n"
+               "    padding: calc(4px + 1em) 8px;\n"
+               "}\n"
+               "\n"
+               "@media (max-width: 600px) {\n"
+               "    .title { display: none !important; }\n"
+               "}\n";
+    }
+    if (language == "json") {
+        return "{\n"
+               "    \"name\": \"scores\",\n"
+               "    \"version\": \"1.0.2\",\n"
+               "    \"private\": true,\n"
+               "    \"limit\": 100,\n"
+               "    \"players\": [\"Ada\", \"Linus\"],\n"
+               "    \"notes\": \"tabs\\tand \\\"quotes\\\"\",\n"
+               "    \"owner\": null\n"
+               "}\n";
+    }
+    if (language == "rust") {
+        return "// Adds up the scores that count\n"
+               "use std::collections::HashMap;\n"
+               "\n"
+               "const LIMIT: i32 = 100;\n"
+               "\n"
+               "#[derive(Debug)]\n"
+               "struct Player {\n"
+               "    name: String,\n"
+               "    scores: Vec<i32>,\n"
+               "}\n"
+               "\n"
+               "impl Player {\n"
+               "    fn best(&self) -> Option<i32> {\n"
+               "        self.scores.iter().copied().filter(|&s| s <= LIMIT).max()\n"
+               "    }\n"
+               "}\n"
+               "\n"
+               "fn main() {\n"
+               "    let players: HashMap<&str, Player> = HashMap::new();\n"
+               "    println!(\"{} players\\n\", players.len());\n"
+               "}\n";
+    }
+    if (language == "zig") {
+        return "// Adds up the scores that count\n"
+               "const std = @import(\"std\");\n"
+               "\n"
+               "const limit: i32 = 100;\n"
+               "\n"
+               "pub fn total(scores: []const i32) i32 {\n"
+               "    var sum: i32 = 0;\n"
+               "    for (scores) |s| {\n"
+               "        if (s <= limit) sum += s;\n"
+               "    }\n"
+               "    return sum;\n"
+               "}\n"
+               "\n"
+               "pub fn main() !void {\n"
+               "    const scores = [_]i32{ 40, 75, 0x7f };\n"
+               "    std.debug.print(\"total: {d}\\n\", .{total(&scores)});\n"
+               "}\n";
+    }
+    if (language == "python") {
+        return "# Adds up the scores that count\n"
+               "from dataclasses import dataclass\n"
+               "\n"
+               "LIMIT = 100\n"
+               "\n"
+               "@dataclass\n"
+               "class Player:\n"
+               "    name: str\n"
+               "    scores: list[int]\n"
+               "\n"
+               "    def best(self) -> int:\n"
+               "        good = [s for s in self.scores if s <= LIMIT]\n"
+               "        return max(good) if good else None\n"
+               "\n"
+               "if __name__ == \"__main__\":\n"
+               "    ada = Player(\"Ada\", [40, 75, 0x7f])\n"
+               "    print(f\"{ada.name}: {ada.best()}\\n\")\n";
+    }
+    if (language == "lua") {
+        return "-- Adds up the scores that count\n"
+               "local LIMIT = 100\n"
+               "\n"
+               "local function total(scores)\n"
+               "    local sum = 0\n"
+               "    for _, s in ipairs(scores) do\n"
+               "        if s <= LIMIT and s ~= nil then\n"
+               "            sum = sum + s\n"
+               "        end\n"
+               "    end\n"
+               "    return sum\n"
+               "end\n"
+               "\n"
+               "local scores = { 40, 75, 0x7f }\n"
+               "print(string.format(\"total: %d\\n\", total(scores)))\n";
+    }
+    if (language == "java") {
+        return "// Adds up the scores that count\n"
+               "package scores;\n"
+               "\n"
+               "import java.util.List;\n"
+               "\n"
+               "public final class Totals {\n"
+               "    private static final int LIMIT = 100;\n"
+               "\n"
+               "    @Override\n"
+               "    public String toString() {\n"
+               "        return \"Totals\";\n"
+               "    }\n"
+               "\n"
+               "    public static int total(List<Integer> scores) {\n"
+               "        int sum = 0;\n"
+               "        for (int s : scores) {\n"
+               "            if (s <= LIMIT) sum += s;\n"
+               "        }\n"
+               "        return sum;\n"
+               "    }\n"
+               "}\n";
+    }
+    if (language == "csharp") {
+        return "// Adds up the scores that count\n"
+               "using System;\n"
+               "using System.Linq;\n"
+               "\n"
+               "namespace Scores\n"
+               "{\n"
+               "    public record Player(string Name, int[] Scores);\n"
+               "\n"
+               "    public static class Totals\n"
+               "    {\n"
+               "        const int Limit = 100;\n"
+               "\n"
+               "        [Obsolete(\"use Best\")]\n"
+               "        public static int Total(Player p) => p.Scores.Where(s => s <= Limit).Sum();\n"
+               "\n"
+               "        public static void Main()\n"
+               "        {\n"
+               "            var ada = new Player(\"Ada\", new[] { 40, 75, 0x7f });\n"
+               "            Console.WriteLine($\"{ada.Name}: {Total(ada)}\\n\");\n"
+               "        }\n"
+               "    }\n"
+               "}\n";
+    }
+    if (language == "asm") {
+        return "; Prints \"done\" and exits with 42 (NASM, x86-64 Linux)\n"
+               "section .data\n"
+               "    msg db \"done\", 10, 0\n"
+               "    len equ $ - msg\n"
+               "\n"
+               "section .text\n"
+               "global _start\n"
+               "\n"
+               "_start:\n"
+               "    mov rax, 1\n"
+               "    mov rdi, 1\n"
+               "    lea rsi, [rel msg]\n"
+               "    mov rdx, len\n"
+               "    syscall\n"
+               "    cmp rax, 0\n"
+               "    jl .fail\n"
+               "    mov edi, 42\n"
+               "    jmp .exit\n"
+               ".fail:\n"
+               "    mov edi, 1\n"
+               ".exit:\n"
+               "    mov eax, 60\n"
+               "    syscall\n";
+    }
+    if (language == "mathtext") {
+        return "(x+2)/(3*exp(4)) \\approxeq\\ 0.054\n"
+               "\n"
+               "sqrt(x^2 + y^2) = r\n"
+               "\n"
+               "sum(k^2, k = 1, n) = n*(n+1)*(2*n+1)/6\n"
+               "\n"
+               "e^(i*pi) + 1 = 0\n"
+               "\n"
+               "fraction{add{\"x\", 2}, multiply{3, exp{4}}}\n";
+    }
+    if (language == "markdown") {
+        return "# Scores\n"
+               "\n"
+               "Some **bold** and *italic* text with `code`,\n"
+               "a [link](https://example.com) and <https://example.com>.\n"
+               "\n"
+               "- [x] count the scores\n"
+               "- [ ] print them\n"
+               "1. first\n"
+               "\n"
+               "> A quote\n"
+               "\n"
+               "| Name | Best |\n"
+               "|------|------|\n"
+               "\n"
+               "---\n"
+               "\n"
+               "```cpp\n"
+               "int main() { return 0; }\n"
+               "```\n"
+               "\n"
+               "<!-- a comment --> and \\* an escape\n";
+    }
+    if (language == "text") {
+        return "Notes from the meeting on 2026-10-20\n"
+               "\n"
+               "Start at 10:30, about 45 minutes.\n"
+               "Slides are at https://example.com/slides for \"everyone\".\n"
+               "Bring 3 copies.\n";
+    }
     return "#include <vector>\n"
            "#define LIMIT 100\n"
            "\n"
@@ -712,6 +1031,19 @@ void SettingsPage::build_nav(grove::Node& nav) {
     for (const auto& [id, label] : pages) {
         grove::Node* item = add(nav, "p", label, id == m_page ? "settings-nav-item active" : "settings-nav-item");
         item->set_attribute("data-page", id);
+        if (id != m_page || (id != "highlighting" && id != "compilers")) continue;
+        grove::Node* list = add(nav, "column", "", "settings-nav-subs");
+        if (id == "highlighting") {
+            for (const auto& [lang, name] : language_names()) {
+                grove::Node* sub = add(*list, "p", name, lang == m_language ? "settings-nav-sub active" : "settings-nav-sub");
+                sub->set_attribute("data-jump", "hl:" + lang);
+            }
+        } else {
+            for (const auto& [group, name] : compiler_groups()) {
+                grove::Node* sub = add(*list, "p", name, group == m_open_compiler ? "settings-nav-sub active" : "settings-nav-sub");
+                sub->set_attribute("data-jump", "cc:" + group);
+            }
+        }
     }
     grove::Node* spacer = add(nav, "div", "", "settings-nav-spacer");
     (void)spacer;
@@ -1393,29 +1725,26 @@ void SettingsPage::tool_row(grove::Node& body, const std::string& key, const std
 }
 
 void SettingsPage::build_compilers(grove::Node& body) {
-    heading(body, "Compilers", "Where each tool lives and the flags each language builds with. Saved to your compilers.bark.");
-    add(body, "h3", "Tools", "settings-group");
-    tool_row(body, "c", "C compiler");
-    tool_row(body, "cpp", "C++ compiler");
-    tool_row(body, "walnut", "Walnut");
-    tool_row(body, "grove", "Grove");
-    tool_row(body, "node", "Node.js");
-    tool_row(body, "zig", "Zig");
-    tool_row(body, "rustc", "Rust compiler (rustc)");
-    tool_row(body, "cargo", "Cargo");
-    tool_row(body, "python", "Python");
-    tool_row(body, "lua", "Lua");
-    tool_row(body, "luac", "Lua checker (luac)");
-    tool_row(body, "java", "Java");
-    tool_row(body, "javac", "Java compiler (javac)");
-    tool_row(body, "dotnet", ".NET SDK (dotnet)");
-    tool_row(body, "mcs", "Mono C# compiler (mcs or csc)");
-    tool_row(body, "mono", "Mono runtime");
-    tool_row(body, "nasm", "NASM");
-    tool_row(body, "yasm", "YASM");
-    tool_row(body, "fasm", "FASM");
-    tool_row(body, "masm", "MASM (ml64)");
+    heading(body, "Compilers", "Where each tool lives and the flags each language builds with. Open a language to change it; changes are saved to your compilers.bark as you make them.");
+    for (const auto& [id, label] : compiler_groups()) {
+        std::string summary;
+        for (const auto& [key, name] : compiler_tools(id)) {
+            const Tool* tool = m_ws.toolchain.get(key);
+            if (!tool) continue;
+            summary = fs::path(tool->path).filename().string();
+            break;
+        }
+        if (summary.empty() && !compiler_tools(id).empty()) summary = "not installed";
+        grove::Node* content = fold(body, "cc", id, label, summary, id == m_open_compiler);
+        if (content) compiler_section(*content, id);
+    }
+}
 
+void SettingsPage::compiler_section(grove::Node& body, const std::string& id) {
+    grove::Node* actions = add(body, "row", "", "hl-section-actions");
+    grove::Node* copy = add(*actions, "button", "Copy Bark", "theme-action");
+    copy->set_attribute("data-compiler-copy", id);
+    for (const auto& [key, name] : compiler_tools(id)) tool_row(body, key, name);
     auto flags = [&](const std::string& section, bool debug_release) {
         grove::Node* row = setting_row(body, section, "flags");
         text_control(*row, section, "flags");
@@ -1425,44 +1754,70 @@ void SettingsPage::build_compilers(grove::Node& body) {
         row = setting_row(body, section, "release-flags");
         text_control(*row, section, "release-flags");
     };
-    add(body, "h3", "C", "settings-group");
-    grove::Node* row = setting_row(body, "language.c", "standard");
-    choice_control(*row, "language.c", "standard", { "c99", "c11", "c17", "c23" });
-    flags("language.c", true);
-    add(body, "h3", "C++", "settings-group");
-    row = setting_row(body, "language.cpp", "standard");
-    choice_control(*row, "language.cpp", "standard", { "c++11", "c++14", "c++17", "c++20", "c++23" });
-    flags("language.cpp", true);
-    add(body, "h3", "Walnut", "settings-group");
-    flags("language.walnut", true);
-    row = setting_row(body, "language.walnut", "checks");
-    multi_control(*row, "language.walnut", "checks", { "bounds", "null", "dangling", "overflow" });
-    row = setting_row(body, "language.walnut", "leak-check");
-    choice_control(*row, "language.walnut", "leak-check", { "off", "warn", "error" });
-    row = setting_row(body, "language.walnut", "gc");
-    bool_control(*row, "language.walnut", "gc");
-    row = setting_row(body, "language.walnut", "ownership");
-    bool_control(*row, "language.walnut", "ownership");
-    add(body, "h3", "Grove", "settings-group");
-    flags("language.grove", false);
-    add(body, "h3", "Rust", "settings-group");
-    row = setting_row(body, "language.rust", "edition");
-    choice_control(*row, "language.rust", "edition", { "2015", "2018", "2021", "2024" });
-    flags("language.rust", true);
-    add(body, "h3", "Zig", "settings-group");
-    flags("language.zig", true);
-    add(body, "h3", "Python", "settings-group");
-    flags("language.python", false);
-    add(body, "h3", "Java", "settings-group");
-    flags("language.java", true);
-    add(body, "h3", "C#", "settings-group");
-    flags("language.csharp", false);
-    add(body, "h3", "Assembly", "settings-group");
-    row = setting_row(body, "language.asm", "dialect");
-    choice_control(*row, "language.asm", "dialect", { "auto", "nasm", "gas", "gas-intel", "masm", "fasm" });
-    row = setting_row(body, "language.asm", "arch");
-    choice_control(*row, "language.asm", "arch", { "auto", "x86-64", "x86", "arm64", "arm", "riscv64", "mips" });
-    flags("language.asm", true);
+    grove::Node* row = nullptr;
+    if (id == "c") {
+        row = setting_row(body, "language.c", "standard");
+        choice_control(*row, "language.c", "standard", { "c99", "c11", "c17", "c23" });
+        flags("language.c", true);
+    } else if (id == "cpp") {
+        row = setting_row(body, "language.cpp", "standard");
+        choice_control(*row, "language.cpp", "standard", { "c++11", "c++14", "c++17", "c++20", "c++23" });
+        flags("language.cpp", true);
+    } else if (id == "walnut") {
+        flags("language.walnut", true);
+        row = setting_row(body, "language.walnut", "checks");
+        multi_control(*row, "language.walnut", "checks", { "bounds", "null", "dangling", "overflow" });
+        row = setting_row(body, "language.walnut", "leak-check");
+        choice_control(*row, "language.walnut", "leak-check", { "off", "warn", "error" });
+        row = setting_row(body, "language.walnut", "gc");
+        bool_control(*row, "language.walnut", "gc");
+        row = setting_row(body, "language.walnut", "ownership");
+        bool_control(*row, "language.walnut", "ownership");
+    } else if (id == "grove") {
+        flags("language.grove", false);
+    } else if (id == "rust") {
+        row = setting_row(body, "language.rust", "edition");
+        choice_control(*row, "language.rust", "edition", { "2015", "2018", "2021", "2024" });
+        flags("language.rust", true);
+    } else if (id == "zig") {
+        flags("language.zig", true);
+    } else if (id == "python") {
+        flags("language.python", false);
+    } else if (id == "java") {
+        flags("language.java", true);
+    } else if (id == "csharp") {
+        flags("language.csharp", false);
+    } else if (id == "asm") {
+        row = setting_row(body, "language.asm", "dialect");
+        choice_control(*row, "language.asm", "dialect", { "auto", "nasm", "gas", "gas-intel", "masm", "fasm" });
+        row = setting_row(body, "language.asm", "arch");
+        choice_control(*row, "language.asm", "arch", { "auto", "x86-64", "x86", "arm64", "arm", "riscv64", "mips" });
+        flags("language.asm", true);
+    }
+}
+
+void SettingsPage::copy_compiler_section(const std::string& id) {
+    auto block = [&](const std::string& section, const std::vector<std::string>& keys) {
+        std::string out;
+        for (const std::string& key : keys) {
+            const Setting* setting = m_ws.settings.find(section, key);
+            if (!setting) continue;
+            out += "    " + key + ": " + bark_setting_value(setting->value, setting->quoted) + ";\n";
+        }
+        return out.empty() ? std::string() : section + " {\n" + out + "}\n";
+    };
+    std::vector<std::string> tools;
+    for (const auto& [key, name] : compiler_tools(id)) tools.push_back(key);
+    std::string text = block("toolchain", tools);
+    const std::string section = "language." + id;
+    const std::string language = block(section, m_ws.settings.keys(section));
+    if (!language.empty()) text += (text.empty() ? "" : "\n") + language;
+    if (text.empty()) {
+        set_notice("Nothing to copy for this language yet.");
+        return;
+    }
+    if (grove::set_clipboard_text(m_doc, text)) set_notice("Copied this language's settings as Bark.");
+    else set_notice("Couldn't reach the clipboard.");
 }
 
 void SettingsPage::viewer_tool_row(grove::Node& body, const std::string& key, const std::string& label, const std::string& kinds) {
@@ -1497,6 +1852,9 @@ void SettingsPage::build_viewers(grove::Node& body) {
     add(body, "h3", "Markdown", "settings-group");
     row = setting_row(body, "viewer", "markdown-preview");
     bool_control(*row, "viewer", "markdown-preview");
+    add(body, "h3", "MathText", "settings-group");
+    row = setting_row(body, "viewer", "math-preview");
+    bool_control(*row, "viewer", "math-preview");
     add(body, "h3", "Images and binary files", "settings-group");
     add(body, "p", "Images (PNG, JPEG, GIF, BMP, WebP, TIFF, TGA, QOI, PNM, ICO and SVG) open as pictures. Programs, libraries, archives and other files that aren't text open in the hex view, with Info, Hex, Binary and Strings tabs.", "settings-note");
 }
@@ -1584,12 +1942,13 @@ void SettingsPage::theme_cards(grove::Node& body) {
 }
 
 std::string SettingsPage::highlight_section() const {
-    return m_language == "all" ? std::string("highlight") : "highlight." + m_language;
+    return m_language.empty() || m_language == "all" ? std::string("highlight") : "highlight." + m_language;
 }
 
 HighlightLook SettingsPage::current_look(const std::string& kind) const {
     const Theme* theme = draft_base();
     const auto colors = draft_colors(m_language == "all" ? std::string() : m_language);
+
     const std::string value = highlight_value(colors, kind);
     HighlightLook look = value.empty() ? HighlightLook{} : parse_highlight_look(value);
     if (look.color.empty() && kind == "error-underline") look.color = "#f14c4c";
@@ -1717,7 +2076,7 @@ void SettingsPage::color_row(grove::Node& list, const std::string& kind) {
 
 void SettingsPage::build_highlighting(grove::Node& body) {
     if (!m_draft_ready) load_draft();
-    heading(body, "Highlighting", "Pick a theme, then change any color for every language or just one. Point at a color to light up what it changes in the preview, or click a word in the preview to find its color. Nothing changes in your editor until you press Apply.");
+    heading(body, "Highlighting", "Pick a theme, then open a language below (or pick it in the sidebar) to change its colors. Each language has its own Apply, Discard and Copy Bark. Point at a color to light up what it changes in the preview, or click a word in the preview to find its color. Nothing changes in your editor until you press Apply.");
     grove::Node* bar = add(body, "row", "", "theme-actions");
     for (const auto& [action, label] : std::vector<std::pair<std::string, std::string>>{
              { "apply", "Apply" }, { "save-theme", "Save as theme\xE2\x80\xA6" }, { "copy-bark", "Copy Bark" }, { "copy-json", "Copy JSON" }, { "discard", "Discard changes" } }) {
@@ -1734,25 +2093,40 @@ void SettingsPage::build_highlighting(grove::Node& body) {
     add(body, "h3", "Theme", "settings-group");
     theme_cards(body);
 
-    grove::Node* chips = add(body, "row", "", "language-chips");
+    add(body, "h3", "Languages", "settings-group");
+    add(body, "p", "Open a language to change its colors. Each one has its own Apply, so a change to one language never touches another; the buttons above work on everything at once.", "settings-note");
     for (const auto& [id, label] : language_names()) {
-        grove::Node* chip = add(*chips, "div", label, id == m_language ? "language-chip active" : "language-chip");
-        chip->set_attribute("data-language", id);
+        const bool open = id == m_language;
+        const std::string section = "highlight." + id;
+        const auto own = m_draft.find(section);
+        const std::size_t changed = own == m_draft.end() ? 0 : own->second.size();
+        std::string summary = changed ? std::to_string(changed) + (changed == 1 ? " color of your own" : " colors of your own") : std::string("theme colors");
+        if (section_dirty(section)) summary += " \xC2\xB7 not applied";
+        grove::Node* content = fold(body, "hl", id, label, summary, open);
+        if (content) highlight_language_section(*content, id);
     }
+}
 
-    grove::Node* split = add(body, "row", "", "highlight-split");
-    grove::Node* list = add(*split, "column", "", "color-list");
-    for (const std::string& kind : kinds_for(m_language)) color_row(*list, kind);
-    const std::string section = highlight_section();
+void SettingsPage::highlight_language_section(grove::Node& content, const std::string& language) {
+    const std::string section = "highlight." + language;
+    grove::Node* actions = add(content, "row", "", "hl-section-actions");
+    for (const auto& [action, label] : std::vector<std::pair<std::string, std::string>>{ { "apply", "Apply" }, { "copy", "Copy Bark" }, { "discard", "Discard changes" } }) {
+        grove::Node* button = add(*actions, "button", label, action == "apply" ? "theme-action primary" : "theme-action");
+        button->set_attribute("data-hl-action", action);
+        button->set_attribute("data-hl-language", language);
+        if ((action == "apply" || action == "discard") && !section_dirty(section)) button->set_attribute("disabled", "");
+    }
     const auto own = m_draft.find(section);
-    const bool any = own != m_draft.end() && !own->second.empty();
-    if (any) {
-        grove::Node* reset_all = add(*list, "p", m_language == "all" ? "Use the theme's colors everywhere" : "Use the theme's colors for this language", "color-reset-all");
+    if (own != m_draft.end() && !own->second.empty()) {
+        grove::Node* reset_all = add(*actions, "button", "Use the theme's colors", "theme-action");
         reset_all->set_attribute("data-reset-all", section);
     }
 
+    grove::Node* split = add(content, "row", "", "highlight-split");
+    grove::Node* list = add(*split, "column", "", "color-list");
+    for (const std::string& kind : kinds_for(language)) color_row(*list, kind);
+
     grove::Node* side = add(*split, "column", "", "preview-side");
-    const std::string language = m_language == "all" ? std::string("cpp") : m_language;
     m_preview = m_doc.create_element("input_code");
     m_preview->set_attribute("class", "hl-preview");
     m_preview->set_attribute("readonly", "");
@@ -1764,11 +2138,88 @@ void SettingsPage::build_highlighting(grove::Node& body) {
     apply_highlight_colors(m_doc, *m_preview, draft_colors(language), draft_base());
     grove::set_inline_style(m_doc, *m_preview, "font-size", editor_font_size(m_ws.settings, page_zoom()));
     m_doc.append_child(*side, *m_preview);
-    std::string where = "Changes here apply to every language; a language's own colors win over them.";
-    for (const auto& [id, label] : language_names()) {
-        if (id == m_language && id != "all") where = "Changes here apply to " + label + " files only, on top of the colors for every language.";
+    std::string label = language;
+    for (const auto& [id, name] : language_names()) {
+        if (id == language) label = name;
     }
-    add(*side, "p", where, "settings-note");
+    add(*side, "p", "These colors apply to " + label + " files only, on top of the theme.", "settings-note");
+}
+
+grove::Node* SettingsPage::fold(grove::Node& body, const std::string& group, const std::string& id, const std::string& label, const std::string& summary, bool open) {
+    grove::Node* box = add(body, "column", "", open ? "fold open" : "fold");
+    box->set_attribute("data-fold-id", group + ":" + id);
+    if (open && m_reveal_target == group + ":" + id) box->set_attribute("reveal", std::to_string(m_reveal));
+    grove::Node* head = add(*box, "row", "", "fold-head");
+    head->set_attribute("data-fold", group + ":" + id);
+    add(*head, "text", open ? "\xE2\x96\xBE" : "\xE2\x96\xB8", "fold-arrow");
+    add(*head, "text", label, "fold-title");
+    add(*head, "text", summary, "fold-summary");
+    if (!open) return nullptr;
+    return add(*box, "column", "", "fold-body");
+}
+
+void SettingsPage::open_fold(const std::string& group, const std::string& id) {
+    if (group == "hl") {
+        m_language = m_language == id ? std::string() : id;
+        m_marked.clear();
+        m_picked.clear();
+    } else {
+        m_open_compiler = m_open_compiler == id ? std::string() : id;
+    }
+}
+
+bool SettingsPage::section_dirty(const std::string& section) const {
+    const auto a = m_draft.find(section);
+    const auto b = m_saved.find(section);
+    const bool has_a = a != m_draft.end() && !a->second.empty();
+    const bool has_b = b != m_saved.end() && !b->second.empty();
+    if (has_a != has_b) return true;
+    return has_a && a->second != b->second;
+}
+
+void SettingsPage::apply_section(const std::string& section) {
+    const std::string target = user_config_file("highlighting.bark");
+    for (const std::string& file : user_settings_files()) {
+        if (file == target) continue;
+        for (const std::string& kind : highlight_kinds()) {
+            if (m_ws.settings.get(section, kind)) write_setting(file, section, kind, "");
+        }
+    }
+    const auto own = m_draft.find(section);
+    for (const std::string& kind : highlight_kinds()) {
+        std::string value;
+        if (own != m_draft.end()) {
+            const auto v = own->second.find(kind);
+            if (v != own->second.end()) value = v->second;
+        }
+        if (value == m_ws.settings.get(section, kind).value_or("")) continue;
+        write_setting(target, section, kind, value);
+    }
+    if (own != m_draft.end() && !own->second.empty()) m_saved[section] = own->second;
+    else m_saved.erase(section);
+    m_notice = "Applied. Your editor uses these colors now.";
+    if (m_hooks.changed) m_hooks.changed();
+}
+
+void SettingsPage::discard_section(const std::string& section) {
+    const auto saved = m_saved.find(section);
+    if (saved != m_saved.end()) m_draft[section] = saved->second;
+    else m_draft.erase(section);
+    m_notice.clear();
+}
+
+void SettingsPage::copy_section(const std::string& language) {
+    const std::string saved_language = m_language;
+    m_language = language;
+    std::string text = "highlight." + language + " {\n";
+    for (const std::string& kind : kinds_for(language)) {
+        const HighlightLook look = current_look(kind);
+        text += "    " + kind + ": " + highlight_look_text(look) + ";\n";
+    }
+    text += "}\n";
+    m_language = saved_language;
+    if (grove::set_clipboard_text(m_doc, text)) set_notice("Copied the colors for this language as Bark.");
+    else set_notice("Couldn't reach the clipboard.");
 }
 
 void SettingsPage::mark(const std::string& kind) {
@@ -1810,9 +2261,9 @@ void SettingsPage::set_notice(const std::string& text) {
 }
 
 void SettingsPage::show_draft() {
-    if (!m_preview || !m_body) return;
-    const std::string language = m_language == "all" ? std::string("cpp") : m_language;
-    apply_highlight_colors(m_doc, *m_preview, draft_colors(language), draft_base());
+    if (!m_body) return;
+    const std::string language = m_language.empty() || m_language == "all" ? std::string("cpp") : m_language;
+    if (m_preview) apply_highlight_colors(m_doc, *m_preview, draft_colors(language), draft_base());
     const Theme* theme = draft_base();
     if (grove::Node* list = grove::query(*m_body, ".color-list")) {
         for (const auto& child : list->children()) {
@@ -1841,6 +2292,15 @@ void SettingsPage::show_draft() {
             const std::string action = child->attribute_or("data-action", "");
             if (action != "apply" && action != "discard") continue;
             if (draft_dirty()) child->remove_attribute("disabled");
+            else child->set_attribute("disabled", "");
+        }
+    }
+    if (grove::Node* bar = grove::query(*m_body, ".hl-section-actions")) {
+        for (const auto& child : bar->children()) {
+            if (!child->is_element()) continue;
+            const std::string action = child->attribute_or("data-hl-action", "");
+            if (action != "apply" && action != "discard") continue;
+            if (section_dirty(highlight_section())) child->remove_attribute("disabled");
             else child->set_attribute("disabled", "");
         }
     }
@@ -2042,6 +2502,50 @@ void SettingsPage::on_click(grove::Event& e) {
         m_draft.clear();
         m_notice.clear();
         rebuild();
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-fold")) {
+        const std::string key = n->attribute_or("data-fold", "");
+        const std::size_t colon = key.find(':');
+        if (colon != std::string::npos) open_fold(key.substr(0, colon), key.substr(colon + 1));
+        m_reveal_target.clear();
+        rebuild();
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-jump")) {
+        const std::string key = n->attribute_or("data-jump", "");
+        const std::size_t colon = key.find(':');
+        if (colon != std::string::npos) {
+            const std::string group = key.substr(0, colon);
+            const std::string id = key.substr(colon + 1);
+            if (group == "hl") {
+                m_language = id;
+                m_marked.clear();
+                m_picked.clear();
+            } else {
+                m_open_compiler = id;
+            }
+            m_reveal_target = key;
+            ++m_reveal;
+        }
+        rebuild();
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-hl-action")) {
+        if (n->has_attribute("disabled")) return;
+        const std::string action = n->attribute_or("data-hl-action", "");
+        const std::string language = n->attribute_or("data-hl-language", "");
+        if (action == "apply") apply_section("highlight." + language);
+        else if (action == "discard") discard_section("highlight." + language);
+        else if (action == "copy") {
+            copy_section(language);
+            return;
+        }
+        rebuild();
+        return;
+    }
+    if (const grove::Node* n = with_attribute(e.target, "data-compiler-copy")) {
+        copy_compiler_section(n->attribute_or("data-compiler-copy", ""));
         return;
     }
     if (const grove::Node* n = with_attribute(e.target, "data-language")) {

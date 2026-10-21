@@ -1162,12 +1162,17 @@ void GitPanel::show_commit(const std::string& hash) {
 }
 
 void GitPanel::ask_text(const std::string& title, const std::string& message, const std::string& value, std::function<void(const std::string&)> then, std::function<void()> cancel) {
+    ask_input(title, message, "string", value, {}, std::move(then), std::move(cancel));
+}
+
+void GitPanel::ask_input(const std::string& title, const std::string& message, const std::string& input, const std::string& value, const std::vector<std::string>& choices, std::function<void(const std::string&)> then, std::function<void()> cancel) {
     grove::PopupOptions options;
     options.kind = "question";
     options.title = title;
     options.message = message;
-    options.input = "string";
+    options.input = input;
     options.value = value;
+    options.options = choices;
     grove::Node* popup = grove::create_popup(m_doc, nullptr, options);
     if (!popup) {
         if (cancel) cancel();
@@ -1268,22 +1273,34 @@ void GitPanel::ask_task_value(std::shared_ptr<TaskRun> run, std::size_t index) {
         });
         return;
     }
-    const TaskAsk& ask = run->task.asks[index];
-    const std::map<std::string, std::string> values = task_values(run->task, run->context);
-    std::string value = substitute(ask.value, values);
+    const TaskAsk ask = run->task.asks[index];
+    const grove::bark::Values values = task_scope(run->task, run->context);
+    std::string value = grove::bark::interpolate(ask.value, values);
+    const std::string fallback = value;
     if (ask.name == "message") {
         run->used_message = true;
         if (value.empty()) value = message_text();
     }
-    const std::string name = ask.name;
-    ask_text(run->task.title(), ask.prompt, value, [this, run, index, name](const std::string& answer_in) {
-        const std::string answer = trim(answer_in);
-        if (answer.empty() && name == "message") {
-            set_state("A commit message is needed");
+    const std::string input = task_ask_input(ask);
+    std::vector<std::string> options;
+    if (input == "choice") {
+        options = ask.choices;
+        if (std::find(options.begin(), options.end(), value) == options.end() && !options.empty()) value = options.front();
+    } else if (input == "integer" || input == "float") {
+        if (!ask.min.empty() || !ask.max.empty()) options = { ask.min, ask.max };
+    } else if (input == "bool") {
+        value = value == "true" || value == "yes" || value == "on" || value == "1" ? "true" : "false";
+    }
+    std::string prompt = ask.prompt;
+    if (!fallback.empty() && !ask.required && input == "string") prompt += "\n\nLeave it empty for " + fallback + ".";
+    ask_input(run->task.title(), prompt, input, value, options, [this, run, index, ask, fallback](const std::string& answer_in) {
+        const TaskAnswer answer = check_task_answer(ask, answer_in, fallback);
+        if (!answer.ok) {
+            set_state(answer.problem);
             ask_task_value(run, index);
             return;
         }
-        run->context.values[name] = answer;
+        run->context.values[ask.name] = answer.value;
         ask_task_value(run, index + 1);
     }, [run] {
         if (run->done) run->done(false);

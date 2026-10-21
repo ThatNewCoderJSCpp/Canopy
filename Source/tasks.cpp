@@ -4,6 +4,7 @@
 #include "canopy/settings.hpp"
 #include "canopy/workspace.hpp"
 
+#include <grove/bark/actions.hpp>
 #include <grove/bark/parser.hpp>
 #include <grove/bark/stylesheet.hpp>
 
@@ -12,6 +13,9 @@
 #include <ctime>
 #include <algorithm>
 #include <filesystem>
+#include <initializer_list>
+#include <memory>
+#include <set>
 #include <regex>
 
 namespace fs = std::filesystem;
@@ -21,37 +25,15 @@ namespace canopy {
 namespace {
 
 std::string value_text(const grove::bark::Value& v) {
-    if (v.is_string() || v.is_ident()) return v.text;
-    if (v.is_number()) {
-        if (std::floor(v.number) == v.number && std::fabs(v.number) < 1e15) return std::to_string(static_cast<long long>(v.number)) + v.unit;
-        return grove::bark::to_string(v);
-    }
-    return grove::bark::to_string(v);
+    return grove::bark::text_of(v);
 }
 
 std::vector<std::string> value_texts(const grove::bark::ValueList& values) {
-    std::vector<std::string> out;
-    for (const grove::bark::Value& v : values) out.push_back(value_text(v));
-    return out;
+    return grove::bark::texts_of(values);
 }
 
 std::string joined_command(const grove::bark::ValueList& values) {
-    if (values.size() == 1) return value_text(values.front());
-    std::string out;
-    for (const grove::bark::Value& v : values) {
-        std::string t = value_text(v);
-        if (v.is_string() && (t.empty() || t.find_first_of(" \t\"'") != std::string::npos)) {
-            std::string q = "\"";
-            for (char c : t) {
-                if (c == '"' || c == '\\') q += '\\';
-                q += c;
-            }
-            t = q + "\"";
-        }
-        if (!out.empty()) out += ' ';
-        out += t;
-    }
-    return out;
+    return grove::bark::joined_text(values);
 }
 
 std::string trim(const std::string& s) {
@@ -101,24 +83,88 @@ std::string today() {
 
 template <typename Wrap>
 std::string substitute_with(const std::string& text, const std::map<std::string, std::string>& values, Wrap&& wrap) {
-    std::string out;
-    std::size_t i = 0;
-    while (i < text.size()) {
-        if (text[i] == '{') {
-            const std::size_t close = text.find('}', i + 1);
-            if (close != std::string::npos) {
-                const std::string name = text.substr(i + 1, close - i - 1);
-                const auto it = values.find(name);
-                if (it != values.end()) {
-                    out += wrap(it->second);
-                    i = close + 1;
-                    continue;
-                }
-            }
-        }
-        out += text[i++];
+    return grove::bark::interpolate_with(text, [&values](const std::string& name) -> std::optional<std::string> {
+        const auto it = values.find(name);
+        if (it == values.end()) return std::nullopt;
+        return it->second;
+    }, [&wrap](const std::string& v) { return wrap(v); }).text;
+}
+
+bool is_word(const grove::bark::Value& v, std::initializer_list<const char*> words) {
+    if (!v.is_ident()) return false;
+    for (const char* w : words) {
+        if (v.text == w) return true;
     }
-    return out;
+    return false;
+}
+
+std::string ask_type(const std::string& word) {
+    if (word == "integer" || word == "int" || word == "whole") return "integer";
+    if (word == "number" || word == "float") return "number";
+    if (word == "bool" || word == "boolean" || word == "yes-no" || word == "switch") return "bool";
+    if (word == "choice") return "choice";
+    return "text";
+}
+
+bool whole_number(double n) {
+    return std::floor(n) == n && std::fabs(n) < 1e15;
+}
+
+TaskAsk parse_ask(const grove::bark::ValueList& values, std::vector<std::string>& problems, const std::string& where) {
+    TaskAsk ask;
+    ask.name = value_text(values.front());
+    bool typed = false;
+    std::size_t positional = 0;
+    for (std::size_t i = 1; i < values.size(); ++i) {
+        const grove::bark::Value& v = values[i];
+        if (v.is_function() && (v.text == "range" || v.text == "between")) {
+            std::vector<std::string> bounds;
+            for (const grove::bark::Value& a : v.args) {
+                if (!a.is_ident(",")) bounds.push_back(value_text(a));
+            }
+            if (bounds.size() != 2) {
+                problems.push_back(where + ": range needs a smallest and a largest value, like range(1, 64)");
+                continue;
+            }
+            ask.min = bounds[0];
+            ask.max = bounds[1];
+            if (!typed) ask.type = "integer";
+            continue;
+        }
+        if (v.is_function() && (v.text == "choice" || v.text == "one-of")) {
+            for (const grove::bark::Value& a : v.args) {
+                if (!a.is_ident(",")) ask.choices.push_back(value_text(a));
+            }
+            ask.type = "choice";
+            typed = true;
+            continue;
+        }
+        if (is_word(v, { "text", "string", "integer", "int", "whole", "number", "float", "bool", "boolean", "yes-no", "switch" })) {
+            ask.type = ask_type(v.text);
+            typed = true;
+            continue;
+        }
+        if (is_word(v, { "required" })) {
+            ask.required = true;
+            continue;
+        }
+        if (is_word(v, { "optional" })) {
+            ask.required = false;
+            continue;
+        }
+        if (positional == 0) {
+            ask.prompt = value_text(v);
+        } else if (positional == 1) {
+            ask.value = value_text(v);
+            if (!typed && v.is_number() && v.unit.empty()) ask.type = whole_number(v.number) ? "integer" : "number";
+        } else {
+            problems.push_back(where + ": ask takes a name, a prompt and a default; '" + value_text(v) + "' is extra");
+        }
+        ++positional;
+    }
+    if (ask.prompt.empty()) ask.prompt = ask.name;
+    if (ask.type == "choice" && ask.choices.empty()) problems.push_back(where + ": a choice ask needs choice(\"one\", \"two\")");
+    return ask;
 }
 
 } // namespace
@@ -172,7 +218,7 @@ bool keep_local_tasks_out_of_git(const std::string& workspace_root) {
 }
 
 std::string tasks_template() {
-    return R"(release {
+    return R"bark(release {
     label: "Release";
     description: "Commit dev, fast-forward main, tag the version and push everything";
     ask: message "Commit message";
@@ -202,10 +248,11 @@ commit {
 cmake {
     label: "CMake Build";
     description: "Configure and build with CMake";
+    ask: jobs "Parallel jobs (-j)" 8 range(1, 256);
     run: "cmake -S . -B build -DCMAKE_BUILD_TYPE=Release";
-    run: "cmake --build build -j";
+    run: "cmake --build build -j {jobs}";
 }
-)";
+)bark";
 }
 
 TaskHook parse_task_hook(const std::string& text) {
@@ -225,6 +272,107 @@ std::string task_hook_name(TaskHook hook) {
     return "none";
 }
 
+const grove::bark::Actions& task_actions() {
+    static const grove::bark::Actions actions = [] {
+        grove::bark::Actions a;
+        a.setting("label", 1, 1, "the name on the task's button");
+        a.setting("description", 1, 1, "what the task does, shown under its name");
+        a.setting("confirm", 1, 1, "a question to answer before the steps run");
+        a.setting("version-file", 1, 1, "the file {version} is read from");
+        a.setting("cwd", 1, 1, "the folder the steps run in");
+        a.setting("on-build", 1, 1, "before, after or instead of Build");
+        a.setting("on-run", 1, 1, "before, after or instead of Run");
+        a.setting("keep-going", 1, 1, "true keeps going after a step fails");
+        grove::bark::ActionInfo ask;
+        ask.name = "ask";
+        ask.summary = "ask: name \"Prompt\" default; asks for a value before the steps run";
+        ask.min_args = 1;
+        ask.interpolate = false;
+        a.add(ask, {});
+        grove::bark::ActionInfo run;
+        run.name = "run";
+        run.summary = "run: \"command\"; runs a program";
+        run.min_args = 1;
+        a.add(run, {});
+        run.name = "try";
+        run.summary = "try: \"command\"; runs a program, and a failure doesn't stop the task";
+        a.add(run, {});
+        grove::bark::ActionInfo shell;
+        shell.name = "shell";
+        shell.summary = "shell: \"command\"; runs a line in the system shell";
+        shell.min_args = 1;
+        shell.max_args = 1;
+        a.add(shell, {});
+        grove::bark::ActionInfo version;
+        version.name = "set-version";
+        version.summary = "set-version: \"file\"; writes {version} into the file";
+        a.add(version, {});
+        grove::bark::ActionInfo set;
+        set.name = "set";
+        set.summary = "set: name value; gives a value a name for the task";
+        set.min_args = 1;
+        a.add(set, {});
+        set.name = "default";
+        set.summary = "default: name value; like set, unless an ask or $variable already gives it a value";
+        a.add(set, {});
+        return a;
+    }();
+    return actions;
+}
+
+std::vector<std::string> task_builtin_values() {
+    return { "root", "branch", "date", "file", "file-dir", "file-name", "file-stem", "current-version", "next-patch", "next-minor", "next-major", "version" };
+}
+
+std::string task_ask_input(const TaskAsk& ask) {
+    if (ask.type == "integer") return "integer";
+    if (ask.type == "number") return "float";
+    if (ask.type == "bool") return "bool";
+    if (ask.type == "choice") return "choice";
+    return "string";
+}
+
+TaskAnswer check_task_answer(const TaskAsk& ask, const std::string& answer_in, const std::string& fallback) {
+    TaskAnswer out;
+    std::string answer = trim(answer_in);
+    if (answer.empty()) answer = trim(fallback);
+    if (answer.empty() && (ask.required || ask.name == "message")) {
+        out.ok = false;
+        out.problem = (ask.name == "message" ? std::string("A commit message") : ask.prompt) + " is needed";
+        return out;
+    }
+    if (ask.type == "integer" || ask.type == "number") {
+        if (answer.empty()) {
+            out.value = answer;
+            return out;
+        }
+        char* end = nullptr;
+        const double n = std::strtod(answer.c_str(), &end);
+        const bool parsed = end && *end == '\0' && end != answer.c_str();
+        if (!parsed || (ask.type == "integer" && !whole_number(n))) {
+            out.ok = false;
+            out.problem = ask.prompt + " needs " + (ask.type == "integer" ? "a whole number" : "a number") + ", not '" + answer + "'";
+            return out;
+        }
+        const double lo = ask.min.empty() ? -1e300 : std::strtod(ask.min.c_str(), nullptr);
+        const double hi = ask.max.empty() ? 1e300 : std::strtod(ask.max.c_str(), nullptr);
+        if (n < lo || n > hi) {
+            out.ok = false;
+            out.problem = ask.prompt + " goes from " + (ask.min.empty() ? std::string("any") : ask.min) + " to " + (ask.max.empty() ? std::string("any") : ask.max);
+            return out;
+        }
+        out.value = ask.type == "integer" ? std::to_string(static_cast<long long>(n)) : answer;
+        return out;
+    }
+    if (ask.type == "choice" && !ask.choices.empty() && std::find(ask.choices.begin(), ask.choices.end(), answer) == ask.choices.end()) {
+        out.ok = false;
+        out.problem = ask.prompt + " is one of " + command_line(ask.choices);
+        return out;
+    }
+    out.value = answer;
+    return out;
+}
+
 TaskFile parse_tasks(const std::string& text, const std::string& path) {
     TaskFile file;
     file.path = path;
@@ -235,29 +383,42 @@ TaskFile parse_tasks(const std::string& text, const std::string& path) {
         if (d.severity != grove::Severity::Error) continue;
         file.problems.push_back("line " + std::to_string(d.span.begin.line) + ": " + d.message);
     }
+    std::map<std::string, std::string> variables;
+    for (const auto& [name, list] : sheet.variables()) variables[name] = grove::bark::joined_text(list);
+    const grove::bark::Actions& actions = task_actions();
     for (const grove::bark::Rule& rule : sheet.rules()) {
+        std::vector<grove::bark::ActionProblem> rule_problems = actions.check(rule);
         for (const grove::bark::Selector& selector : rule.selectors) {
             Task task;
             task.id = selector.to_string();
             task.line = selector.span.begin.line;
+            task.variables = variables;
+            for (const grove::bark::ActionProblem& problem : rule_problems) {
+                file.problems.push_back(task.id + " (line " + std::to_string(problem.span.begin.line) + "): " + problem.message);
+            }
+            std::set<std::string> said;
             for (const grove::bark::Declaration& d : rule.declarations) {
+                if (!actions.has(d.property)) continue;
                 const std::vector<std::string> parts = value_texts(d.values);
                 const std::string first = parts.empty() ? std::string() : parts.front();
                 const std::string where = task.id + " (line " + std::to_string(d.span.begin.line) + ")";
+                const bool repeat = actions.is_setting(d.property) && !said.insert(d.property).second;
+                if (repeat) continue;
                 if (d.property == "label") {
                     task.label = first;
                 } else if (d.property == "description") {
                     task.description = first;
                 } else if (d.property == "ask") {
-                    if (parts.empty()) {
-                        file.problems.push_back(where + ": ask needs a name");
-                        continue;
-                    }
-                    TaskAsk ask;
-                    ask.name = parts[0];
-                    ask.prompt = parts.size() > 1 ? parts[1] : parts[0];
-                    ask.value = parts.size() > 2 ? parts[2] : std::string();
-                    task.asks.push_back(std::move(ask));
+                    if (parts.empty()) continue;
+                    task.asks.push_back(parse_ask(d.values, file.problems, where));
+                } else if (d.property == "set" || d.property == "default") {
+                    if (parts.empty()) continue;
+                    TaskSet set;
+                    set.name = parts[0];
+                    set.only_default = d.property == "default";
+                    grove::bark::ValueList rest(d.values.begin() + 1, d.values.end());
+                    set.value = rest.empty() ? std::string() : grove::bark::joined_text(rest);
+                    task.sets.push_back(std::move(set));
                 } else if (d.property == "confirm") {
                     task.confirm = first;
                 } else if (d.property == "run" || d.property == "try") {
@@ -283,8 +444,26 @@ TaskFile parse_tasks(const std::string& text, const std::string& path) {
                     if (task.on_run == TaskHook::None && first != "none") file.problems.push_back(where + ": on-run is before, after or instead");
                 } else if (d.property == "keep-going") {
                     task.keep_going = truthy(first);
-                } else {
-                    file.problems.push_back(where + ": unknown task property '" + d.property + "'");
+                }
+            }
+            std::set<std::string> known;
+            for (const std::string& n : task_builtin_values()) known.insert(n);
+            for (const auto& [name, value] : task.variables) known.insert(name);
+            for (const TaskAsk& a : task.asks) known.insert(a.name);
+            for (const TaskSet& s : task.sets) known.insert(s.name);
+            std::vector<std::string> texts = { task.label, task.description, task.confirm, task.cwd, task.version_file };
+            for (const TaskAsk& a : task.asks) texts.push_back(a.value);
+            for (const TaskSet& s : task.sets) texts.push_back(s.value);
+            for (const TaskStep& s : task.steps) texts.push_back(s.text);
+            std::set<std::string> reported;
+            for (const std::string& t : texts) {
+                const grove::bark::Interpolation result = grove::bark::interpolate_with(t, [&known](const std::string& name) -> std::optional<std::string> {
+                    if (known.count(name)) return std::string();
+                    return std::nullopt;
+                });
+                for (const std::string& name : result.unknown) {
+                    if (!reported.insert(name).second) continue;
+                    file.problems.push_back(task.id + " (line " + std::to_string(task.line) + "): {" + name + "} isn't set by an ask, set, $variable or Canopy, so it stays as typed (write {" + name + ":value} to give it a default)");
                 }
             }
             file.tasks.push_back(std::move(task));
@@ -460,28 +639,44 @@ std::optional<std::string> current_version(const Task& task, const std::string& 
     return find_version(*text);
 }
 
-std::map<std::string, std::string> task_values(const Task& task, const TaskContext& context) {
-    std::map<std::string, std::string> v;
-    v["root"] = context.root;
-    v["branch"] = context.branch;
-    v["date"] = today();
-    v["file"] = context.file;
+grove::bark::Values task_scope(const Task& task, const TaskContext& context) {
+    grove::bark::Values v;
+    v.set("root", context.root);
+    v.set("branch", context.branch);
+    v.provide("date", [] { return today(); });
+    v.set("file", context.file);
     if (!context.file.empty()) {
         const fs::path p(context.file);
-        v["file-dir"] = p.parent_path().string();
-        v["file-name"] = p.filename().string();
-        v["file-stem"] = p.stem().string();
+        v.set("file-dir", p.parent_path().string());
+        v.set("file-name", p.filename().string());
+        v.set("file-stem", p.stem().string());
     } else {
-        v["file-dir"] = v["file-name"] = v["file-stem"] = std::string();
+        v.set("file-dir", std::string());
+        v.set("file-name", std::string());
+        v.set("file-stem", std::string());
     }
-    const std::string version = current_version(task, context.root).value_or("0.0.0");
-    v["current-version"] = version;
-    v["next-patch"] = bump_version(version, "patch");
-    v["next-minor"] = bump_version(version, "minor");
-    v["next-major"] = bump_version(version, "major");
-    v["version"] = version;
-    for (const auto& [key, value] : context.values) v[key] = value;
+    auto version = std::make_shared<std::optional<std::string>>();
+    auto current = [version, task, root = context.root]() {
+        if (!*version) *version = current_version(task, root).value_or("0.0.0");
+        return **version;
+    };
+    v.provide("current-version", current);
+    v.provide("next-patch", [current] { return bump_version(current(), "patch"); });
+    v.provide("next-minor", [current] { return bump_version(current(), "minor"); });
+    v.provide("next-major", [current] { return bump_version(current(), "major"); });
+    v.provide("version", current);
+    for (const auto& [name, value] : task.variables) v.set(name, value);
+    for (const auto& [key, value] : context.values) v.set(key, value);
+    for (const TaskSet& s : task.sets) {
+        if (context.values.count(s.name)) continue;
+        if (s.only_default && (task.variables.count(s.name) || context.values.count(s.name))) continue;
+        v.set(s.name, grove::bark::interpolate(s.value, v));
+    }
     return v;
+}
+
+std::map<std::string, std::string> task_values(const Task& task, const TaskContext& context) {
+    return task_scope(task, context).resolved();
 }
 
 std::vector<CommandBatch::Step> task_steps(const Task& task, const TaskContext& context) {

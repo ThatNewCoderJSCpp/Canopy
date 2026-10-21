@@ -500,6 +500,82 @@ terminal.terminal-view {
     background: $line;
 }
 
+.settings-nav-subs {
+    flex: 0 1 auto;
+    overflow: auto;
+    padding: 2px 0 6px 0;
+}
+
+.settings-nav-sub {
+    margin: 0;
+    padding: 3px 16px 3px 30px;
+    font-size: 12px;
+    cursor: pointer;
+    color: $muted;
+
+    &:hover {
+        background: $hover;
+        color: $text;
+    }
+}
+
+.settings-nav-sub.active {
+    color: $accent;
+}
+
+.fold {
+    border-color: $line;
+    border-width: 1px;
+    border-radius: 6px;
+    margin: 0 0 6px 0;
+}
+
+.fold.open {
+    border-color: $accent;
+}
+
+.fold-head {
+    user-select: none;
+    cursor: pointer;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 12px;
+
+    &:hover {
+        background: $hover;
+    }
+}
+
+.fold-arrow {
+    color: $muted;
+    width: 12px;
+}
+
+.fold-title {
+    color: $text;
+    font-weight: bold;
+}
+
+.fold-summary {
+    color: $muted;
+    font-size: 12px;
+}
+
+.fold-body {
+    padding: 4px 14px 14px 14px;
+}
+
+.hl-section-actions {
+    gap: 8px;
+    margin: 4px 0 10px 0;
+
+    button {
+        margin: 0;
+        padding: 3px 12px;
+        font-size: 12px;
+    }
+}
+
 .settings-nav-spacer {
     flex: 1;
 }
@@ -1046,6 +1122,12 @@ input_code.dump {
 
 .md-preview {
     width: 50%;
+}
+
+.math-block {
+    padding: 10px 4px;
+    margin: 0 0 6px 0;
+    font-size: 20px;
 }
 
 .md-body {

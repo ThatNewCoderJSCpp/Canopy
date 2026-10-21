@@ -166,6 +166,7 @@ private:
     void discard_all();
     void ask_text(const std::string& title, const std::string& message, const std::string& value, std::function<void(const std::string&)> then, std::function<void()> cancel = {});
     void ask_choice(const std::string& title, const std::string& message, const std::vector<std::string>& options, std::function<void(const std::string&)> then);
+    void ask_input(const std::string& title, const std::string& message, const std::string& input, const std::string& value, const std::vector<std::string>& options, std::function<void(const std::string&)> then, std::function<void()> cancel = {});
     void confirm(const std::string& title, const std::string& message, std::function<void()> then, std::function<void()> cancel = {});
     void confirm_typed(const std::string& title, const std::string& message, const std::string& word, std::function<void()> then);
     bool protected_branch(const std::string& name) const;

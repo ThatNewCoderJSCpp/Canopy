@@ -3,6 +3,8 @@
 
 #include "git.hpp"
 
+#include <grove/bark/actions.hpp>
+
 #include <map>
 #include <optional>
 #include <string>
@@ -14,6 +16,23 @@ struct TaskAsk {
     std::string name;
     std::string prompt;
     std::string value;
+    std::string type = "text";
+    bool required = false;
+    std::string min;
+    std::string max;
+    std::vector<std::string> choices;
+};
+
+struct TaskSet {
+    std::string name;
+    std::string value;
+    bool only_default = false;
+};
+
+struct TaskAnswer {
+    bool ok = true;
+    std::string value;
+    std::string problem;
 };
 
 struct TaskStep {
@@ -40,6 +59,8 @@ struct Task {
     std::string label;
     std::string description;
     std::vector<TaskAsk> asks;
+    std::vector<TaskSet> sets;
+    std::map<std::string, std::string> variables;
     std::string confirm;
     std::vector<TaskStep> steps;
     std::string version_file;
@@ -95,6 +116,11 @@ std::string task_version_file(const Task& task, const std::string& root);
 std::optional<std::string> current_version(const Task& task, const std::string& root);
 
 std::map<std::string, std::string> task_values(const Task& task, const TaskContext& context);
+grove::bark::Values task_scope(const Task& task, const TaskContext& context);
+std::vector<std::string> task_builtin_values();
+const grove::bark::Actions& task_actions();
+std::string task_ask_input(const TaskAsk& ask);
+TaskAnswer check_task_answer(const TaskAsk& ask, const std::string& answer, const std::string& fallback);
 std::string task_folder(const Task& task, const std::string& root);
 std::vector<CommandBatch::Step> task_steps(const Task& task, const TaskContext& context);
 std::string task_summary(const Task& task);

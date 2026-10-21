@@ -1464,6 +1464,82 @@ std::size_t column_after(const std::string& text, std::size_t line, const std::s
     return row.find(marker) + marker.size();
 }
 
+void test_task_values() {
+    const canopy::TaskFile tf = canopy::parse_tasks(canopy::tasks_template(), "tasks.bark");
+    const canopy::Task* cmake = tf.find("cmake");
+    check(cmake != nullptr, "the template has a cmake task");
+    if (cmake) {
+        check(cmake->asks.size() == 1 && cmake->asks[0].name == "jobs" && cmake->asks[0].type == "integer" && cmake->asks[0].value == "8" && cmake->asks[0].min == "1" && cmake->asks[0].max == "256", "the cmake task asks for jobs, 8 by default");
+        canopy::TaskContext ctx;
+        ctx.root = "/tmp";
+        ctx.values["jobs"] = "32";
+        const std::vector<canopy::CommandBatch::Step> steps = canopy::task_steps(*cmake, ctx);
+        check(steps.size() == 2 && steps[1].command == std::vector<std::string>{ "cmake", "--build", "build", "-j", "32" }, "the jobs answer goes after -j");
+        check(canopy::task_ask_input(cmake->asks[0]) == "integer", "an integer ask uses a number box");
+        const canopy::TaskAnswer blank = canopy::check_task_answer(cmake->asks[0], "  ", "8");
+        check(blank.ok && blank.value == "8", "an empty answer takes the default");
+        check(!canopy::check_task_answer(cmake->asks[0], "four", "8").ok, "words aren't a whole number");
+        check(!canopy::check_task_answer(cmake->asks[0], "2.5", "8").ok, "fractions aren't a whole number");
+        check(!canopy::check_task_answer(cmake->asks[0], "999", "8").ok, "answers past the range are refused");
+        check(canopy::check_task_answer(cmake->asks[0], "16", "8").value == "16", "a whole number in range is kept");
+    }
+
+    const canopy::TaskFile typed = canopy::parse_tasks(
+        "$remote = \"origin\";\n"
+        "$jobs = 4;\n"
+        "ship {\n"
+        "    ask: mode \"Build type\" choice(\"Release\", \"Debug\");\n"
+        "    ask: notes \"Notes\" required;\n"
+        "    ask: ratio number \"Ratio\" 0.5;\n"
+        "    ask: fast \"Fast?\" bool \"yes\";\n"
+        "    set: tag \"v{version}-{mode}\";\n"
+        "    default: jobs 2;\n"
+        "    default: level 3;\n"
+        "    run: \"git push {remote} {tag}\";\n"
+        "    run: \"make -j {jobs} -O{level} {missing:none}\";\n"
+        "    shell: \"echo ${HOME} {{braces}}\";\n"
+        "    set-version;\n"
+        "}\n"
+        "oops {\n"
+        "    run: \"echo {verison}\";\n"
+        "    label: \"a\";\n"
+        "    label: \"b\";\n"
+        "}\n", "t.bark");
+    const canopy::Task* ship = typed.find("ship");
+    check(ship != nullptr && ship->asks.size() == 4, "typed asks parse");
+    if (ship && ship->asks.size() == 4) {
+        check(ship->asks[0].type == "choice" && ship->asks[0].choices == std::vector<std::string>{ "Release", "Debug" }, "choice() lists the answers");
+        check(ship->asks[1].required && ship->asks[1].type == "text", "required asks");
+        check(ship->asks[2].type == "number" && ship->asks[2].value == "0.5", "number asks");
+        check(ship->asks[3].type == "bool" && canopy::task_ask_input(ship->asks[3]) == "bool", "bool asks");
+        check(!canopy::check_task_answer(ship->asks[1], "", "").ok, "a required ask needs an answer");
+        check(!canopy::check_task_answer(ship->asks[0], "Fast", "Release").ok, "a choice must be one of its answers");
+        check(ship->steps.size() == 4 && ship->steps[3].kind == canopy::TaskStep::Kind::SetVersion, "a bare set-version; is a step");
+        canopy::TaskContext ctx;
+        ctx.root = "/tmp/canopy-no-such-folder";
+        ctx.values["mode"] = "Debug";
+        const std::map<std::string, std::string> values = canopy::task_values(*ship, ctx);
+        check(values.at("remote") == "origin" && values.at("jobs") == "4" && values.at("level") == "3", "$variables are values, and default: doesn't replace them");
+        check(values.at("tag") == "v0.0.0-Debug", "set: fills in placeholders from asks and Canopy");
+        const std::vector<canopy::CommandBatch::Step> steps = canopy::task_steps(*ship, ctx);
+        check(steps.size() == 4 && steps[0].command == std::vector<std::string>{ "git", "push", "origin", "v0.0.0-Debug" }, "values reach the commands");
+        check(steps.size() == 4 && steps[1].command == std::vector<std::string>{ "make", "-j", "4", "-O3", "none" }, "fallbacks fill unknown values");
+        check(steps.size() == 4 && steps[2].shell == "echo ${HOME} {braces}", "shell variables and doubled braces stay");
+    }
+    bool typo = false;
+    bool twice = false;
+    for (const std::string& p : typed.problems) {
+        if (p.find("{verison}") != std::string::npos) typo = true;
+        if (p.find("label is set more than once") != std::string::npos) twice = true;
+    }
+    check(typo, "a placeholder nothing sets is reported");
+    check(twice, "a setting given twice is reported");
+    check(typed.problems.size() == 2, "nothing else is reported");
+    const canopy::Task* oops = typed.find("oops");
+    check(oops && oops->label == "a", "the first of a repeated setting is used");
+    check(canopy::task_actions().has("ask") && canopy::task_actions().is_setting("label"), "tasks describe their properties to Bark");
+}
+
 void test_personal_tasks() {
     namespace fs = std::filesystem;
     const fs::path dir = fs::temp_directory_path() / "canopy-personal-tasks";
@@ -1602,7 +1678,11 @@ void test_more_language_builds() {
     p = plan(dir / "start.asm");
     check(p.ok() && p.command[0] == "/bin/nasm" && p.more_steps.size() == 1, "NASM assembles, then links");
     p = plan(dir / "main.s");
-    check(p.ok() && p.command[0] == "/usr/bin/gcc" && p.note.find("GAS") != std::string::npos, "GAS code builds with the C compiler");
+    if (canopy::host_arch() == canopy::AsmArch::X86_64) {
+        check(p.ok() && p.command[0] == "/usr/bin/gcc" && p.note.find("GAS") != std::string::npos, "GAS code builds with the C compiler");
+    } else {
+        check(p.note.find("GAS") != std::string::npos && (!p.ok() || p.command[0] != "/usr/bin/gcc"), "x86-64 GAS code on another CPU needs a cross compiler instead of the C compiler: " + p.error);
+    }
 #if defined(__x86_64__) || defined(_M_X64)
     p = plan(dir / "arm.s");
     check(!p.ok() && p.error.find("ARM64") != std::string::npos, "ARM64 code on x86-64 needs a cross compiler: " + p.error);
@@ -1948,6 +2028,7 @@ int main() {
     test_literal_hovers();
     test_web_completion();
     test_personal_tasks();
+    test_task_values();
     test_github_auth();
     test_run_stats();
     test_walnut_safety_settings();

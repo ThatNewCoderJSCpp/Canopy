@@ -103,6 +103,15 @@ private:
     void viewer_tool_row(grove::Node& body, const std::string& key, const std::string& label, const std::string& kinds);
     void theme_cards(grove::Node& body);
     void color_row(grove::Node& list, const std::string& kind);
+    grove::Node* fold(grove::Node& body, const std::string& group, const std::string& id, const std::string& label, const std::string& summary, bool open);
+    void open_fold(const std::string& group, const std::string& id);
+    void highlight_language_section(grove::Node& content, const std::string& language);
+    void compiler_section(grove::Node& content, const std::string& id);
+    bool section_dirty(const std::string& section) const;
+    void apply_section(const std::string& section);
+    void discard_section(const std::string& section);
+    void copy_section(const std::string& language);
+    void copy_compiler_section(const std::string& id);
 
     void on_click(grove::Event& e);
     void on_change(grove::Event& e);
@@ -141,7 +150,10 @@ private:
     std::string m_body_page;
     grove::Node* m_preview = nullptr;
     std::string m_page = "editor";
-    std::string m_language = "cpp";
+    std::string m_language;
+    std::string m_open_compiler;
+    int m_reveal = 0;
+    std::string m_reveal_target;
     std::string m_marked;
     std::string m_picked;
     bool m_pending = false;

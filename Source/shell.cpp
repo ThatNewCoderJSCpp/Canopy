@@ -632,9 +632,9 @@ public:
         if (!editors || !m_doc.find_by_id("tabs")) return false;
         grove::Node* host = editors;
         grove::Node* view = nullptr;
-        if (kind == ViewerKind::Latex || kind == ViewerKind::Markdown) {
+        if (kind == ViewerKind::Latex || kind == ViewerKind::Markdown || kind == ViewerKind::Math) {
             view = m_doc.create_element("row");
-            view->set_attribute("class", kind == ViewerKind::Markdown ? "tex-split md-split hidden" : "tex-split hidden");
+            view->set_attribute("class", kind == ViewerKind::Markdown || kind == ViewerKind::Math ? "tex-split md-split hidden" : "tex-split hidden");
             m_doc.append_child(*editors, *view);
             host = view;
         }
@@ -656,6 +656,14 @@ public:
             v.collapsed = !m_ws.settings.flag("viewer", "latex-preview", true);
             render_viewer(path);
             if (!v.collapsed) start_latex(path);
+        }
+        if (kind == ViewerKind::Math) {
+            Viewer& v = m_viewers[path];
+            v.kind = ViewerKind::Math;
+            v.root = add(m_doc, *view, "column", "", "viewer tex-preview md-preview math-preview");
+            v.root->set_attribute("data-viewer", path);
+            v.collapsed = !m_ws.settings.flag("viewer", "math-preview", true);
+            render_viewer(path);
         }
         if (kind == ViewerKind::Markdown) {
             Viewer& v = m_viewers[path];
@@ -1132,7 +1140,7 @@ private:
         set_dirty(*f, grove::input_string(*f->editor).value_or("") != f->saved);
         if (f->dirty) pin(*f);
         schedule_semantic(f->path, 0.35);
-        if (f->kind == ViewerKind::Markdown) m_markdown_due[f->path] = now_seconds() + 0.15;
+        if (f->kind == ViewerKind::Markdown || f->kind == ViewerKind::Math) m_markdown_due[f->path] = now_seconds() + 0.15;
     }
 
     const std::vector<ShortcutBinding>& bindings() {
@@ -2916,6 +2924,7 @@ private:
                 else if (f->kind == ViewerKind::Binary) label = "Binary";
                 else if (f->kind == ViewerKind::Latex) label = "LaTeX";
                 else if (f->kind == ViewerKind::Markdown) label = "Markdown";
+                else if (f->kind == ViewerKind::Math) label = is_brace_math_path(f->path) ? "MathText (brace)" : "MathText";
                 if (!f->editor) set_text(m_doc, "status-cursor", "");
             }
             set_text(m_doc, "status-language", label);
@@ -3778,7 +3787,7 @@ private:
             f->saved = text;
             set_dirty(*f, false);
             schedule_semantic(f->path, 0.0);
-            if (f->kind == ViewerKind::Markdown) m_markdown_due[f->path] = now_seconds();
+            if (f->kind == ViewerKind::Markdown || f->kind == ViewerKind::Math) m_markdown_due[f->path] = now_seconds();
         }
         for (const auto& s : m_servers) s->changed(path);
         m_doc.touch();
@@ -3793,7 +3802,7 @@ private:
             f.editor->set_attribute("value", *text);
             f.saved = *text;
             schedule_semantic(f.path, 0.0);
-            if (f.kind == ViewerKind::Markdown) m_markdown_due[f.path] = now_seconds();
+            if (f.kind == ViewerKind::Markdown || f.kind == ViewerKind::Math) m_markdown_due[f.path] = now_seconds();
         }
         refresh_explorer();
         m_doc.touch();
@@ -5018,6 +5027,7 @@ private:
         if (v.kind == ViewerKind::Image) render_image(path, v);
         else if (v.kind == ViewerKind::Binary) render_binary(path, v);
         else if (v.kind == ViewerKind::Markdown) render_markdown(path, v);
+        else if (v.kind == ViewerKind::Math) render_math(path, v);
         else render_pages(path, v);
         m_doc.touch();
     }
@@ -5119,6 +5129,50 @@ private:
         }
     }
 
+    void render_math(const std::string& path, Viewer& v) {
+        if (v.collapsed) {
+            v.body = nullptr;
+            grove::add_class(m_doc, *v.root, "collapsed");
+            grove::Node* show = view_button(*v.root, "\xE2\x80\xB9", "toggle-preview", "Show the preview");
+            grove::add_class(m_doc, *show, "show-preview");
+            return;
+        }
+        grove::remove_class(m_doc, *v.root, "collapsed");
+        grove::Node* bar = viewer_bar(v, "Preview", is_brace_math_path(path) ? "MathText, brace form" : "MathText");
+        add(m_doc, *bar, "div", "", "viewer-gap");
+        view_button(*bar, "\xE2\x80\xBA", "toggle-preview", "Hide the preview");
+        v.body = add(m_doc, *v.root, "column", "", "viewer-body md-body math-body");
+        v.md_text.clear();
+        v.md_nodes.clear();
+        fill_math(path, v);
+    }
+
+    void fill_math(const std::string& path, Viewer& v) {
+        if (!v.body) return;
+        const OpenFile* f = find_file(path);
+        const std::string text = f && f->editor ? grove::input_string(*f->editor).value_or("") : read_text_file(path).value_or("");
+        if (text == v.md_text && !v.body->children().empty()) return;
+        v.md_text = text;
+        clear(m_doc, *v.body);
+        v.md_nodes.clear();
+        const std::vector<std::string> blocks = math_blocks(text);
+        if (blocks.empty()) {
+            add(m_doc, *v.body, "p", "Nothing to show yet. Write MathText like (x+2)/(3*exp(4)) \\approxeq\\ 0.054 and it's drawn here as you type; a blank line starts a new block.", "muted");
+            m_doc.touch();
+            return;
+        }
+        const bool brace = is_brace_math_path(path);
+        for (const std::string& block : blocks) {
+            grove::Node* box = add(m_doc, *v.body, "div", "", "math-block");
+            grove::Node* math = m_doc.create_element("math");
+            if (brace) math->set_attribute("syntax", "brace");
+            math->set_inner_text(block);
+            m_doc.append_child(*box, *math);
+            v.md_nodes.push_back(box);
+        }
+        m_doc.touch();
+    }
+
     void render_markdown(const std::string& path, Viewer& v) {
         if (v.collapsed) {
             v.body = nullptr;
@@ -5211,7 +5265,13 @@ private:
         for (const std::string& path : ready) {
             m_markdown_due.erase(path);
             const auto it = m_viewers.find(path);
-            if (it == m_viewers.end() || it->second.kind != ViewerKind::Markdown || it->second.collapsed) continue;
+            if (it == m_viewers.end() || it->second.collapsed) continue;
+            if (it->second.kind == ViewerKind::Math) {
+                if (it->second.body) fill_math(path, it->second);
+                else render_viewer(path);
+                continue;
+            }
+            if (it->second.kind != ViewerKind::Markdown) continue;
             if (it->second.body) fill_markdown(path, it->second);
             else render_viewer(path);
         }
