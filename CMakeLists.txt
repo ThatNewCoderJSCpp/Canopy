@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(canopy VERSION 0.1.8 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
+project(canopy VERSION 0.1.9 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
