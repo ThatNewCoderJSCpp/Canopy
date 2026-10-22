@@ -38,13 +38,14 @@ jobs:
 
   windows:
     name: Windows x86_64 (llvm-mingw, tested under Wine)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       LLVM_MINGW_VERSION: "20261020"
       LLVM_MINGW: llvm-mingw-20261020-ucrt-ubuntu-22.04-x86_64
       LLVM_MINGW_TARGET: x86_64-w64-mingw32
       LLVM_MINGW_DEPS: ${{ github.workspace }}/windows-deps
       WINEDEBUG: -all
+      WINEPREFIX: ${{ github.workspace }}/.wineprefix
     steps:
       - uses: actions/checkout@v4
 
