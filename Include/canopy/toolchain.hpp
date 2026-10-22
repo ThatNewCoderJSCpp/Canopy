@@ -57,6 +57,7 @@ bool is_executable_file(const std::string& path);
 std::optional<std::string> find_on_path(const std::string& program);
 std::vector<std::string> known_tool_folders();
 std::vector<std::string> walnut_toolchain_folders();
+std::vector<std::string> bundled_toolchain_folders();
 std::optional<Tool> detect_tool(const std::string& key, const Settings& settings);
 CompilerFamily compiler_family(const std::string& path);
 

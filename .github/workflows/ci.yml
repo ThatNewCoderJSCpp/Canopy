@@ -37,61 +37,68 @@ jobs:
         run: ctest --output-on-failure --timeout 300
 
   windows:
-    name: Windows UCRT64
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
+    name: Windows x86_64 (llvm-mingw, tested under Wine)
+    runs-on: ubuntu-22.04
+    env:
+      LLVM_MINGW_VERSION: "20261020"
+      LLVM_MINGW: llvm-mingw-20261020-ucrt-ubuntu-22.04-x86_64
+      LLVM_MINGW_TARGET: x86_64-w64-mingw32
+      LLVM_MINGW_DEPS: ${{ github.workspace }}/windows-deps
+      WINEDEBUG: -all
     steps:
       - uses: actions/checkout@v4
 
-      - uses: msys2/setup-msys2@v2
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build zip unzip wine64
+
+      - name: Cache llvm-mingw
+        id: llvm-mingw-cache
+        uses: actions/cache@v4
         with:
-          msystem: UCRT64
-          update: false
+          path: ~/llvm-mingw
+          key: ${{ env.LLVM_MINGW }}
 
-      - name: Refresh the MSYS2 keyring
+      - name: Download llvm-mingw
+        if: steps.llvm-mingw-cache.outputs.cache-hit != 'true'
         run: |
-          base=https://repo.msys2.org/msys/x86_64
-          keyring=""
-          for attempt in 1 2 3 4; do
-            keyring=$(curl -fsSL "$base/" | grep -o 'msys2-keyring-[^"]*\.pkg\.tar\.zst' | sort -uV | tail -n 1)
-            if [ -n "$keyring" ] && curl -fsSLO "$base/$keyring"; then
-              break
-            fi
-            keyring=""
-            sleep $((attempt * 20))
-          done
-          if [ -z "$keyring" ]; then
-            echo "::error::couldn't download the MSYS2 keyring"
-            exit 1
-          fi
-          sed 's/^SigLevel.*/SigLevel = Never/' /etc/pacman.conf > /tmp/pacman-keyring.conf
-          pacman -U --noconfirm --config /tmp/pacman-keyring.conf "$keyring"
-          pacman-key --populate msys2
+          curl -fL --retry 5 --retry-delay 10 -o /tmp/llvm-mingw.tar.xz "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$LLVM_MINGW.tar.xz"
+          mkdir -p ~/llvm-mingw
+          tar -xf /tmp/llvm-mingw.tar.xz -C ~/llvm-mingw --strip-components=1
 
-      - name: Update MSYS2
-        run: pacman -Syuu --noconfirm --overwrite '*'
+      - name: Put llvm-mingw on the PATH
+        run: echo "$HOME/llvm-mingw/bin" >> "$GITHUB_PATH"
 
-      - name: Finish updating MSYS2
-        run: pacman -Syuu --noconfirm --overwrite '*'
+      - name: Cache the Windows libraries
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: windows-deps
+          key: windows-deps-${{ env.LLVM_MINGW_TARGET }}-${{ env.LLVM_MINGW }}-${{ hashFiles('.github/scripts/windows-deps.sh', 'cmake/llvm-mingw.cmake') }}
 
-      - name: Install packages
+      - name: Build zlib, libjpeg-turbo and the Vulkan headers
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        run: bash .github/scripts/windows-deps.sh "$LLVM_MINGW_TARGET" "$LLVM_MINGW_DEPS" "$RUNNER_TEMP/windows-deps-src"
+
+      - name: Download the Windows llvm-mingw the C and C++ tests compile with
         run: |
-          for attempt in 1 2 3 4 5 6; do
-            if pacman -S --needed --noconfirm --overwrite '*' git mingw-w64-ucrt-x86_64-cc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libjpeg-turbo mingw-w64-ucrt-x86_64-vulkan-headers; then
-              exit 0
-            fi
-            sleep $((attempt * 30))
-          done
-          exit 1
+          name="llvm-mingw-$LLVM_MINGW_VERSION-ucrt-x86_64"
+          curl -fL --retry 5 --retry-delay 10 -o "$RUNNER_TEMP/$name.zip" "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$name.zip"
+          unzip -q "$RUNNER_TEMP/$name.zip" -d "$RUNNER_TEMP/windows-llvm-mingw"
+          wineboot --init || true
+          echo "WINEPATH=$(winepath -w "$RUNNER_TEMP/windows-llvm-mingw/$name/bin")" >> "$GITHUB_ENV"
 
       - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFIZMO_TUNE=OFF
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DFIZMO_TUNE=OFF \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw.cmake \
+            -DJPEG_LIBRARY="$LLVM_MINGW_DEPS/lib/libjpeg.a" -DJPEG_INCLUDE_DIR="$LLVM_MINGW_DEPS/include" \
+            -DZLIB_LIBRARY="$LLVM_MINGW_DEPS/lib/libzs.a" -DZLIB_INCLUDE_DIR="$LLVM_MINGW_DEPS/include"
 
       - name: Build
         run: cmake --build build -j 4
 
-      - name: Test
+      - name: Test under Wine
         working-directory: build
         run: ctest --output-on-failure --timeout 300

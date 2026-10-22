@@ -25,7 +25,7 @@ std::string install_hint(const std::string& key) {
     if (key == "c" || key == "cpp") {
         const std::string setup = "Settings > Compilers > Set up a compiler (or 'canopy setup-compiler', or 'walnut init') sets one up for you; ";
 #if defined(_WIN32)
-        return setup + "or install MSYS2 (https://www.msys2.org), then run: pacman -S mingw-w64-ucrt-x86_64-gcc";
+        return setup + "or use the Canopy download that ends in -with-compiler, which comes with one";
 #elif defined(__APPLE__)
         return setup + "or run: xcode-select --install";
 #else
@@ -89,6 +89,24 @@ std::vector<std::string> node_folders() {
     return out;
 }
 
+std::vector<std::string> toolchain_bins(const fs::path& install) {
+    std::vector<std::string> out;
+    std::error_code ec;
+    std::vector<fs::path> tops;
+    for (fs::directory_iterator it(install, ec), end; !ec && it != end; it.increment(ec)) {
+        if (fs::is_directory(it->path() / "bin", ec)) tops.push_back(it->path());
+    }
+    std::sort(tops.begin(), tops.end());
+    for (const fs::path& top : tops) {
+        out.push_back(fs::path(top / "bin").make_preferred().string());
+        for (const char* runtime : { "aarch64-w64-mingw32/bin", "x86_64-w64-mingw32/bin", "i686-w64-mingw32/bin" }) {
+            fs::path dll_dir = top / runtime;
+            if (fs::is_regular_file(dll_dir / "libc++.dll", ec)) out.push_back(dll_dir.make_preferred().string());
+        }
+    }
+    return out;
+}
+
 bool bundled_key(const std::string& key) {
     return key == "walnut" || key == "grove";
 }
@@ -135,6 +153,17 @@ std::optional<Tool> detect_one(const std::string& key, const Settings& settings,
     }
 
     const std::vector<std::string> names = tool_candidates(key);
+    if (key == "c" || key == "cpp") {
+        const std::vector<std::string> bundled = bundled_toolchain_folders();
+        for (const std::string& folder : bundled) {
+            for (const std::string& n : names) {
+                const auto found = find_in(folder, n);
+                if (!found) continue;
+                for (const std::string& f : bundled) add_to_path_once(f);
+                return make_tool(key, *found, ToolOrigin::Bundled);
+            }
+        }
+    }
     if (bundled_key(key)) {
         const fs::path dir = executable_dir();
         for (const std::string& n : names) {
@@ -272,20 +301,18 @@ std::vector<std::string> walnut_toolchain_folders() {
     }
     std::sort(installs.begin(), installs.end());
     for (auto install = installs.rbegin(); install != installs.rend(); ++install) {
-        std::vector<fs::path> tops;
-        for (fs::directory_iterator it(*install, ec), end; !ec && it != end; it.increment(ec)) {
-            if (fs::is_directory(it->path() / "bin", ec)) tops.push_back(it->path());
-        }
-        std::sort(tops.begin(), tops.end());
-        for (const fs::path& top : tops) {
-            out.push_back(fs::path(top / "bin").make_preferred().string());
-            for (const char* runtime : { "aarch64-w64-mingw32/bin", "x86_64-w64-mingw32/bin" }) {
-                fs::path dll_dir = top / runtime;
-                if (fs::is_regular_file(dll_dir / "libc++.dll", ec)) out.push_back(dll_dir.make_preferred().string());
-            }
-        }
+        for (const std::string& bin : toolchain_bins(*install)) out.push_back(bin);
     }
     return out;
+}
+
+std::vector<std::string> bundled_toolchain_folders() {
+    const std::string exe = executable_dir();
+    if (exe.empty()) return {};
+    const fs::path root = fs::path(exe).parent_path() / "toolchain";
+    std::error_code ec;
+    if (!fs::is_regular_file(root / "walnut-toolchain.txt", ec)) return {};
+    return toolchain_bins(root);
 }
 
 std::optional<Tool> detect_tool(const std::string& key, const Settings& settings) {

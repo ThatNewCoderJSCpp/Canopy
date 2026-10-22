@@ -38,7 +38,7 @@ jobs:
             exit 1
           fi
           base="https://github.com/ThatNewCoderJSCpp/Walnut/releases/download/v$walnut"
-          files="linux-x86_64.tar.gz linux-arm64.tar.gz linux-i686.tar.gz windows-ucrt64.zip windows-mingw64.zip windows-clangarm64.zip"
+          files="linux-x86_64.tar.gz linux-arm64.tar.gz linux-i686.tar.gz windows-ucrt64.zip windows-ucrt64-with-compiler.zip windows-i686.zip windows-i686-with-compiler.zip windows-clangarm64.zip windows-clangarm64-with-compiler.zip"
           for attempt in $(seq 1 60); do
             missing=""
             for f in $files; do
@@ -203,104 +203,82 @@ jobs:
   windows:
     name: Windows ${{ matrix.platform }}
     needs: version
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-22.04
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
         include:
-          - msystem: MINGW64
-            prefix: mingw-w64-x86_64
-            platform: windows-mingw64
-            runner: windows-latest
-          - msystem: UCRT64
-            prefix: mingw-w64-ucrt-x86_64
+          - target: x86_64-w64-mingw32
             platform: windows-ucrt64
-            runner: windows-latest
-          - msystem: CLANGARM64
-            prefix: mingw-w64-clang-aarch64
+            wine: true
+          - target: i686-w64-mingw32
+            platform: windows-i686
+            wine: false
+          - target: aarch64-w64-mingw32
             platform: windows-clangarm64
-            runner: windows-11-arm
-    defaults:
-      run:
-        shell: msys2 {0}
+            wine: false
+    env:
+      LLVM_MINGW_VERSION: "20261020"
+      LLVM_MINGW: llvm-mingw-20261020-ucrt-ubuntu-22.04-x86_64
+      LLVM_MINGW_TARGET: ${{ matrix.target }}
+      LLVM_MINGW_DEPS: ${{ github.workspace }}/windows-deps
+      WINEDEBUG: -all
     steps:
       - uses: actions/checkout@v4
 
-      - uses: msys2/setup-msys2@v2
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build zip unzip nsis p7zip-full
+          if [ "${{ matrix.wine }}" = "true" ]; then sudo apt-get install -y wine64; fi
+
+      - name: Cache llvm-mingw
+        id: llvm-mingw-cache
+        uses: actions/cache@v4
         with:
-          msystem: ${{ matrix.msystem }}
-          update: false
+          path: ~/llvm-mingw
+          key: ${{ env.LLVM_MINGW }}
 
-      - name: Refresh the MSYS2 keyring
+      - name: Download llvm-mingw
+        if: steps.llvm-mingw-cache.outputs.cache-hit != 'true'
         run: |
-          base=https://repo.msys2.org/msys/x86_64
-          keyring=""
-          for attempt in 1 2 3 4; do
-            keyring=$(curl -fsSL "$base/" | grep -o 'msys2-keyring-[^"]*\.pkg\.tar\.zst' | sort -uV | tail -n 1)
-            if [ -n "$keyring" ] && curl -fsSLO "$base/$keyring"; then
-              break
-            fi
-            keyring=""
-            sleep $((attempt * 20))
-          done
-          if [ -z "$keyring" ]; then
-            echo "::error::couldn't download the MSYS2 keyring"
-            exit 1
-          fi
-          sed 's/^SigLevel.*/SigLevel = Never/' /etc/pacman.conf > /tmp/pacman-keyring.conf
-          pacman -U --noconfirm --config /tmp/pacman-keyring.conf "$keyring"
-          pacman-key --populate msys2
+          curl -fL --retry 5 --retry-delay 10 -o /tmp/llvm-mingw.tar.xz "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$LLVM_MINGW.tar.xz"
+          mkdir -p ~/llvm-mingw
+          tar -xf /tmp/llvm-mingw.tar.xz -C ~/llvm-mingw --strip-components=1
 
-      - name: Update MSYS2
-        run: pacman -Syuu --noconfirm --overwrite '*'
+      - name: Put llvm-mingw on the PATH
+        run: echo "$HOME/llvm-mingw/bin" >> "$GITHUB_PATH"
 
-      - name: Finish updating MSYS2
-        run: pacman -Syuu --noconfirm --overwrite '*'
+      - name: Cache the Windows libraries
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: windows-deps
+          key: windows-deps-${{ env.LLVM_MINGW_TARGET }}-${{ env.LLVM_MINGW }}-${{ hashFiles('.github/scripts/windows-deps.sh', 'cmake/llvm-mingw.cmake') }}
 
-      - name: Install packages
-        run: |
-          sed -i 's/^#\?ParallelDownloads.*/ParallelDownloads = 2/' /etc/pacman.conf
-          packages="git unzip ${{ matrix.prefix }}-cc ${{ matrix.prefix }}-cmake ${{ matrix.prefix }}-ninja ${{ matrix.prefix }}-zlib ${{ matrix.prefix }}-libjpeg-turbo ${{ matrix.prefix }}-vulkan-headers"
-          for attempt in 1 2 3 4 5 6; do
-            if pacman -S --needed --noconfirm --overwrite '*' $packages; then
-              exit 0
-            fi
-            wait=$((attempt * 30))
-            echo "::warning::pacman couldn't download everything (attempt $attempt of 6); the MSYS2 mirrors are probably rate limiting, so trying again in $wait seconds"
-            sleep $wait
-          done
-          echo "::error::pacman still couldn't download the packages after 6 attempts"
-          exit 1
-
-      - name: Install NSIS
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { choco install nsis -y --no-progress }
+      - name: Build zlib, libjpeg-turbo and the Vulkan headers
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        run: bash .github/scripts/windows-deps.sh "$LLVM_MINGW_TARGET" "$LLVM_MINGW_DEPS" "$RUNNER_TEMP/windows-deps-src"
 
       - name: Configure
         run: |
-          lib=$(cygpath -m "$MINGW_PREFIX/lib")
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw.cmake \
             -DCANOPY_GITHUB_CLIENT_ID="$CANOPY_GITHUB_CLIENT_ID" \
             -DCANOPY_PACKAGE_PLATFORM=${{ matrix.platform }} \
-            -DJPEG_LIBRARY=$lib/libjpeg.a -DJPEG_LIBRARY_RELEASE=$lib/libjpeg.a \
-            -DZLIB_LIBRARY=$lib/libz.a -DZLIB_LIBRARY_RELEASE=$lib/libz.a
+            -DJPEG_LIBRARY="$LLVM_MINGW_DEPS/lib/libjpeg.a" -DJPEG_INCLUDE_DIR="$LLVM_MINGW_DEPS/include" \
+            -DZLIB_LIBRARY="$LLVM_MINGW_DEPS/lib/libzs.a" -DZLIB_INCLUDE_DIR="$LLVM_MINGW_DEPS/include"
 
       - name: Build
         timeout-minutes: 100
         run: cmake --build build -j 4
 
-      - name: Test
-        timeout-minutes: 20
-        working-directory: build
-        run: ctest --output-on-failure --timeout 300 -V
-
       - name: Check canopy only needs DLLs that come with Windows
         run: |
           for exe in build/bin/canopy.exe build/bin/canopy-gui.exe build/bin/grove.exe; do
-            objdump -p $exe | grep "DLL Name"
-            if objdump -p $exe | grep "DLL Name" | grep -iE "libstdc|libgcc|libwinpthread|libc\+\+|libunwind|zlib|libjpeg"; then
+            $LLVM_MINGW_TARGET-objdump -p $exe | grep "DLL Name"
+            if $LLVM_MINGW_TARGET-objdump -p $exe | grep "DLL Name" | grep -iE "libstdc|libgcc|libwinpthread|libc\+\+|libunwind|zlib|libjpeg"; then
               echo "::error::$exe needs a DLL that users will not have"
               exit 1
             fi
@@ -308,17 +286,37 @@ jobs:
 
       - name: Package
         working-directory: build
+        run: cpack
+
+      - name: Package with the compiler
+        working-directory: build
         run: |
-          export PATH="$PATH:/c/Program Files (x86)/NSIS"
+          cmake -DCANOPY_BUNDLE_COMPILER=ON .
           cpack
 
-      - name: Test the package
+      - name: Test under Wine
+        if: matrix.wine
+        timeout-minutes: 20
+        working-directory: build
+        run: |
+          wineboot --init || true
+          export WINEPATH="$(winepath -w "$(ls -d $PWD/walnut-bundle/Walnut-*/toolchain/llvm-mingw-*/bin | head -n 1)")"
+          ctest --output-on-failure --timeout 300
+
+      - name: Test the package with the compiler under Wine
+        if: matrix.wine
         run: |
           mkdir -p smoke
-          unzip -q build/Canopy-*.zip -d smoke
+          unzip -q build/Canopy-*-with-compiler.zip -d smoke
           app=$(echo smoke/Canopy-*)
-          $app/bin/canopy.exe version
-          $app/bin/canopy.exe doctor
+          wine $app/bin/canopy.exe version
+          wine $app/bin/canopy.exe doctor | tee doctor.txt
+          grep -E "C\+\+ +ok .*\(bundled\)" doctor.txt
+          grep -E "Walnut +ok .*\(bundled\)" doctor.txt
+          printf 'import module.io\n\nfunction main() -> int {\n    std::io::println("packaged walnut works");\n    return 0;\n} end function main\n' > smoke/ok.wal
+          wine $app/bin/canopy.exe run smoke/ok.wal | grep "packaged walnut works"
+          printf '#include <stdio.h>\nint main(void) { puts("bundled c works"); return 0; }\n' > smoke/hi.c
+          wine $app/bin/canopy.exe run smoke/hi.c | grep "bundled c works"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -327,12 +325,62 @@ jobs:
             build/Canopy-*.zip
             build/Canopy-*.7z
             build/Canopy-*.exe
+          compression-level: 0
           if-no-files-found: error
+
+  windows-native:
+    name: Run on Windows ${{ matrix.platform }}
+    needs: windows
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-ucrt64
+            runner: windows-latest
+          - platform: windows-i686
+            runner: windows-latest
+          - platform: windows-clangarm64
+            runner: windows-11-arm
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: canopy-${{ matrix.platform }}
+          path: packages
+
+      - name: Run the package with the compiler
+        run: |
+          $zip = Get-ChildItem packages/Canopy-*-with-compiler.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath bundled
+          $app = (Get-ChildItem bundled -Directory | Select-Object -First 1).FullName
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\WindowsPowerShell\v1.0"
+          & "$app\bin\canopy.exe" doctor
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Set-Content ok.wal "import module.io`n`nfunction main() -> int {`n    std::io::println(`"packaged walnut works`");`n    return 0;`n} end function main`n"
+          $out = & "$app\bin\canopy.exe" run ok.wal
+          $out
+          if (-not ($out -match "packaged walnut works")) { exit 1 }
+          Set-Content hi.c "#include <stdio.h>`nint main(void) { puts(`"bundled c works`"); return 0; }`n"
+          $out = & "$app\bin\canopy.exe" run hi.c
+          $out
+          if (-not ($out -match "bundled c works")) { exit 1 }
+
+      - name: Run the plain package
+        run: |
+          $zip = Get-ChildItem packages/Canopy-*.zip | Where-Object { $_.Name -notlike "*-with-compiler.zip" } | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath plain
+          $app = (Get-ChildItem plain -Directory | Select-Object -First 1).FullName
+          & "$app\bin\canopy.exe" version
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          & "$app\bin\canopy.exe" doctor
 
   publish:
     name: Attach packages to the release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, linux-i686, windows]
+    needs: [linux, linux-i686, windows, windows-native]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

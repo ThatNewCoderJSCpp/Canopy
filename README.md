@@ -6,7 +6,7 @@ A grove is where the trees are, and the canopy is the part that covers all of th
 
 Out of the box it builds **Grove**, **C**, **C++** and **Walnut**, with no setup, and Rust, Zig, Python, Lua, Java, C#, assembly and JavaScript once their tools are installed:
 
-- **Compilers are found for you.** Walnut and Grove ship next to Canopy. For C and C++, Canopy looks on your `PATH`, then in the usual install folders (MSYS2's `ucrt64`/`mingw64`/`clang64` on Windows, Homebrew on macOS), then in the compiler `walnut init` set up. No compiler at all? **Settings > Compilers > Set up a compiler** (or `canopy setup-compiler`) gets one ready for you. `canopy doctor` says exactly what it found, where, and what to install if something is missing.
+- **Compilers are found for you.** Walnut and Grove ship next to Canopy, and on Windows the `-with-compiler` downloads also ship a C and C++ compiler (llvm-mingw), which Canopy uses first. Otherwise, for C and C++, Canopy looks on your `PATH`, then in the usual install folders (MSYS2's `ucrt64`/`mingw64`/`clang64` on Windows, Homebrew on macOS), then in the compiler `walnut init` set up. No compiler at all? **Settings > Compilers > Set up a compiler** (or `canopy setup-compiler`) gets one ready for you. `canopy doctor` says exactly what it found, where, and what to install if something is missing.
 - **Settings are a page, and a few small Bark files.** The **Settings** tab (`Ctrl+,`) has a page each for the editor, highlighting, compilers and building, and saves as you change things. Underneath, your settings are Bark files that only hold the lines you changed, so they're easy to read, edit by hand or copy to another computer. `canopy settings` lists every value in effect with the file and line it came from, and a misspelled setting is a warning with a "did you mean" instead of being silently ignored. Hovering a setting in any of those files shows what it does, its default, the value in use and where it came from, and (in a folder with the code that reads it, like Canopy's own) the lines that read it; Ctrl+click goes there. In a Grove app's stylesheets, your own properties work too: a custom property like `--glow: 4px;` is inherited, can be used in other values with `var(--glow)`, and is read from Walnut, C++ or C scripts with `computed_number("--glow")`, `computed_color`, `computed_bool` or `computed_style`. Hovering one shows the code that reads it, the `var()`s that use it and the other rules that set it (Ctrl+click goes to the first reader, or from a `var()` to where it's set); a name without `--` that Grove doesn't know still works but gets a "did you mean" in case it's a typo.
 
 ```
@@ -52,7 +52,7 @@ Download the package for your system from the [releases page](https://github.com
 
 | System | Download | |
 |---|---|---|
-| Windows (x64) | `Canopy-<version>-windows-ucrt64.exe` | installer: Start menu entry, an optional desktop shortcut, `canopy` on your PATH and "Open with Canopy" when you right-click a folder or file. `windows-mingw64` also runs on Windows 7 and 8, `windows-clangarm64` is for ARM PCs. `.zip` and `.7z` are the same files without the installer |
+| Windows (x64) | `Canopy-<version>-windows-ucrt64.exe` | installer: Start menu entry, an optional desktop shortcut, `canopy` on your PATH and "Open with Canopy" when you right-click a folder or file. `windows-i686` is for 32-bit Windows, `windows-clangarm64` is for ARM PCs. `.zip` and `.7z` are the same files without the installer. Every Windows download also comes as `...-with-compiler` (about 200 MB more), with a C and C++ compiler inside, so C, C++ and Walnut work offline right away |
 | Fedora, RHEL, openSUSE | `Canopy-<version>-linux-x86_64.rpm` | `sudo dnf install ./Canopy-*.rpm` |
 | Ubuntu, Debian, Mint | `Canopy-<version>-linux-x86_64.deb` | `sudo apt install ./Canopy-*.deb` |
 | Any Linux | `Canopy-<version>-linux-x86_64.tar.gz` (or `.tar.xz`, `.zip`) | unpack it anywhere, then run `bin/canopy install` |
@@ -245,12 +245,16 @@ sudo dnf install gcc-c++ cmake ninja-build pkgconf-pkg-config libX11-devel libXf
     vulkan-headers vulkan-loader-devel mesa-libGL-devel
 ```
 
-Windows (MSYS2 UCRT64):
+Windows builds are cross-compiled on Linux with [llvm-mingw](https://github.com/mstorsjo/llvm-mingw), using `cmake/llvm-mingw.cmake` as the toolchain file. `.github/scripts/windows-deps.sh` builds zlib, libjpeg-turbo and the Vulkan headers for it first:
 
 ```
-pacman -S git mingw-w64-ucrt-x86_64-cc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja \
-    mingw-w64-ucrt-x86_64-zlib mingw-w64-ucrt-x86_64-libjpeg-turbo mingw-w64-ucrt-x86_64-vulkan-headers
+export PATH=/path/to/llvm-mingw/bin:$PATH LLVM_MINGW_TARGET=x86_64-w64-mingw32 LLVM_MINGW_DEPS=$PWD/windows-deps
+bash .github/scripts/windows-deps.sh $LLVM_MINGW_TARGET $LLVM_MINGW_DEPS
+cmake -S . -B build-windows -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/llvm-mingw.cmake \
+    -DJPEG_LIBRARY=$LLVM_MINGW_DEPS/lib/libjpeg.a -DZLIB_LIBRARY=$LLVM_MINGW_DEPS/lib/libzs.a
 ```
+
+With Wine installed, `ctest` runs the Windows tests on Linux (the C and C++ tests also need a Windows llvm-mingw on `WINEPATH`). Building on Windows itself works too, with llvm-mingw on `PATH`.
 
 Then:
 
@@ -279,6 +283,7 @@ cmake -S . -B build -G Ninja -DFETCHCONTENT_SOURCE_DIR_GROVE=../Grove
 | `CANOPY_BUNDLE_WALNUT` | `ON` | with `CANOPY_PACKAGE`: put Walnut's release package for this platform inside Canopy's instead of building Walnut |
 | `CANOPY_WALNUT_VERSION` | `0.1.28` | the Walnut release to bundle |
 | `CANOPY_WALNUT_ARCHIVE` | | a Walnut release archive on disk to bundle instead of downloading one |
+| `CANOPY_BUNDLE_COMPILER` | `OFF` | on Windows: bundle Walnut's `-with-compiler` package (so the download has llvm-mingw in `toolchain`) and add `-with-compiler` to the package names |
 
 ## Making packages
 
@@ -288,9 +293,9 @@ cmake --build build-pkg
 cd build-pkg && cpack
 ```
 
-On Linux that makes `.tar.gz`, `.tar.xz`, `.zip`, `.deb` and `.rpm` (the last needs `rpmbuild`); with MSYS2 on Windows it makes `.zip`, `.7z` and an NSIS installer (needs NSIS). Each one has `bin/canopy` (plus `bin/canopy-gui.exe` on Windows, which opens the editor without a console window), `bin/grove`, `bin/walnut` with Walnut's `runtime` and `fizmo` folders, Grove's headers in `include`, the editor UI and icons in `share/canopy`, and the docs. The programs are linked so they only need libraries every system has.
+On Linux that makes `.tar.gz`, `.tar.xz`, `.zip`, `.deb` and `.rpm` (the last needs `rpmbuild`); for Windows it makes `.zip`, `.7z` and an NSIS installer (needs NSIS's `makensis`, which also runs on Linux); run `cmake -DCANOPY_BUNDLE_COMPILER=ON .` and `cpack` again for the `-with-compiler` set. Each one has `bin/canopy` (plus `bin/canopy-gui.exe` on Windows, which opens the editor without a console window), `bin/grove`, `bin/walnut` with Walnut's `runtime` and `fizmo` folders, Grove's headers in `include`, the editor UI and icons in `share/canopy`, and the docs. The programs are linked so they only need libraries every system has.
 
-Pushing a tag `vX.Y.Z` that matches `project(canopy VERSION X.Y.Z)` runs `.github/workflows/release.yml`, which builds, tests and packages Canopy for Linux x86_64, arm64 and i686 and Windows MinGW64, UCRT64 and ARM64, installs the `.deb` to check the menu entry and command work, and attaches everything to the GitHub release, the same set of systems as Grove and Walnut.
+Pushing a tag `vX.Y.Z` that matches `project(canopy VERSION X.Y.Z)` runs `.github/workflows/release.yml`, which builds, tests and packages Canopy for Linux x86_64, arm64 and i686 and Windows x86_64, i686 and ARM64 (cross-compiled with llvm-mingw, tested under Wine and then on real x86_64 and ARM Windows machines), installs the `.deb` to check the menu entry and command work, and attaches everything to the GitHub release, the same set of systems as Grove and Walnut.
 
 ## Layout
 
