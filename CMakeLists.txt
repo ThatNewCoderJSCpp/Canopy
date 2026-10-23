@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(canopy VERSION 0.1.23 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
+project(canopy VERSION 0.1.24 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -12,8 +12,14 @@ option(CANOPY_BUILD_TESTS "Build the Canopy tests" ON)
 option(CANOPY_PACKAGE "Build Canopy as a self-contained download and set up CPack" OFF)
 option(CANOPY_BUNDLE_WALNUT "With CANOPY_PACKAGE: put Walnut's release package for this platform inside Canopy's" ON)
 option(CANOPY_BUNDLE_COMPILER "With CANOPY_PACKAGE on Windows: bundle Walnut's -with-compiler package, so C, C++ and Walnut work offline, and add -with-compiler to the package names" OFF)
-set(CANOPY_GROVE_TAG "v0.1.49" CACHE STRING "Grove git tag to fetch")
-set(CANOPY_WALNUT_VERSION "0.1.34" CACHE STRING "Walnut release bundled into packages")
+set(CANOPY_GROVE_TAG "v0.2.1" CACHE STRING "Grove git tag to fetch")
+set(CANOPY_WALNUT_VERSION "0.2.2" CACHE STRING "Walnut release bundled into packages")
+
+if(ANDROID)
+    set(CANOPY_WITH_WALNUT OFF CACHE BOOL "" FORCE)
+    set(CANOPY_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(CANOPY_PACKAGE OFF CACHE BOOL "" FORCE)
+endif()
 
 if(CANOPY_PACKAGE AND CANOPY_BUNDLE_WALNUT)
     set(CANOPY_WITH_WALNUT OFF CACHE BOOL "" FORCE)
@@ -179,6 +185,22 @@ if(NOT CANOPY_PACKAGE)
     target_compile_definitions(canopy_app PRIVATE "CANOPY_SOURCE_UI_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/UI\"")
 endif()
 canopy_warnings(canopy_app)
+
+if(ANDROID)
+    set(CANOPY_ANDROID_LIBS_DIR "${CMAKE_BINARY_DIR}/android-libs" CACHE PATH "Where the Android build puts lib/<abi>/libcanopy_android.so for grove build --runtime-lib")
+    add_library(canopy_android SHARED Tools/canopy_android.cpp)
+    target_link_libraries(canopy_android PRIVATE canopy_app)
+    target_link_options(canopy_android PRIVATE
+        "LINKER:-z,max-page-size=16384"
+        "LINKER:-u,ANativeActivity_onCreate"
+        "LINKER:--gc-sections"
+        "$<$<NOT:$<CONFIG:Debug>>:LINKER:--strip-debug>"
+        "LINKER:--version-script=${grove_SOURCE_DIR}/cmake/android_exports.map")
+    set_property(TARGET canopy_android APPEND PROPERTY LINK_DEPENDS "${grove_SOURCE_DIR}/cmake/android_exports.map")
+    set_target_properties(canopy_android PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CANOPY_ANDROID_LIBS_DIR}/${ANDROID_ABI}")
+    canopy_warnings(canopy_android)
+    return()
+endif()
 
 function(canopy_resources target name)
     if(WIN32)

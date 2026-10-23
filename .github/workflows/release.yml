@@ -378,10 +378,39 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           & "$app\bin\canopy.exe" doctor
 
+  android:
+    name: Android
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libx11-dev libxft-dev libxrender-dev libfontconfig1-dev libfreetype-dev \
+            libssl-dev libharfbuzz-dev zlib1g-dev libjpeg-dev \
+            libvulkan-dev libgl-dev
+
+      - name: Build the APK
+        timeout-minutes: 120
+        env:
+          CANOPY_KEYSTORE_BASE64: ${{ secrets.CANOPY_KEYSTORE_BASE64 }}
+          CANOPY_KEYSTORE_PASS: ${{ secrets.CANOPY_KEYSTORE_PASS }}
+          CANOPY_KEY_ALIAS: ${{ secrets.CANOPY_KEY_ALIAS }}
+        run: bash .github/scripts/android-apk.sh arm64-v8a,x86_64 packages
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canopy-android
+          path: packages/Canopy-*-android.apk
+          if-no-files-found: error
+
   publish:
     name: Attach packages to the release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, linux-i686, windows, windows-native]
+    needs: [linux, linux-i686, windows, windows-native, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

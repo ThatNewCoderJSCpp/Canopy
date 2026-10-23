@@ -1,0 +1,33 @@
+name: Android
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    name: Android APK
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libx11-dev libxft-dev libxrender-dev libfontconfig1-dev libfreetype-dev \
+            libssl-dev libharfbuzz-dev zlib1g-dev libjpeg-dev \
+            libvulkan-dev libgl-dev
+
+      - name: Build the APK
+        timeout-minutes: 120
+        env:
+        run: bash .github/scripts/android-apk.sh arm64-v8a,x86_64 apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canopy-android-apk
+          path: apk/Canopy-*-android.apk
+          if-no-files-found: error

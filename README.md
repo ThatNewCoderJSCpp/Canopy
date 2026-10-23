@@ -59,6 +59,14 @@ Download the package for your system from the [releases page](https://github.com
 
 `arm64` and `i686` packages are there for Linux too.
 
+### Android
+
+`Canopy-<version>-android.apk` is Canopy for phones, tablets and Chromebooks. Send it to the phone and open it there (Android asks once to allow installing apps from that source), or install it over USB with `adb install Canopy-*-android.apk`.
+
+The first time you tap **Open Folder**, Canopy opens Android's "All files access" setting; allow it, and the folder picker can open any folder on the phone's storage, the same as on a computer. Until you open one, Canopy works in a `Projects` folder of its own.
+
+On a phone Canopy is an editor: the explorer, tabs, find and replace, highlighting, hovers, settings, themes and the Markdown, LaTeX and HTML previews all work. Android has no compilers, shell or `git` for Canopy to run, so Build, Run, the terminal, the Git, Tasks and Debug tabs are hidden there.
+
 The installers put Canopy in your applications menu and the `canopy` command on your PATH, so afterwards you open a folder with `canopy .` (it returns straight away, like VS Code's `code .`), or click Canopy in the menu. The `.deb` and `.rpm` install into `/opt/canopy` with `canopy` in `/usr/bin`; removing the package removes the menu entry and command too.
 
 With the `.zip` or a tarball, `canopy install` does the same for just your user:

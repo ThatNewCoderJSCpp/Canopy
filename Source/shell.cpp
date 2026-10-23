@@ -6169,6 +6169,33 @@ int run_shell(const Workspace& workspace, const std::vector<std::string>& files)
     return grove::runtime::run(project, options);
 }
 
+void hide_desktop_only_parts(grove::Document& doc) {
+    static const char* const ids[] = {
+        "build-button", "run-button",
+        "tab-terminal", "view-terminal",
+        "tab-git", "view-git", "status-git",
+        "tab-tasks", "view-tasks",
+        "tab-debug", "view-debug",
+        "status-toolchain"
+    };
+    for (const char* id : ids) {
+        if (grove::Node* n = doc.find_by_id(id)) grove::add_class(doc, *n, "phone-hidden");
+    }
+}
+
+#if defined(__ANDROID__)
+int run_shell_android(fizmo::android::App& app, grove::Project& project, const Workspace& workspace) {
+    std::error_code ec;
+    if (fs::is_directory(workspace.root, ec)) remember_folder(workspace.root);
+    hide_desktop_only_parts(project.document);
+    auto shell = std::make_unique<EditorShell>(project, workspace);
+    shell->install();
+    grove::runtime::RunOptions options;
+    options.scripts = false;
+    return grove::runtime::run_android(project, app, nullptr, options);
+}
+#endif
+
 int dump_shell(const Workspace& workspace, std::ostream& os) {
     const std::string ui = find_ui_document();
     if (ui.empty()) {

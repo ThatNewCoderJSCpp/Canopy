@@ -2713,3 +2713,7 @@ body {
     row-gap: 2px;
     gap: 14px;
 }
+
+.phone-hidden {
+    display: none !important;
+}
