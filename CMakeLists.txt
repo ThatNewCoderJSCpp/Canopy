@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(canopy VERSION 0.2.0 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
+project(canopy VERSION 0.2.1 DESCRIPTION "Canopy: a code editor built with Grove" LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -12,8 +12,8 @@ option(CANOPY_BUILD_TESTS "Build the Canopy tests" ON)
 option(CANOPY_PACKAGE "Build Canopy as a self-contained download and set up CPack" OFF)
 option(CANOPY_BUNDLE_WALNUT "With CANOPY_PACKAGE: put Walnut's release package for this platform inside Canopy's" ON)
 option(CANOPY_BUNDLE_COMPILER "With CANOPY_PACKAGE on Windows: bundle Walnut's -with-compiler package, so C, C++ and Walnut work offline, and add -with-compiler to the package names" OFF)
-set(CANOPY_GROVE_TAG "v0.2.4" CACHE STRING "Grove git tag to fetch")
-set(CANOPY_WALNUT_VERSION "0.2.5" CACHE STRING "Walnut release bundled into packages")
+set(CANOPY_GROVE_TAG "v0.2.5" CACHE STRING "Grove git tag to fetch")
+set(CANOPY_WALNUT_VERSION "0.2.6" CACHE STRING "Walnut release bundled into packages")
 
 if(ANDROID)
     set(CANOPY_WITH_WALNUT OFF CACHE BOOL "" FORCE)
