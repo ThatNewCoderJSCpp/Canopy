@@ -200,6 +200,137 @@ jobs:
             build/Canopy-*.rpm
           if-no-files-found: error
 
+  macos:
+    name: macOS ${{ matrix.arch }}
+    needs: version
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x86_64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Walnut's macOS package
+        shell: bash
+        run: |
+          walnut=$(sed -n 's/^set(CANOPY_WALNUT_VERSION "\([0-9][0-9.]*\)".*/\1/p' CMakeLists.txt | head -n 1)
+          url="https://github.com/ThatNewCoderJSCpp/Walnut/releases/download/v$walnut/Walnut-$walnut-macos-${{ matrix.arch }}.tar.gz"
+          for attempt in $(seq 1 30); do
+            if curl -sfIL -o /dev/null "$url"; then exit 0; fi
+            echo "$url isn't there yet (check $attempt of 30), waiting a minute"
+            sleep 60
+          done
+          echo "::error::$url is still missing; check Walnut's v$walnut release"
+          exit 1
+
+      - name: Install dependencies
+        if: matrix.arch == 'arm64'
+        run: |
+          brew update
+          brew install ninja pkg-config fontconfig freetype harfbuzz openssl@3 jpeg-turbo zlib vulkan-headers
+          echo "FIZMO_VULKAN_INC=$(brew --prefix vulkan-headers)/include" >> "$GITHUB_ENV"
+
+      - name: Install dependencies (Intel)
+        if: matrix.arch == 'x86_64'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_UPGRADE: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          brew list --versions ninja pkgconf fontconfig freetype harfbuzz openssl@3 jpeg-turbo
+          git clone --depth 1 --branch v1.4.363 https://github.com/KhronosGroup/Vulkan-Headers.git "$RUNNER_TEMP/vulkan-headers"
+          echo "FIZMO_VULKAN_INC=$RUNNER_TEMP/vulkan-headers/include" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          prefix=$(brew --prefix)
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCANOPY_PACKAGE=ON -DFIZMO_TUNE=OFF \
+            -DCANOPY_GITHUB_CLIENT_ID="$CANOPY_GITHUB_CLIENT_ID" \
+            -DCANOPY_PACKAGE_PLATFORM=macos-${{ matrix.arch }} \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DFIZMO_VULKAN_INCLUDE_DIR="$FIZMO_VULKAN_INC" \
+            -DCMAKE_PREFIX_PATH="$prefix;$(brew --prefix jpeg-turbo);$(brew --prefix zlib)"
+
+      - name: Build
+        timeout-minutes: 120
+        run: cmake --build build -j 4
+
+      - name: Test
+        timeout-minutes: 20
+        working-directory: build
+        run: ctest --output-on-failure --timeout 300
+
+      - name: Show the libraries canopy needs
+        run: |
+          ls -la build/bin/lib
+          for exe in build/bin/canopy build/bin/grove; do
+            if [ -f $exe ]; then otool -L $exe; fi
+          done
+
+      - name: Package
+        working-directory: build
+        run: cpack
+
+      - name: Test the archive
+        run: |
+          mkdir -p smoke
+          tar -xzf build/Canopy-*.tar.gz -C smoke
+          app=$(echo smoke/Canopy-*)
+          $app/bin/canopy version
+          $app/bin/canopy doctor | tee doctor.txt
+          grep -E "Walnut +ok .*\(bundled\)" doctor.txt
+          printf 'import module.io\n\nfunction main() -> int {\n    std::io::println("packaged walnut works");\n    return 0;\n} end function main\n' > smoke/ok.wal
+          $app/bin/canopy run smoke/ok.wal | grep "packaged walnut works"
+
+      - name: Check the package doesn't need Homebrew
+        run: |
+          app=$(echo smoke/Canopy-*)
+          homebrew="/opt/homebrew|/usr/local/(opt|Cellar|lib)/"
+          for f in $app/bin/canopy $app/bin/grove $app/bin/lib/*.dylib; do
+            [ -f "$f" ] || continue
+            if otool -L "$f" | tail -n +2 | grep -E "$homebrew"; then
+              echo "::error::$f still links to Homebrew's copy of a library"
+              exit 1
+            fi
+          done
+
+      - name: Make Canopy.app and the disk image
+        run: |
+          version=$(sed -n 's/^project(canopy VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -n 1)
+          bash .github/scripts/macos-app.sh "$(echo smoke/Canopy-*)" . "$version" build macos-${{ matrix.arch }}
+
+      - name: Test the disk image
+        run: |
+          dmg=$(ls "$PWD"/build/Canopy-*.dmg)
+          mount="$RUNNER_TEMP/canopy-dmg"
+          mkdir -p "$mount"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mount" "$dmg"
+          trap 'hdiutil detach "$mount" -force || true' EXIT
+          test -L "$mount/Applications"
+          app="$mount/Canopy.app"
+          plutil -lint "$app/Contents/Info.plist"
+          test -x "$app/Contents/MacOS/Canopy"
+          "$app/Contents/MacOS/canopy" version
+          "$app/Contents/MacOS/canopy" doctor
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canopy-macos-${{ matrix.arch }}
+          path: |
+            build/Canopy-*.tar.gz
+            build/Canopy-*.tar.xz
+            build/Canopy-*.zip
+            build/Canopy-*.dmg
+          compression-level: 0
+          if-no-files-found: error
+
   windows:
     name: Windows ${{ matrix.platform }}
     needs: version
@@ -410,7 +541,7 @@ jobs:
   publish:
     name: Attach packages to the release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, linux-i686, windows, windows-native, android]
+    needs: [linux, linux-i686, macos, windows, windows-native, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
