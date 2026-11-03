@@ -1097,7 +1097,7 @@ void SettingsPage::build_shortcuts(grove::Node& body) {
             }
             for (const ShortcutConflict* c : clashes) {
                 const Shortcut* other = c->first == &s ? c->second : c->first;
-                if (text) add(*text, "div", grove::chord_text(c->chord) + " is also " + other->label + " (" + other->group + ")", "shortcut-clash");
+                if (text) add(*text, "div", grove::chord_display_text(c->chord) + " is also " + other->label + " (" + other->group + ")", "shortcut-clash");
             }
             if (b && b->invalid && text) add(*text, "div", "\"" + b->text + "\" isn't a shortcut Canopy understands", "shortcut-clash");
             if (s.fixed) {

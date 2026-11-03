@@ -450,7 +450,7 @@ void test_viewers() {
     const canopy::ViewerTool pdftoppm{ "pdf", "pdftoppm", "pdftoppm" };
     check(canopy::pdf_render_command(pdftoppm, "a.pdf", "/p", 100)[3] == "100", "pdftoppm uses the resolution");
     const std::string chapter = write("chapter.tex", "% !TEX root = main.tex\n\\section{One}\n");
-    check(canopy::latex_root_file(chapter, "% !TEX root = main.tex\n\\section{One}\n") == (root / "main.tex").string(), "% !TEX root points at the main file");
+    check(canopy::latex_root_file(chapter, "% !TEX root = main.tex\n\\section{One}\n") == fs::weakly_canonical(root / "main.tex").string(), "% !TEX root points at the main file");
     check(canopy::latex_is_document("\\documentclass{article}") && !canopy::latex_is_document("% \\documentclass{article}\n\\section{x}"), "commented-out documentclass doesn't count");
 
     const std::string log = "./paper.tex:12: Undefined control sequence.\nl.12 \\foo\n! LaTeX Error: File `x.sty' not found.\n\nl.3 \\usepackage\nLaTeX Warning: Reference `fig' on page 1 undefined on input line 20.\n";
@@ -627,11 +627,11 @@ void test_shortcuts() {
     bool mouse = false;
     for (const canopy::ShortcutConflict& c : conflicts) {
         if (c.first->id == "build" && c.second->id == "run") {
-            build_run = c.message.find("Ctrl+B is used by both \"Build\" (General) and \"Run\" (General)") != std::string::npos &&
+            build_run = c.message.find(grove::chord_display_text(*grove::parse_chord("Ctrl+B")) + " is used by both \"Build\" (General) and \"Run\" (General)") != std::string::npos &&
                         c.message.find("Canopy's default, in Settings > Shortcuts > General") != std::string::npos && c.message.find("keys.bark line 2") != std::string::npos &&
                         c.file == "/cfg/keys.bark" && c.line == 2;
         }
-        if (c.first->id == "go-to-definition" && c.second->id == "add-caret") mouse = c.message.find("Ctrl+Click") != std::string::npos && c.line == 4;
+        if (c.first->id == "go-to-definition" && c.second->id == "add-caret") mouse = c.message.find(grove::chord_display_text(*grove::parse_chord("Ctrl+Click"))) != std::string::npos && c.line == 4;
     }
     check(build_run, "a clash names both shortcuts and where each is set");
     check(mouse, "mouse shortcuts clash too");

@@ -166,7 +166,7 @@ std::vector<ShortcutConflict> shortcut_conflicts(const std::vector<ShortcutBindi
                 const ShortcutBinding& changed = b.custom ? b : a;
                 k.file = changed.custom ? changed.file : std::string();
                 k.line = changed.custom ? changed.line : 0;
-                k.message = grove::chord_text(c) + " is used by both \"" + a.shortcut->label + "\" (" + a.shortcut->group + ") and \"" + b.shortcut->label + "\" (" + b.shortcut->group + "). \"" +
+                k.message = grove::chord_display_text(c) + " is used by both \"" + a.shortcut->label + "\" (" + a.shortcut->group + ") and \"" + b.shortcut->label + "\" (" + b.shortcut->group + "). \"" +
                             a.shortcut->label + "\" is set in " + k.first_where + "; \"" + b.shortcut->label + "\" is set in " + k.second_where + ".";
                 out.push_back(std::move(k));
             }
