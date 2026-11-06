@@ -879,9 +879,10 @@ void test_live_server() {
     check(canopy::mime_type_for("x.HTML").rfind("text/html", 0) == 0 && canopy::mime_type_for("a.js").rfind("text/javascript", 0) == 0 && canopy::mime_type_for("z.unknown") == "application/octet-stream", "content types");
     check(canopy::url_decode("a%20b%2Fc") == "a b/c" && canopy::url_encode_path("sub/a b.css") == "sub/a%20b.css", "URL escapes");
     const std::string r = root.string();
-    check(canopy::resolve_served(r, "/").file == (root / "index.html").string(), "/ serves index.html");
-    check(canopy::resolve_served(r, "/sub/a%20b.css?v=2").file == (root / "sub" / "a b.css").string(), "escaped names and queries resolve");
-    check(canopy::resolve_served(r, "/about").file == (root / "about.html").string(), "clean URLs find .html files");
+    const fs::path served = fs::weakly_canonical(root);
+    check(canopy::resolve_served(r, "/").file == (served / "index.html").string(), "/ serves index.html");
+    check(canopy::resolve_served(r, "/sub/a%20b.css?v=2").file == (served / "sub" / "a b.css").string(), "escaped names and queries resolve");
+    check(canopy::resolve_served(r, "/about").file == (served / "about.html").string(), "clean URLs find .html files");
     check(canopy::resolve_served(r, "/sub").status == 301 && canopy::resolve_served(r, "/sub").redirect == "/sub/", "folders without a slash redirect");
     check(canopy::resolve_served(r, "/pages/").listing, "folders without an index get a listing");
     check(canopy::resolve_served(r, "/../../etc/passwd").status != 200 || canopy::resolve_served(r, "/../../etc/passwd").file.rfind(r, 0) == 0, "paths can't climb out of the folder");
@@ -926,7 +927,7 @@ void test_live_server() {
         check(a.url() == "http://localhost:" + std::to_string(a.port()) + "/", "server URL");
         check(a.url((root / "sub" / "a b.css").string()) == a.url() + "sub/a%20b.css", "URL of a file in the folder");
         check(a.contains((root / "sub").string()) && !a.contains(root.parent_path().string()), "contains only its folder");
-        check(a.file_for_url("/sub/a%20b.css?v=1") == (root / "sub" / "a b.css").string() && a.file_for_url("http://localhost:1/about") == (root / "about.html").string() && a.file_for_url("/nope.js").empty(), "console sources map back to files");
+        check(a.file_for_url("/sub/a%20b.css?v=1") == (served / "sub" / "a b.css").string() && a.file_for_url("http://localhost:1/about") == (served / "about.html").string() && a.file_for_url("/nope.js").empty(), "console sources map back to files");
         step("asking the console");
         check(a.console() && a.evaluate("1 + 1") == 0 && a.pages() == 0, "the console starts on and has no pages yet");
         a.set_console(false);

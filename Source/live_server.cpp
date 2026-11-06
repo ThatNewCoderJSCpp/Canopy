@@ -1191,7 +1191,7 @@ std::string LiveServer::url(const std::string& file) const {
     if (file.empty()) return out;
     const fs::path root = clean_root(m_state->folder);
     std::error_code ec;
-    fs::path target = fs::absolute(file, ec).lexically_normal();
+    fs::path target = clean_root(file);
     if (!inside(target, root)) return out;
     std::string rel = target.lexically_relative(root).generic_string();
     if (rel == ".") rel.clear();
@@ -1205,8 +1205,7 @@ std::size_t LiveServer::requests() const {
 }
 
 bool LiveServer::contains(const std::string& path) const {
-    std::error_code ec;
-    return inside(fs::absolute(path, ec).lexically_normal(), clean_root(m_state->folder));
+    return inside(clean_root(path), clean_root(m_state->folder));
 }
 
 void LiveServer::changed(const std::string& path) {
