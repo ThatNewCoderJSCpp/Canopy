@@ -316,7 +316,8 @@ jobs:
           test -L "$mount/Applications"
           app="$mount/Canopy.app"
           plutil -lint "$app/Contents/Info.plist"
-          test -x "$app/Contents/MacOS/Canopy"
+          test -x "$app/Contents/MacOS/canopy-app"
+          file "$app/Contents/MacOS/canopy" | grep -q Mach-O
           "$app/Contents/MacOS/canopy" version
           "$app/Contents/MacOS/canopy" doctor
 
