@@ -9,7 +9,7 @@
     <key>CFBundleName</key>
     <string>Canopy</string>
     <key>CFBundleExecutable</key>
-    <string>Canopy</string>
+    <string>canopy-app</string>
     <key>CFBundleIconFile</key>
     <string>canopy</string>
     <key>CFBundleIdentifier</key>

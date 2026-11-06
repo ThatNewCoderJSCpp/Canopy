@@ -28,13 +28,13 @@ for part in share include runtime fizmo toolchain docs; do
     if [ -d "$package/$part" ]; then cp -R "$package/$part" "$contents/"; fi
 done
 
-cat > "$contents/MacOS/Canopy" <<'EOF'
+cat > "$contents/MacOS/canopy-app" <<'EOF'
 #!/bin/sh
 here="$(cd "$(dirname "$0")" && pwd)"
 export PATH="$here:$PATH"
 exec "$here/canopy" --wait "$@"
 EOF
-chmod +x "$contents/MacOS/Canopy"
+chmod +x "$contents/MacOS/canopy-app"
 
 iconset="$work/canopy.iconset"
 mkdir -p "$iconset"
