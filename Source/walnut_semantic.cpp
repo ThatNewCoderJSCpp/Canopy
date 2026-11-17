@@ -215,7 +215,7 @@ private:
 const std::set<std::string>& walnut_words() {
     static const std::set<std::string> k = {
         "self", "this",
-        "fallthrough", "co_return", "co_yield", "continue", "default", "repeat", "return", "switch", "await", "break", "catch", "label", "throw",
+        "fallthrough", "co_return", "co_yield", "co_await", "from", "match", "has", "not", "safe", "compile", "continue", "default", "repeat", "return", "switch", "await", "break", "catch", "label", "throw",
         "while", "case", "down", "else", "goto", "then", "end", "for", "try", "as", "do", "if", "in", "is", "invalidate",
         "constructor", "destructor", "namespace", "function", "inherits", "operator", "requires", "template", "typename", "concept", "extends",
         "include", "inherit", "typedef", "define", "export", "import", "module", "struct", "class", "union", "using", "enum", "def", "let",
@@ -223,7 +223,7 @@ const std::set<std::string>& walnut_words() {
         "abstract", "constant", "explicit", "implicit", "noexcept", "override", "volatile", "hoisted", "mutable", "private", "virtual", "extern",
         "friend", "global", "hidden", "inline", "public", "static", "async", "const", "hoist", "local", "lazy",
         "character", "iterable", "unsigned", "variable", "boolean", "decimal", "dynamic", "floater", "integer", "special", "variant", "double",
-        "string", "array", "float", "short", "auto", "bool", "char", "long", "text", "void", "any", "arr", "int", "str", "txt", "var",
+        "string", "array", "float", "short", "auto", "bool", "char", "long", "text", "void", "any", "arr", "dec", "int", "str", "txt", "var",
         "indeterminate", "undefined", "infinity", "nullptr", "FALSE", "False", "false", "TRUE", "True", "true", "inf", "nan",
         "reinterpret_cast", "dynamic_cast", "static_cast", "const_cast", "bit_cast", "bitcast",
         "discard_no_discard", "discard_nodiscard", "discard_const", "static_assert", "align_as", "align_of", "count_of", "decltype", "alignas",
