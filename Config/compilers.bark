@@ -41,9 +41,13 @@ language.walnut {
     release-flags: "-O2";
     checks: "off";
     leak-check: "off";
+    loop-limit: "";
+    depth-limit: "";
     gc: false;
     ownership: false;
     unused-warnings: false;
+    profile-memory: false;
+    profile-complexity: false;
 }
 
 language.grove {

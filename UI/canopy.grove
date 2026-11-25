@@ -32,6 +32,7 @@
                     <row id="tabs"></row>
                     <row id="tab-actions">
                         <button id="build-button">Build</button>
+                        <button id="profile-button" title="Run a Walnut program with timing added, then show its slowest lines and functions with suggestions">Profile</button>
                         <button id="run-button" class="primary">Run</button>
                     </row>
                 </row>
@@ -71,6 +72,7 @@
                         <text class="panel-tab" id="tab-warnings" data-view="warnings">WARNINGS</text>
                         <text class="panel-tab" id="tab-output" data-view="output">OUTPUT</text>
                         <text class="panel-tab" id="tab-stats" data-view="stats" title="How long the last program ran and how much memory it used">STATS</text>
+                        <text class="panel-tab" id="tab-profile" data-view="profile" title="The slowest lines and functions of the last profiled Walnut program, with suggestions">PROFILE</text>
                         <text class="panel-tab" id="tab-console" data-view="console" title="What pages served from the Ports tab log, and JavaScript to run in them">CONSOLE</text>
                         <text class="panel-tab" id="tab-elements" data-view="elements" title="The live HTML of a served page; try changes in the page without touching your files">ELEMENTS</text>
                         <text class="panel-tab" id="tab-git" data-view="git">GIT</text>
@@ -104,6 +106,11 @@
                     <panel id="view-stats" class="panel-view">
                         <column id="stats">
                             <p class="muted">Run a program (F5) to see how long it took and how much memory it used.</p>
+                        </column>
+                    </panel>
+                    <panel id="view-profile" class="panel-view">
+                        <column id="profile">
+                            <p class="muted">Profile a Walnut program (the Profile button next to Run) to see its slowest lines and functions here, with suggestions for speeding them up.</p>
                         </column>
                     </panel>
                     <panel id="view-console" class="panel-view">

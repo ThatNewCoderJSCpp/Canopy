@@ -777,6 +777,10 @@ void test_signature_layout() {
     check(md.find("    param5: bool\n) -> int\n```\nSome docs.") != std::string::npos, "hovers lay out signatures inside code blocks: " + md);
     const std::string body = canopy::format_hover_signatures("```cpp\nstruct S { int a; };\n```\n", 10);
     check(body == "```cpp\nstruct S { int a; };\n```\n", "code that isn't a signature is left alone");
+    const std::string headed = canopy::format_hover_signatures("```walnut\ntemplate <typename T>\nrequires std::traits::is_integer<T> || (requires (T: a) { a + a; })\nfunction twice(T: x) -> T\n```\n", 80);
+    check(headed == "```walnut\ntemplate <typename T>\nrequires std::traits::is_integer<T> || (requires (T: a) { a + a; })\nfunction twice(T: x) -> T\n```\n", "template and requires lines stay above the signature: " + headed);
+    const std::string member = canopy::format_hover_signatures("```walnut\nrequires std::traits::has_operator<std::traits::op::less, T>\nfunction sort(self&, long int: first, long int: last, bool: descending) -> void\n```\n", 40);
+    check(member.rfind("```walnut\nrequires std::traits::has_operator<std::traits::op::less, T>\nfunction sort(\n", 0) == 0, "a member requires line stays on its own line when the signature wraps: " + member);
 }
 
 void test_terminal_screen() {
@@ -1404,6 +1408,37 @@ void test_bark_properties() {
     fs::remove_all(root, ec);
 }
 
+void test_walnut_macros_and_memory() {
+    using K = grove::CodeTokenKind;
+    const std::string text = "#define SIZE 16\n#if 0\nint: a = 1;\n#endif\nint: b = SIZE;\n";
+    const std::string output = R"({"semantic":true,"tokens":[[4,9,4,"macro",[]]],"diagnostics":[],"hovers":[{"line":4,"col":9,"len":4,"code":"#define SIZE 16","expansion":"16"}],"inactive":[[2,2]]})";
+    const canopy::SemanticResult r = canopy::parse_walnut_highlight(output, text, "/w/m.wal");
+    bool inactive = false;
+    bool macro = false;
+    for (const grove::CodeSpan& s : r.spans) {
+        if (s.line == 2 && s.kind == K::Inactive && s.column == 0 && s.length == 11) inactive = true;
+        if (s.line == 4 && s.column == 9 && s.kind == K::Preprocessor) macro = true;
+    }
+    check(inactive, "lines an #if leaves out are grayed");
+    check(macro, "macro names are colored like the preprocessor");
+    check(r.hovers.size() == 1 && r.hovers[0].expansion == "16", "a macro's hover keeps its expansion");
+    check(canopy::walnut_hover_markdown(r.hovers[0], 0).find("**Expands to:**") != std::string::npos, "and shows it");
+
+    const std::string json = R"J({"version":1,"exit_code":0,"wall_ns":100,"total_ns":80,"lines":[],"functions":[{"name":"main","file":"/w/p.wal","line":1,"last_line":9,"calls":1,"total_ns":80,"own_ns":80,"percent":100}],"suggestions":[],"memory":{"tracked":true,"bytes":4096,"blocks":4,"peak":2048,"held":0},"memory_lines":[{"file":"/w/p.wal","line":3,"bytes":1024,"blocks":1,"peak":1024,"held":0,"percent":25,"function":"main","text":"a"},{"file":"/w/p.wal","line":4,"bytes":3072,"blocks":3,"peak":2048,"held":0,"percent":75,"function":"main","text":"b"}],"layouts":[{"name":"P","file":"/w/p.wal","line":1,"size":24,"padding":14,"better_size":16,"fields":[{"name":"a","size":1,"align":1},{"name":"x","size":8,"align":8},{"name":"b","size":1,"align":1}],"better_order":["x","a","b"],"edits":[{"line":2,"before":"    bool: a;","after":"    double: x;"},{"line":3,"before":"    double: x;","after":"    bool: a;"}]}],"complexity":[{"name":"main","file":"/w/p.wal","line":1,"last_line":9,"time":"O(n^2)","memory":"O(1)","recursive":false,"time_reasons":[{"line":2,"text":"the loop on line 2 runs about n times"}],"memory_reasons":[],"measured":{"ok":true,"time":"O(n^2)","memory":"O(1)","argument":"v","low":100,"high":3000,"sizes":30,"calls":30,"note":"grows with 'v'"}}]})J";
+    const canopy::WalnutProfile p = canopy::parse_walnut_profile(json);
+    check(p.ok && p.memory && p.bytes == 4096 && p.peak == 2048, "the profile reads its memory totals");
+    check(p.memory_lines.size() == 2 && p.memory_lines[0].line == 4, "lines that allocate the most come first");
+    check(p.complexity.size() == 1 && p.complexity[0].time == "O(n^2)" && p.complexity[0].reason.find("line 2") != std::string::npos, "growth estimates are read");
+    check(p.complexity[0].measured_time == "O(n^2)" && p.complexity[0].measured_note == "grows with 'v'", "and so are the measured ones");
+    check(p.suggestions.size() == 1 && p.suggestions[0].kind == "layout" && p.suggestions[0].edits.size() == 2, "a smaller field order becomes a suggestion");
+    bool applied = false;
+    const std::string changed = canopy::apply_profile_suggestion("struct P {\n    bool: a;\n    double: x;\n    bool: b;\n}\n", p.suggestions[0], applied);
+    check(applied && changed == "struct P {\n    double: x;\n    bool: a;\n    bool: b;\n}\n", "applying it reorders the fields");
+    canopy::apply_profile_suggestion("struct P {\n    bool: a;\n    int: y;\n}\n", p.suggestions[0], applied);
+    check(!applied, "a class that changed since isn't touched");
+    check(canopy::profile_bytes(512) == "512 B" && canopy::profile_bytes(1536) == "1.5 KB" && canopy::profile_bytes(3.0 * 1024 * 1024) == "3.0 MB", "sizes read as B, KB and MB");
+}
+
 void test_special_names() {
     std::uint32_t cp = 0;
     check(canopy::special_character("alpha", cp) && cp == 0x3B1, "\\s{alpha} is U+03B1");
@@ -1675,6 +1710,12 @@ void test_walnut_safety_settings() {
     check(d.empty() && canopy::walnut_safety_flags(unused) == std::vector<std::string>{ "--warn-unused" }, "the unused-variables setting becomes --warn-unused");
     const std::vector<std::string> live_unused = canopy::walnut_highlight_command("walnut", "a.wal", "--warn-unused");
     check(std::find(live_unused.begin(), live_unused.end(), "--warn-unused") != live_unused.end(), "unused-variable warnings reach live problems");
+    canopy::Settings limits = canopy::Settings::defaults();
+    limits.load_text("language.walnut {\n    loop-limit: \"1_000_000\";\n    depth-limit: \"5000\";\n}\n", "user.bark", canopy::SettingSource::User, d);
+    check(d.empty() && canopy::walnut_safety_flags(limits) == std::vector<std::string>{ "--check-loops=1000000", "--check-recursion=5000" }, "loop and depth limits become --check-loops and --check-recursion");
+    canopy::Settings bad = canopy::Settings::defaults();
+    bad.load_text("language.walnut {\n    loop-limit: \"lots\";\n    depth-limit: \"0\";\n}\n", "user.bark", canopy::SettingSource::User, d);
+    check(canopy::walnut_safety_flags(bad).empty(), "limits that aren't whole numbers above 0 are left off");
 }
 
 void test_more_language_builds() {
@@ -2138,6 +2179,7 @@ int main() {
     run_test("test_more_language_completion", test_more_language_completion);
     run_test("test_elements_tree", test_elements_tree);
     run_test("test_web_problems", test_web_problems);
+    run_test("test_walnut_macros_and_memory", test_walnut_macros_and_memory);
     run_test("test_special_names", test_special_names);
     run_test("test_project_names", test_project_names);
     if (failures == 0) std::cout << "all canopy tests passed\n";

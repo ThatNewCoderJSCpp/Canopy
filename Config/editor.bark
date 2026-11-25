@@ -14,6 +14,25 @@ editor {
     word-suggestions: true;
     suggestion-icons: true;
     suggestion-kinds: true;
+    number-hover: true;
+    int-hover-size: true;
+    int-hover-range: true;
+    int-hover-all-digits: false;
+    int-hover-hex: false;
+    int-hover-count: false;
+    int-hover-overflow: true;
+    float-hover-size: true;
+    float-hover-mantissa: true;
+    float-hover-exponent: false;
+    float-hover-digits: true;
+    float-hover-epsilon: true;
+    float-hover-max: true;
+    float-hover-lowest: true;
+    float-hover-min: false;
+    float-hover-subnormal: false;
+    float-hover-exact-integers: false;
+    float-hover-exact-form: false;
+    float-hover-special: false;
     theme: "canopy-dark";
 }
 

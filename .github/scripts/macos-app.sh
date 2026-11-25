@@ -24,7 +24,7 @@ contents="$app/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 
 cp -R "$package/bin/." "$contents/MacOS/"
-for part in share include runtime fizmo toolchain docs; do
+for part in share include runtime fizmo toolchain std-prebuilt docs; do
     if [ -d "$package/$part" ]; then cp -R "$package/$part" "$contents/"; fi
 done
 

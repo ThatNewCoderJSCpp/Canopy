@@ -83,6 +83,8 @@ const std::vector<DocEntry>& grove_attribute_table() {
         { "indent", "input_code", "`spaces` (default) or `tabs`: what Tab and Enter insert" },
         { "language", "input_code", "`c`, `cpp`, `walnut`, `grove`, `bark`, `cmake` or `plain` (default); file extensions like `hpp` or `wal` work too" },
         { "line-numbers", "input_code", "`false` hides them" },
+        { "sticky-scroll", "input_code", "`false` stops the first line of each enclosing block from staying at the top while scrolling" },
+        { "sticky-lines", "input_code", "how many block lines sticky scroll keeps at the top at most (5)" },
         { "link-words", "input_code", "`true` treats every word as a possible link, for an app that works out where it goes when it's clicked" },
         { "links", "input_code", "spans that Ctrl+click goes somewhere from (built like `semantic`); they're underlined while Ctrl is held over them" },
         { "mark", "input_code", "token kinds like `\"keyword string\"`: draws a box behind every token of those kinds, to show what a color changes" },

@@ -26,6 +26,7 @@ struct WalnutHover {
     std::vector<std::string> overloads;
     bool guess = false;
     std::string doc;
+    std::string expansion;
 };
 
 struct WalnutLink {
@@ -63,6 +64,92 @@ struct WalnutCompletions {
 };
 
 WalnutCompletions parse_walnut_complete(const std::string& output);
+
+struct ProfileLine {
+    std::string file;
+    std::size_t line = 0;
+    double ns = 0;
+    double hits = 0;
+    double percent = 0;
+    std::string function;
+    std::string text;
+};
+
+struct ProfileFunction {
+    std::string name;
+    std::string file;
+    std::size_t line = 0;
+    std::size_t last_line = 0;
+    double calls = 0;
+    double total_ns = 0;
+    double own_ns = 0;
+    double percent = 0;
+};
+
+struct ProfileEdit {
+    std::size_t line = 0;
+    std::string before;
+    std::string after;
+};
+
+struct ProfileMemoryLine {
+    std::string file;
+    std::size_t line = 0;
+    double bytes = 0;
+    double blocks = 0;
+    double peak = 0;
+    double held = 0;
+    double percent = 0;
+    std::string function;
+    std::string text;
+};
+
+struct ProfileComplexity {
+    std::string name;
+    std::string file;
+    std::size_t line = 0;
+    std::string time;
+    std::string memory;
+    std::string reason;
+    std::string measured_time;
+    std::string measured_memory;
+    std::string measured_note;
+};
+
+struct ProfileSuggestion {
+    std::string file;
+    std::size_t line = 0;
+    std::string function;
+    std::string kind;
+    std::string message;
+    std::string why;
+    double percent = 0;
+    std::string before;
+    std::string after;
+    std::vector<ProfileEdit> edits;
+};
+
+struct WalnutProfile {
+    bool ok = false;
+    int exit_code = 0;
+    double wall_ns = 0;
+    double total_ns = 0;
+    std::vector<ProfileLine> lines;
+    std::vector<ProfileFunction> functions;
+    std::vector<ProfileSuggestion> suggestions;
+    bool memory = false;
+    double bytes = 0;
+    double blocks = 0;
+    double peak = 0;
+    double held = 0;
+    std::vector<ProfileMemoryLine> memory_lines;
+    std::vector<ProfileComplexity> complexity;
+};
+
+WalnutProfile parse_walnut_profile(const std::string& json);
+std::string profile_duration(double ns);
+std::string profile_bytes(double n);
+std::string apply_profile_suggestion(const std::string& text, const ProfileSuggestion& s, bool& applied);
 std::vector<std::string> text_lines(const std::string& text);
 std::string walnut_hover_markdown(const WalnutHover& hover, std::size_t page);
 const WalnutHover* walnut_hover_at(const std::vector<WalnutHover>& hovers, const std::vector<std::string>& lines, std::size_t line, std::size_t column);

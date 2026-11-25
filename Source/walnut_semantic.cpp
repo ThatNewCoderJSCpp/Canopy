@@ -215,7 +215,7 @@ private:
 const std::set<std::string>& walnut_words() {
     static const std::set<std::string> k = {
         "self", "this",
-        "fallthrough", "co_return", "co_yield", "co_await", "from", "match", "has", "not", "safe", "compile", "continue", "default", "repeat", "return", "switch", "await", "break", "catch", "label", "throw",
+        "fallthrough", "co_return", "co_yield", "co_await", "from", "match", "has", "not", "safe", "compile", "continue", "default", "repeat", "return", "switch", "await", "break", "catch", "label", "throw", "finally",
         "while", "case", "down", "else", "goto", "then", "end", "for", "try", "as", "do", "if", "in", "is", "invalidate",
         "constructor", "destructor", "namespace", "function", "inherits", "operator", "requires", "template", "typename", "concept", "extends",
         "include", "inherit", "typedef", "define", "export", "import", "module", "struct", "class", "union", "using", "enum", "def", "let",
@@ -276,6 +276,7 @@ grove::CodeTokenKind walnut_semantic_kind(const std::string& type, const std::ve
         return K::Variable;
     }
     if (type == "unresolved") return K::Unresolved;
+    if (type == "macro") return K::Preprocessor;
     if (type == "operator") return has("overloaded") ? K::OverloadedOperator : K::BuiltinOperator;
     if (type == "function" || type == "method") return K::Function;
     if (type == "class" || type == "struct" || type == "enum" || type == "type" || type == "typeParameter" || type == "concept") return K::Type;
@@ -452,6 +453,17 @@ SemanticResult parse_walnut_highlight(const std::string& output, const std::stri
             result.spans.push_back(grove::CodeSpan{ line, begin, end - begin, kind });
         }
     }
+    if (const Json* inactive = root.get("inactive")) {
+        for (const Json& r : inactive->items) {
+            if (r.items.size() < 2) continue;
+            const std::size_t first = r.items[0].index();
+            const std::size_t last = std::min(r.items[1].index(), lines.empty() ? 0 : lines.size() - 1);
+            for (std::size_t l = first; l <= last && l < lines.size(); ++l) {
+                if (lines[l].empty()) continue;
+                result.spans.push_back(grove::CodeSpan{ l, 0, lines[l].size(), grove::CodeTokenKind::Inactive });
+            }
+        }
+    }
     if (mark_unresolved && result.semantic) {
         bool any = false;
         for (const grove::CodeSpan& s : result.spans) any = any || s.kind == grove::CodeTokenKind::Unresolved;
@@ -489,6 +501,7 @@ SemanticResult parse_walnut_highlight(const std::string& output, const std::stri
             hover.overloads = strings(h.get("overloads"));
             if (const Json* g = h.get("guess")) hover.guess = g->kind == Json::Kind::Bool && g->boolean;
             if (const Json* d = h.get("doc")) hover.doc = d->text;
+            if (const Json* x = h.get("expansion")) hover.expansion = x->text;
             result.hovers.push_back(std::move(hover));
         }
     }
@@ -671,6 +684,7 @@ std::string walnut_hover_markdown(const WalnutHover& h, std::size_t page) {
         for (std::size_t i = 0; i < items.size(); ++i) line += (i ? ", " : "") + inline_code_text(items[i]);
         md += line + "\n";
     };
+    if (!h.expansion.empty()) md += "**Expands to:**\n```walnut\n" + shorten_text(h.expansion) + "\n```\n";
     if (!h.doc.empty()) md += h.doc + "\n";
     add("Type", "Types", h.types);
     add("Value", "Values", h.values);
@@ -817,6 +831,183 @@ std::optional<SemanticJob::Done> SemanticJob::take() {
     std::optional<Done> out = std::move(m_state->done);
     m_state->done.reset();
     return out;
+}
+
+WalnutProfile parse_walnut_profile(const std::string& json) {
+    WalnutProfile out;
+    Json root;
+    JsonReader reader(json);
+    if (!reader.read(root) || root.kind != Json::Kind::Object) return out;
+    const auto num = [](const Json& o, const char* key) { const Json* v = o.get(key); return v && v->kind == Json::Kind::Number ? v->number : 0.0; };
+    const auto str = [](const Json& o, const char* key) { const Json* v = o.get(key); return v && v->kind == Json::Kind::String ? v->text : std::string(); };
+    out.exit_code = static_cast<int>(num(root, "exit_code"));
+    out.wall_ns = num(root, "wall_ns");
+    out.total_ns = num(root, "total_ns");
+    if (const Json* lines = root.get("lines"); lines && lines->kind == Json::Kind::Array) {
+        for (const Json& l : lines->items) {
+            ProfileLine p;
+            p.file = str(l, "file");
+            p.line = static_cast<std::size_t>(num(l, "line"));
+            p.ns = num(l, "ns");
+            p.hits = num(l, "hits");
+            p.percent = num(l, "percent");
+            p.function = str(l, "function");
+            p.text = str(l, "text");
+            out.lines.push_back(std::move(p));
+        }
+    }
+    if (const Json* fns = root.get("functions"); fns && fns->kind == Json::Kind::Array) {
+        for (const Json& f : fns->items) {
+            ProfileFunction p;
+            p.name = str(f, "name");
+            p.file = str(f, "file");
+            p.line = static_cast<std::size_t>(num(f, "line"));
+            p.last_line = static_cast<std::size_t>(num(f, "last_line"));
+            p.calls = num(f, "calls");
+            p.total_ns = num(f, "total_ns");
+            p.own_ns = num(f, "own_ns");
+            p.percent = num(f, "percent");
+            out.functions.push_back(std::move(p));
+        }
+    }
+    if (const Json* sug = root.get("suggestions"); sug && sug->kind == Json::Kind::Array) {
+        for (const Json& g : sug->items) {
+            ProfileSuggestion p;
+            p.file = str(g, "file");
+            p.line = static_cast<std::size_t>(num(g, "line"));
+            p.function = str(g, "function");
+            p.kind = str(g, "kind");
+            p.message = str(g, "message");
+            p.why = str(g, "why");
+            p.percent = num(g, "percent");
+            p.before = str(g, "before");
+            p.after = str(g, "after");
+            out.suggestions.push_back(std::move(p));
+        }
+    }
+    if (const Json* mem = root.get("memory"); mem && mem->kind == Json::Kind::Object) {
+        const Json* tracked = mem->get("tracked");
+        out.memory = tracked && tracked->kind == Json::Kind::Bool && tracked->boolean;
+        out.bytes = num(*mem, "bytes");
+        out.blocks = num(*mem, "blocks");
+        out.peak = num(*mem, "peak");
+        out.held = num(*mem, "held");
+    }
+    if (const Json* ml = root.get("memory_lines"); ml && ml->kind == Json::Kind::Array) {
+        for (const Json& l : ml->items) {
+            ProfileMemoryLine m;
+            m.file = str(l, "file");
+            m.line = static_cast<std::size_t>(num(l, "line"));
+            m.bytes = num(l, "bytes");
+            m.blocks = num(l, "blocks");
+            m.peak = num(l, "peak");
+            m.held = num(l, "held");
+            m.percent = num(l, "percent");
+            m.function = str(l, "function");
+            m.text = str(l, "text");
+            out.memory_lines.push_back(std::move(m));
+        }
+    }
+    if (const Json* layouts = root.get("layouts"); layouts && layouts->kind == Json::Kind::Array) {
+        for (const Json& l : layouts->items) {
+            const double size = num(l, "size");
+            const double better = num(l, "better_size");
+            if (better <= 0 || better >= size) continue;
+            const auto names = [](const Json* list) {
+                std::string out;
+                if (!list) return out;
+                for (const Json& item : list->items) {
+                    const std::string name = item.kind == Json::Kind::String ? item.text : (item.get("name") ? item.get("name")->text : std::string());
+                    out += (out.empty() ? "" : ", ") + name;
+                }
+                return out;
+            };
+            ProfileSuggestion s;
+            s.file = str(l, "file");
+            s.line = static_cast<std::size_t>(num(l, "line"));
+            s.function = str(l, "name");
+            s.kind = "layout";
+            s.why = profile_bytes(size) + " per object, " + profile_bytes(num(l, "padding")) + " of it padding";
+            s.message = "Ordering the fields " + names(l.get("better_order")) + " (now " + names(l.get("fields")) + ") makes each object " + profile_bytes(better) + ", " + profile_bytes(size - better) + " less. Field values given in the class are set in the new order, so check none uses a field declared after it.";
+            if (const Json* edits = l.get("edits")) {
+                for (const Json& e : edits->items) s.edits.push_back(ProfileEdit{ static_cast<std::size_t>(num(e, "line")), str(e, "before"), str(e, "after") });
+            }
+            s.percent = size > 0 ? 100.0 * (size - better) / size : 0;
+            out.suggestions.push_back(std::move(s));
+        }
+    }
+    if (const Json* cx = root.get("complexity"); cx && cx->kind == Json::Kind::Array) {
+        for (const Json& e : cx->items) {
+            ProfileComplexity c;
+            c.name = str(e, "name");
+            c.file = str(e, "file");
+            c.line = static_cast<std::size_t>(num(e, "line"));
+            c.time = str(e, "time");
+            c.memory = str(e, "memory");
+            if (const Json* why = e.get("time_reasons"); why && !why->items.empty()) c.reason = str(why->items.front(), "text");
+            if (const Json* m = e.get("measured"); m && m->kind == Json::Kind::Object) {
+                c.measured_time = str(*m, "time");
+                c.measured_memory = str(*m, "memory");
+                c.measured_note = str(*m, "note");
+            }
+            out.complexity.push_back(std::move(c));
+        }
+    }
+    std::stable_sort(out.lines.begin(), out.lines.end(), [](const ProfileLine& a, const ProfileLine& b) { return a.ns > b.ns; });
+    std::stable_sort(out.memory_lines.begin(), out.memory_lines.end(), [](const ProfileMemoryLine& a, const ProfileMemoryLine& b) { return a.bytes > b.bytes; });
+    std::stable_sort(out.functions.begin(), out.functions.end(), [](const ProfileFunction& a, const ProfileFunction& b) { return a.total_ns > b.total_ns; });
+    out.ok = true;
+    return out;
+}
+
+std::string profile_duration(double ns) {
+    char buf[64];
+    if (ns >= 1e9) std::snprintf(buf, sizeof buf, "%.2f s", ns / 1e9);
+    else if (ns >= 1e6) std::snprintf(buf, sizeof buf, "%.1f ms", ns / 1e6);
+    else if (ns >= 1e3) std::snprintf(buf, sizeof buf, "%.1f \xC2\xB5s", ns / 1e3);
+    else std::snprintf(buf, sizeof buf, "%.0f ns", ns);
+    return buf;
+}
+
+std::string profile_bytes(double n) {
+    char buf[64];
+    if (n >= 1024.0 * 1024 * 1024) std::snprintf(buf, sizeof buf, "%.2f GB", n / (1024.0 * 1024 * 1024));
+    else if (n >= 1024.0 * 1024) std::snprintf(buf, sizeof buf, "%.1f MB", n / (1024.0 * 1024));
+    else if (n >= 1024.0) std::snprintf(buf, sizeof buf, "%.1f KB", n / 1024.0);
+    else std::snprintf(buf, sizeof buf, "%.0f B", n);
+    return buf;
+}
+
+std::string apply_profile_suggestion(const std::string& text, const ProfileSuggestion& s, bool& applied) {
+    applied = false;
+    if (!s.edits.empty()) {
+        std::string out = text;
+        for (const ProfileEdit& e : s.edits) {
+            ProfileSuggestion one;
+            one.line = e.line;
+            one.before = e.before;
+            one.after = e.after;
+            bool ok = false;
+            out = apply_profile_suggestion(out, one, ok);
+            if (!ok) return text;
+        }
+        applied = true;
+        return out;
+    }
+    if (s.line == 0 || s.before.empty() || s.after.empty() || s.before == s.after) return text;
+    std::size_t at = 0;
+    for (std::size_t l = 1; l < s.line; ++l) {
+        const std::size_t nl = text.find('\n', at);
+        if (nl == std::string::npos) return text;
+        at = nl + 1;
+    }
+    std::size_t end = text.find('\n', at);
+    if (end == std::string::npos) end = text.size();
+    std::size_t content_end = end;
+    if (content_end > at && text[content_end - 1] == '\r') --content_end;
+    if (text.compare(at, content_end - at, s.before) != 0) return text;
+    applied = true;
+    return text.substr(0, at) + s.after + text.substr(content_end);
 }
 
 } // namespace canopy

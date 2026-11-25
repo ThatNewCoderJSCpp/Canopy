@@ -14,6 +14,7 @@ highlight {
     string: #a31515;
     escape: #ee0000;
     number: #098658;
+    number-suffix: #c55a00;
     comment: #008000 italic;
     preprocessor: #af00db;
     operator: #000000;
@@ -40,6 +41,7 @@ highlight.walnut {
     string: #a31515;
     escape: #ee0000;
     number: #098658;
+    number-suffix: #c55a00;
     comment: #008000 italic;
     preprocessor: #af00db;
     builtin-operator: #000000;

@@ -59,6 +59,30 @@ std::string number_preview(const std::string& literal);
 std::string color_preview(const std::string& literal);
 std::string hover_link(const std::string& label, const CodeLocation& where);
 std::optional<HoverResult> literal_hover(const std::string& language, const std::string& text, std::size_t line, std::size_t column);
+
+struct NumberHoverOptions {
+    bool enabled = true;
+    bool int_size = true;
+    bool int_range = true;
+    bool int_all_digits = false;
+    bool int_hex = false;
+    bool int_count = false;
+    bool int_behavior = true;
+    bool float_size = true;
+    bool float_mantissa = true;
+    bool float_exponent = false;
+    bool float_digits = true;
+    bool float_epsilon = true;
+    bool float_max = true;
+    bool float_lowest = true;
+    bool float_min = false;
+    bool float_subnormal = false;
+    bool float_exact_int = false;
+    bool float_exact_form = false;
+    bool float_behavior = false;
+};
+
+std::optional<HoverResult> walnut_number_hover(const std::string& text, std::size_t line, std::size_t column, const NumberHoverOptions& options);
 std::optional<CodeLocation> parse_hover_link(const std::string& action);
 std::string format_signature(const std::string& signature, std::size_t columns);
 std::string format_hover_signatures(const std::string& markdown, std::size_t columns);

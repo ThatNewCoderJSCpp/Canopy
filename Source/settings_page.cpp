@@ -60,6 +60,7 @@ const std::vector<KindInfo>& kind_infos() {
         { "template-scope", "Template scopes", "names inside template< >" },
         { "variable-template", "Variable templates", "templated variables" },
         { "unresolved", "Unknown names", "names the compiler can't find" },
+        { "inactive", "Inactive code", "lines an #if or #ifdef leaves out" },
         { "error-underline", "Error squiggle", "the wavy line under errors" },
         { "warning-underline", "Warning squiggle", "the wavy line under warnings" },
         { "error-line", "Error lines", "the text of a line with an error" },
@@ -145,10 +146,10 @@ std::vector<std::string> kinds_for(const std::string& language) {
         }
         return kinds;
     }
-    if (language == "c") return { "keyword", "type", "function", "constant", "string", "escape", "number", "comment", "preprocessor", "operator", "attribute", "plain", "error-underline", "warning-underline", "error-line" };
-    if (language == "cpp") return { "keyword", "type", "function", "namespace", "constant", "string", "escape", "number", "comment", "preprocessor", "operator", "attribute", "plain", "error-underline", "warning-underline", "error-line" };
+    if (language == "c") return { "keyword", "type", "function", "constant", "string", "escape", "number", "comment", "preprocessor", "inactive", "operator", "attribute", "plain", "error-underline", "warning-underline", "error-line" };
+    if (language == "cpp") return { "keyword", "type", "function", "namespace", "constant", "string", "escape", "number", "comment", "preprocessor", "inactive", "operator", "attribute", "plain", "error-underline", "warning-underline", "error-line" };
     if (language == "walnut") return { "keyword", "control-keyword", "type", "builtin-type", "function", "namespace", "declaration", "variable", "variable-template", "template-scope",
-                                       "enum-member", "constant", "string", "escape", "number", "comment", "preprocessor", "operator", "builtin-operator", "overloaded-operator",
+                                       "enum-member", "constant", "string", "escape", "number", "comment", "preprocessor", "inactive", "operator", "builtin-operator", "overloaded-operator",
                                        "self", "this", "cast", "plain", "error-underline", "warning-underline", "error-line" };
     if (language == "grove") return { "tag", "attribute", "string", "constant", "comment", "operator", "plain" };
     if (language == "bark") return { "tag", "attribute", "property", "keyword", "function", "constant", "number", "string", "comment", "operator", "plain" };
@@ -252,6 +253,25 @@ const std::vector<SettingDoc>& setting_docs() {
         { "editor", "word-suggestions", "Suggest words from the file", "Besides keywords and names the editor understands, suggest other words that appear in the file." },
         { "editor", "suggestion-icons", "Suggestion icons", "Show the small colored letter beside each suggestion: F for functions, T for types, V for variables and so on." },
         { "editor", "suggestion-kinds", "Suggestion kinds", "Write what each suggestion is (function, struct, enum, keyword, ...) beside its name." },
+        { "editor", "number-hover", "Number type hovers", "Resting the mouse on a number type in Walnut, like unsigned long int, long double or std::hardware_int32, shows what values it can hold. The switches below pick what's listed." },
+        { "editor", "int-hover-size", "Integer size", "Show how many bits and bytes the integer type takes." },
+        { "editor", "int-hover-range", "Integer range", "Show the smallest and largest value the integer type can hold. Walnut's own integers keep the sign apart, so an int goes from -4294967295 to 4294967295; hardware integers use two's complement like C++." },
+        { "editor", "int-hover-all-digits", "Every digit of wide ranges", "Write the range of integers wider than 128 bits out in full instead of as an approximation and a digit count. A long long integer's limits are 617 digits long." },
+        { "editor", "int-hover-hex", "Integer range in hex", "Also show the largest value (and for hardware integers the smallest, as bits) in hexadecimal." },
+        { "editor", "int-hover-count", "Number of integer values", "Show how many different values the integer type has, as a power of 2 and written out." },
+        { "editor", "int-hover-overflow", "Integer overflow", "Say what happens when a result doesn't fit: Walnut's integers give inf (or 0 for an unsigned one going below 0) and can hold special values; hardware integers wrap around." },
+        { "editor", "float-hover-size", "Float size", "Show how many bits and bytes the float type takes." },
+        { "editor", "float-hover-mantissa", "Mantissa", "Show how many mantissa bits the float type stores and how many bits of precision that gives." },
+        { "editor", "float-hover-exponent", "Exponent", "Show the exponent's bits and bias, and the range of powers of 2 and of 10 the float type covers." },
+        { "editor", "float-hover-digits", "Decimal digits", "Show digits10 (how many decimal digits always survive a round trip) and max_digits10 (how many it takes to write any value exactly)." },
+        { "editor", "float-hover-epsilon", "Epsilon", "Show epsilon, the gap between 1 and the next value the float type can hold." },
+        { "editor", "float-hover-max", "Largest value", "Show the largest finite value the float type can hold." },
+        { "editor", "float-hover-lowest", "Lowest value", "Show the most negative finite value (0 for an unsigned float)." },
+        { "editor", "float-hover-min", "Smallest normal value", "Show the smallest positive value that still has full precision (float_traits min())." },
+        { "editor", "float-hover-subnormal", "Smallest subnormal value", "Show the smallest positive value the float type can hold at all, with only one bit of precision left." },
+        { "editor", "float-hover-exact-integers", "Exact integers", "Show how far up every whole number can be held exactly, which is 2 to the power of the precision bits." },
+        { "editor", "float-hover-exact-form", "Exact forms", "Beside the decimal values, write their exact form as powers of 2, like (2 - 2^-24) * 2^127." },
+        { "editor", "float-hover-special", "Special values", "List the special values the float type has: inf, nan and, for Walnut's own floats, undefined and indeterminate." },
         { "gui", "size", "Size", "13px is the normal size; everything grows or shrinks with it. The code's size is under Editor. px and pt are fixed; vmin, vmax, vdiag, vw and vh are a fraction (0 to 1) of the window, and % is a percentage of the window's smaller side, so the GUI follows the window's size." },
         { "language.c", "standard", "Standard", "Which version of C to compile as." },
         { "language.cpp", "standard", "Standard", "Which version of C++ to compile as." },
@@ -308,8 +328,12 @@ const std::vector<SettingDoc>& setting_docs() {
         { "toolchain", "masm", "MASM", "Microsoft's assembler (ml64 or ml), for MASM-syntax files on Windows. It comes with Visual Studio's C++ tools." },
         { "language.walnut", "checks", "Runtime checks", "Stop the program with the .wal line on an index outside memory from new[], a null or deleted pointer, a pointer to a local of a function that already returned, or integer overflow. Pick any of them; each one makes the program slower, so they're all off until you do." },
         { "language.walnut", "leak-check", "Leak check", "When the program ends, list the memory from new that was never deleted. error also makes the program exit with code 3." },
+        { "language.walnut", "loop-limit", "Loop limit", "Stop the program with the .wal line when one run of a loop goes round more than this many times, since it's probably stuck. Leave it empty for no limit; 100000000 is a good start." },
+        { "language.walnut", "depth-limit", "Call depth limit", "Stop the program with the .wal line when calls are nested deeper than this, before the stack runs out (usually recursion that never reaches its base case). Leave it empty for no limit; 10000 is a good start." },
         { "language.walnut", "gc", "Garbage collector", "Free objects made with new automatically once nothing points to them. delete still works. Slower, and memory hidden in C or C++ code doesn't count as a pointer." },
         { "language.walnut", "ownership", "Ownership checks", "While compiling, report use after move or delete, deleting twice, pointers and references to variables that no longer exist, and memory from new that's never deleted. Also shows them in Problems as you type." },
+        { "language.walnut", "profile-memory", "Profile memory", "When profiling, also count every allocation: which lines allocate the most, the most in use at once, and what's still held at the end. Every allocation gets slower while it's on." },
+        { "language.walnut", "profile-complexity", "Profile complexity", "When profiling, also time every call against the size of its arguments and work out how each function really grows, like O(n) or O(n^2). Every call gets slower while it's on." },
         { "language.walnut", "unused-warnings", "Unused variables", "Warn about local variables that are defined but never used in their scope, when building and in Problems as you type. Names starting with _ are left alone." },
         { "language.rust", "edition", "Edition", "The Rust edition single .rs files build with. Cargo projects use the one in Cargo.toml." },
         { "language.asm", "dialect", "Syntax", "Which assembler syntax .asm and .s files use. auto works it out from the file: NASM, GAS (AT&T or Intel), MASM or FASM." },
@@ -1604,6 +1628,47 @@ void SettingsPage::build_editor(grove::Node& body) {
     bool_control(*row, "editor", "suggestion-icons");
     row = setting_row(body, "editor", "suggestion-kinds");
     bool_control(*row, "editor", "suggestion-kinds");
+    add(body, "h3", "Number hovers", "settings-group");
+    row = setting_row(body, "editor", "number-hover");
+    bool_control(*row, "editor", "number-hover");
+    add(body, "h3", "Integer types", "settings-group");
+    row = setting_row(body, "editor", "int-hover-size");
+    bool_control(*row, "editor", "int-hover-size");
+    row = setting_row(body, "editor", "int-hover-range");
+    bool_control(*row, "editor", "int-hover-range");
+    row = setting_row(body, "editor", "int-hover-all-digits");
+    bool_control(*row, "editor", "int-hover-all-digits");
+    row = setting_row(body, "editor", "int-hover-hex");
+    bool_control(*row, "editor", "int-hover-hex");
+    row = setting_row(body, "editor", "int-hover-count");
+    bool_control(*row, "editor", "int-hover-count");
+    row = setting_row(body, "editor", "int-hover-overflow");
+    bool_control(*row, "editor", "int-hover-overflow");
+    add(body, "h3", "Float types", "settings-group");
+    row = setting_row(body, "editor", "float-hover-size");
+    bool_control(*row, "editor", "float-hover-size");
+    row = setting_row(body, "editor", "float-hover-mantissa");
+    bool_control(*row, "editor", "float-hover-mantissa");
+    row = setting_row(body, "editor", "float-hover-exponent");
+    bool_control(*row, "editor", "float-hover-exponent");
+    row = setting_row(body, "editor", "float-hover-digits");
+    bool_control(*row, "editor", "float-hover-digits");
+    row = setting_row(body, "editor", "float-hover-epsilon");
+    bool_control(*row, "editor", "float-hover-epsilon");
+    row = setting_row(body, "editor", "float-hover-max");
+    bool_control(*row, "editor", "float-hover-max");
+    row = setting_row(body, "editor", "float-hover-lowest");
+    bool_control(*row, "editor", "float-hover-lowest");
+    row = setting_row(body, "editor", "float-hover-min");
+    bool_control(*row, "editor", "float-hover-min");
+    row = setting_row(body, "editor", "float-hover-subnormal");
+    bool_control(*row, "editor", "float-hover-subnormal");
+    row = setting_row(body, "editor", "float-hover-exact-integers");
+    bool_control(*row, "editor", "float-hover-exact-integers");
+    row = setting_row(body, "editor", "float-hover-exact-form");
+    bool_control(*row, "editor", "float-hover-exact-form");
+    row = setting_row(body, "editor", "float-hover-special");
+    bool_control(*row, "editor", "float-hover-special");
     grove::Node* more = add(body, "p", "", "settings-note");
     more->set_inner_text("Colors and themes are under Highlighting.");
 }
@@ -1780,12 +1845,20 @@ void SettingsPage::compiler_section(grove::Node& body, const std::string& id) {
         multi_control(*row, "language.walnut", "checks", { "bounds", "null", "dangling", "overflow" });
         row = setting_row(body, "language.walnut", "leak-check");
         choice_control(*row, "language.walnut", "leak-check", { "off", "warn", "error" });
+        row = setting_row(body, "language.walnut", "loop-limit");
+        text_control(*row, "language.walnut", "loop-limit", "140px");
+        row = setting_row(body, "language.walnut", "depth-limit");
+        text_control(*row, "language.walnut", "depth-limit", "140px");
         row = setting_row(body, "language.walnut", "gc");
         bool_control(*row, "language.walnut", "gc");
         row = setting_row(body, "language.walnut", "ownership");
         bool_control(*row, "language.walnut", "ownership");
         row = setting_row(body, "language.walnut", "unused-warnings");
         bool_control(*row, "language.walnut", "unused-warnings");
+        row = setting_row(body, "language.walnut", "profile-memory");
+        bool_control(*row, "language.walnut", "profile-memory");
+        row = setting_row(body, "language.walnut", "profile-complexity");
+        bool_control(*row, "language.walnut", "profile-complexity");
     } else if (id == "grove") {
         flags("language.grove", false);
     } else if (id == "rust") {

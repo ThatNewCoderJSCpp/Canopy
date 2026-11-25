@@ -11,6 +11,7 @@
 #include <fstream>
 #include <set>
 #include <sstream>
+#include <string_view>
 
 namespace fs = std::filesystem;
 
@@ -1170,6 +1171,17 @@ std::string format_hover_signatures(const std::string& markdown, std::size_t col
     std::string fence;
     std::vector<std::string> block;
     auto flush = [&] {
+        std::string header;
+        std::size_t first = 0;
+        for (; first < block.size(); ++first) {
+            const std::size_t lead = block[first].find_first_not_of(" \t");
+            if (lead == std::string::npos) break;
+            const std::string_view rest = std::string_view(block[first]).substr(lead);
+            const bool head_line = rest.rfind("template <", 0) == 0 || rest.rfind("template<", 0) == 0 || rest.rfind("requires ", 0) == 0;
+            if (!head_line || first + 1 == block.size()) break;
+            header += block[first] + "\n";
+        }
+        block.erase(block.begin(), block.begin() + static_cast<std::ptrdiff_t>(first));
         std::string joined;
         for (const std::string& b : block) joined += (joined.empty() ? "" : "\n") + b;
         const std::string flat = collapse_spaces(joined);
@@ -1180,7 +1192,7 @@ std::string format_hover_signatures(const std::string& markdown, std::size_t col
             const std::string tail = flat.substr(split.close + 1);
             simple = head.find_first_of("{;") == std::string::npos && tail.find_first_of("{;(") == std::string::npos;
         }
-        out += fence + "\n" + (simple ? format_signature(joined, columns) : joined) + "\n```\n";
+        out += fence + "\n" + header + (simple ? format_signature(joined, columns) : joined) + "\n```\n";
         block.clear();
     };
     while (std::getline(in, line)) {

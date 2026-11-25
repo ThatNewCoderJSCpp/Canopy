@@ -14,6 +14,7 @@ highlight {
     string: #9e9e9e;
     escape: #d8d8d8 bold;
     number: #e6e6e6;
+    number-suffix: #ff8c00;
     comment: #666666 italic;
     preprocessor: #b8b8b8 bold;
     operator: #9e9e9e;

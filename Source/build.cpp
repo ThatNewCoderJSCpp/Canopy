@@ -172,10 +172,80 @@ std::vector<std::string> walnut_safety_flags(const Settings& settings) {
     else for (const std::string& word : picked) out.push_back("--check-" + word);
     const std::string leaks = settings.get_or("language.walnut", "leak-check", "off");
     if (leaks == "warn" || leaks == "error") out.push_back("--leak-check=" + leaks);
+    const auto limit = [&](const char* key, const char* flag) {
+        std::string v = settings.get_or("language.walnut", key, "");
+        v.erase(std::remove_if(v.begin(), v.end(), [](char c) { return c == ' ' || c == ',' || c == '_' || c == '\''; }), v.end());
+        if (v.empty() || v.size() > 18 || v.find_first_not_of("0123456789") != std::string::npos || v.find_first_not_of('0') == std::string::npos) return;
+        out.push_back(std::string(flag) + "=" + v);
+    };
+    limit("loop-limit", "--check-loops");
+    limit("depth-limit", "--check-recursion");
     if (settings.flag("language.walnut", "gc", false)) out.push_back("--gc");
     if (settings.flag("language.walnut", "ownership", false)) out.push_back("--ownership");
     if (settings.flag("language.walnut", "unused-warnings", false)) out.push_back("--warn-unused");
     return out;
+}
+
+BuildPlan plan_walnut_profile(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain, const std::string& json_path) {
+    BuildPlan plan;
+    plan.language = language_for_path(request.file);
+    if (!plan.language || plan.language->build != BuildKind::Walnut || is_header_path(*plan.language, request.file)) {
+        plan.error = "Profiling works on Walnut programs: open a .wal file with a main function and profile that";
+        return plan;
+    }
+    const Tool* walnut = toolchain.get("walnut");
+    if (!walnut) {
+        plan.error = missing_tool(toolchain, "walnut");
+        return plan;
+    }
+    const Tool* cpp = toolchain.get("cpp");
+    if (!cpp) {
+        plan.error = "Walnut builds through a C++ compiler: " + missing_tool(toolchain, "cpp");
+        return plan;
+    }
+    plan.command = { walnut->path, "profile", request.file, "--cxx", cpp->path };
+    append(plan.command, split_flags(settings.get_or("language.walnut", "release-flags", "")));
+    append(plan.command, split_flags(settings.get_or("language.walnut", "flags", "")));
+    append(plan.command, walnut_safety_flags(settings));
+    if (settings.flag("language.walnut", "profile-memory", false)) plan.command.push_back("--memory");
+    if (settings.flag("language.walnut", "profile-complexity", false)) plan.command.push_back("--complexity");
+    plan.command.push_back("--json");
+    plan.command.push_back(json_path);
+    plan.folder = run_folder(request);
+    return plan;
+}
+
+BuildPlan plan_walnut_complexity(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain) {
+    return plan_walnut_complexity(request, settings, toolchain, false);
+}
+
+BuildPlan plan_walnut_complexity(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain, bool measure) {
+    BuildPlan plan;
+    plan.language = language_for_path(request.file);
+    if (!plan.language || plan.language->build != BuildKind::Walnut) {
+        plan.error = "Complexity estimates work on Walnut files: open a .wal file and try again";
+        return plan;
+    }
+    const Tool* walnut = toolchain.get("walnut");
+    if (!walnut) {
+        plan.error = missing_tool(toolchain, "walnut");
+        return plan;
+    }
+    plan.command = { walnut->path, "complexity", request.file };
+    if (measure) {
+        const Tool* cpp = toolchain.get("cpp");
+        if (!cpp) {
+            plan.error = missing_tool(toolchain, "cpp");
+            return plan;
+        }
+        plan.command.push_back("--run");
+        plan.command.push_back("--cxx");
+        plan.command.push_back(cpp->path);
+        append(plan.command, split_flags(settings.get_or("language.walnut", "release-flags", "")));
+    }
+    append(plan.command, split_flags(settings.get_or("language.walnut", "flags", "")));
+    plan.folder = run_folder(request);
+    return plan;
 }
 
 BuildPlan plan_build(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain) {

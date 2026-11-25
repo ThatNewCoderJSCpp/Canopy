@@ -47,6 +47,9 @@ std::string command_line(const std::vector<std::string>& command);
 BuildMode build_mode(const Settings& settings, const std::optional<BuildMode>& requested);
 std::string default_output_path(const BuildRequest& request, const Settings& settings);
 std::vector<std::string> walnut_safety_flags(const Settings& settings);
+BuildPlan plan_walnut_profile(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain, const std::string& json_path);
+BuildPlan plan_walnut_complexity(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain);
+BuildPlan plan_walnut_complexity(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain, bool measure);
 BuildPlan plan_build(const BuildRequest& request, const Settings& settings, const Toolchain& toolchain);
 
 int run_command(const std::vector<std::string>& command);

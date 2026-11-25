@@ -501,6 +501,7 @@ public:
         listen_by_id("welcome-settings", "click", [this](grove::Event&) { open_settings(); });
         listen_by_id("build-button", "click", [this](grove::Event&) { build(false); });
         listen_by_id("run-button", "click", [this](grove::Event&) { build(true); });
+        listen_by_id("profile-button", "click", [this](grove::Event&) { profile(); });
         listen_by_id("editors", "input", [this](grove::Event& e) { editor_input(e); });
         listen_by_id("editors", "cursor", [this](grove::Event& e) {
             set_text(m_doc, "status-cursor", "Ln " + std::to_string(static_cast<long>(e.x)) + ", Col " + std::to_string(static_cast<long>(e.y)));
@@ -545,6 +546,20 @@ public:
         });
         listen_by_id("theme-picker", "change", [this](grove::Event& e) {
             if (e.target) pick_theme(grove::input_string(*e.target).value_or(""));
+        });
+        listen_by_id("profile", "click", [this](grove::Event& e) {
+            if (const grove::Node* apply = with_attribute(e.target, "data-apply")) {
+                apply_suggestion(static_cast<std::size_t>(grove::parse_integer(apply->attribute_or("data-apply", "0")).value_or(0)));
+                return;
+            }
+            if (with_attribute(e.target, "data-profile-again")) {
+                profile();
+                return;
+            }
+            const grove::Node* item = with_attribute(e.target, "data-path");
+            if (!item) return;
+            const std::size_t line = static_cast<std::size_t>(grove::parse_integer(item->attribute_or("data-line", "1")).value_or(1));
+            open_file(item->attribute_or("data-path", ""), line, 1);
         });
         listen_by_id("warnings", "click", [this](grove::Event& e) {
             const grove::Node* item = with_attribute(e.target, "data-path");
@@ -910,6 +925,239 @@ public:
         m_job.start(std::move(steps), plan.folder);
     }
 
+    void profile() {
+        if (m_job.running()) {
+            notice("A build is already running");
+            return;
+        }
+        if (m_active.empty() || virtual_tab(m_active)) {
+            notice("Open a Walnut file to profile it");
+            return;
+        }
+        if (m_ws.settings.flag("build", "save-before-build", true)) save_active();
+        BuildRequest request;
+        request.file = m_active;
+        request.workspace_root = m_ws.root;
+        std::error_code ec;
+        const fs::path json = fs::temp_directory_path(ec) / ("canopy-profile-" + std::to_string(static_cast<unsigned long long>(std::hash<std::string>{}(m_active))) + ".json");
+        fs::remove(json, ec);
+        const BuildPlan plan = plan_walnut_profile(request, m_ws.settings, m_ws.toolchain, json.string());
+        m_output.clear();
+        m_messages.clear();
+        if (!plan.ok()) {
+            m_output = plan.error + "\n";
+            sync_output();
+            show_panel("output");
+            refresh_problems();
+            return;
+        }
+        m_build_folder = plan.folder;
+        m_running_label = "Profiling " + display_name(m_active);
+        m_output = m_running_label + "\xE2\x80\xA6 (the program runs with timing added, so it's slower than usual)\n";
+        sync_output();
+        set_text(m_doc, "status-problems", m_running_label + "\xE2\x80\xA6");
+        show_panel("output");
+        refresh_problems();
+        m_after_task.clear();
+        m_job_steps = 1;
+        m_job_program = false;
+        m_job_file = m_active;
+        m_job_profile = json.string();
+        m_job.start({ plan.command }, plan.folder);
+    }
+
+    void complexity() { complexity(false); }
+
+    void complexity(bool measure) {
+        if (m_job.running()) {
+            notice("A build is already running");
+            return;
+        }
+        if (m_active.empty() || virtual_tab(m_active)) {
+            notice("Open a Walnut file to estimate its complexity");
+            return;
+        }
+        if (m_ws.settings.flag("build", "save-before-build", true)) save_active();
+        BuildRequest request;
+        request.file = m_active;
+        request.workspace_root = m_ws.root;
+        const BuildPlan plan = plan_walnut_complexity(request, m_ws.settings, m_ws.toolchain, measure);
+        m_output.clear();
+        m_messages.clear();
+        if (!plan.ok()) {
+            m_output = plan.error + "\n";
+            sync_output();
+            show_panel("output");
+            refresh_problems();
+            return;
+        }
+        m_build_folder = plan.folder;
+        m_running_label = (measure ? "Measuring " : "Estimating ") + display_name(m_active);
+        m_output = m_running_label + "\xE2\x80\xA6\n";
+        sync_output();
+        set_text(m_doc, "status-problems", m_running_label + "\xE2\x80\xA6");
+        show_panel("output");
+        refresh_problems();
+        m_after_task.clear();
+        m_job_steps = 1;
+        m_job_program = false;
+        m_job_file = m_active;
+        m_job.start({ plan.command }, plan.folder);
+    }
+
+    void finish_profile(int result) {
+        const std::string path = m_job_profile;
+        m_job_profile.clear();
+        std::ifstream in(path, std::ios::binary);
+        std::stringstream text;
+        text << in.rdbuf();
+        in.close();
+        std::error_code ec;
+        fs::remove(path, ec);
+        WalnutProfile p = parse_walnut_profile(text.str());
+        if (!p.ok) {
+            if (result == 0) notice("The profile didn't produce any results");
+            return;
+        }
+        m_profile = std::move(p);
+        m_profile_file = m_job_file;
+        refresh_profile();
+        show_panel("profile");
+    }
+
+    std::string profile_place(const std::string& file, std::size_t line) const {
+        return display_name(file) + ":" + std::to_string(line);
+    }
+
+    void refresh_profile() {
+        grove::Node* view = m_doc.find_by_id("profile");
+        if (!view) return;
+        clear(m_doc, *view);
+        if (!m_profile.ok) {
+            add(m_doc, *view, "p", "Profile a Walnut program (the Profile button next to Run) to see its slowest lines and functions here, with suggestions for speeding them up.", "muted");
+            m_doc.touch();
+            return;
+        }
+        const WalnutProfile& p = m_profile;
+        grove::Node* title = add(m_doc, *view, "row", "", "profile-title");
+        std::string memory;
+        if (p.memory) memory = " \xC2\xB7 " + profile_bytes(p.bytes) + " allocated, at most " + profile_bytes(p.peak) + " in use";
+        add(m_doc, *title, "text", display_name(m_profile_file) + " \xC2\xB7 " + profile_duration(p.total_ns) + " in your code \xC2\xB7 the run took " + profile_duration(p.wall_ns) + memory + (p.exit_code ? " \xC2\xB7 exit " + std::to_string(p.exit_code) : std::string()), "stats-title");
+        grove::Node* again = add(m_doc, *title, "link", "Profile again", "profile-again");
+        again->set_attribute("data-profile-again", "1");
+        grove::Node* columns = add(m_doc, *view, "row", "", "stats-columns");
+
+        grove::Node* lines = add(m_doc, *columns, "column", "", "stats-table profile-table");
+        add(m_doc, *lines, "text", "Slowest lines", "stats-heading");
+        const std::size_t top = 12;
+        for (std::size_t i = 0; i < p.lines.size() && i < top; ++i) {
+            const ProfileLine& l = p.lines[i];
+            grove::Node* row = add(m_doc, *lines, "row", "", "stats-row profile-row");
+            row->set_attribute("data-path", l.file);
+            row->set_attribute("data-line", std::to_string(l.line));
+            row->set_attribute("title", l.text + "\n" + profile_duration(l.ns) + " over " + std::to_string(static_cast<unsigned long long>(l.hits)) + " runs" + (l.function.empty() ? std::string() : " in " + l.function));
+            add(m_doc, *row, "text", percent_label(l.percent), "profile-percent");
+            add(m_doc, *row, "text", profile_duration(l.ns), "profile-time");
+            add(m_doc, *row, "text", profile_place(l.file, l.line), "profile-place");
+            add(m_doc, *row, "text", l.text, "profile-code");
+        }
+
+        if (!p.functions.empty()) {
+            grove::Node* fns = add(m_doc, *columns, "column", "", "stats-table profile-table");
+            add(m_doc, *fns, "text", "Slowest functions", "stats-heading");
+            for (std::size_t i = 0; i < p.functions.size() && i < top; ++i) {
+                const ProfileFunction& f = p.functions[i];
+                const ProfileComplexity* growth = nullptr;
+                for (const ProfileComplexity& c : p.complexity) if (c.name == f.name && c.line == f.line && c.file == f.file) growth = &c;
+                grove::Node* row = add(m_doc, *fns, "row", "", "stats-row profile-row");
+                row->set_attribute("data-path", f.file);
+                row->set_attribute("data-line", std::to_string(f.line));
+                std::string tip = profile_duration(f.total_ns) + " in total, " + profile_duration(f.own_ns) + " in its own lines, " + std::to_string(static_cast<unsigned long long>(f.calls)) + " calls";
+                if (growth) tip += "\nEstimated to grow about " + growth->time + " in time and " + growth->memory + " in memory" + (growth->reason.empty() ? std::string() : ": " + growth->reason);
+                if (growth && !growth->measured_time.empty()) tip += "\nMeasured: " + growth->measured_time + " in time and " + growth->measured_memory + " in memory (" + growth->measured_note + ")";
+                else if (growth && !growth->measured_note.empty()) tip += "\nNot measured: " + growth->measured_note;
+                row->set_attribute("title", tip);
+                add(m_doc, *row, "text", percent_label(f.percent), "profile-percent");
+                add(m_doc, *row, "text", profile_duration(f.total_ns), "profile-time");
+                add(m_doc, *row, "text", std::to_string(static_cast<unsigned long long>(f.calls)) + (f.calls == 1 ? " call" : " calls"), "profile-calls");
+                add(m_doc, *row, "text", growth ? (growth->measured_time.empty() ? growth->time : growth->measured_time) : std::string(), "profile-growth");
+                add(m_doc, *row, "text", f.name, "profile-code");
+            }
+        }
+
+        if (p.memory && !p.memory_lines.empty()) {
+            grove::Node* mem = add(m_doc, *columns, "column", "", "stats-table profile-table");
+            add(m_doc, *mem, "text", "Most memory", "stats-heading");
+            for (std::size_t i = 0; i < p.memory_lines.size() && i < top; ++i) {
+                const ProfileMemoryLine& m = p.memory_lines[i];
+                grove::Node* row = add(m_doc, *mem, "row", "", "stats-row profile-row");
+                row->set_attribute("data-path", m.file);
+                row->set_attribute("data-line", std::to_string(m.line));
+                std::string tip = m.text + "\n" + profile_bytes(m.bytes) + " in " + std::to_string(static_cast<unsigned long long>(m.blocks)) + " allocations, at most " + profile_bytes(m.peak) + " held at once";
+                if (m.held > 0) tip += ", " + profile_bytes(m.held) + " still held at the end";
+                row->set_attribute("title", tip);
+                add(m_doc, *row, "text", percent_label(m.percent), "profile-percent");
+                add(m_doc, *row, "text", profile_bytes(m.bytes), "profile-time");
+                add(m_doc, *row, "text", profile_place(m.file, m.line), "profile-place");
+                add(m_doc, *row, "text", m.text, "profile-code");
+            }
+        }
+
+        grove::Node* tips = add(m_doc, *view, "column", "", "profile-suggestions");
+        add(m_doc, *tips, "text", p.suggestions.empty() ? "No suggestions: nothing in the slow parts matches a pattern Walnut knows how to speed up" : "Suggestions", "stats-heading");
+        for (std::size_t i = 0; i < p.suggestions.size(); ++i) {
+            const ProfileSuggestion& s = p.suggestions[i];
+            grove::Node* box = add(m_doc, *tips, "column", "", "profile-suggestion");
+            grove::Node* head = add(m_doc, *box, "row", "", "profile-suggestion-head");
+            grove::Node* where = add(m_doc, *head, "link", profile_place(s.file, s.line) + (s.function.empty() ? std::string() : " in " + s.function), "profile-place");
+            where->set_attribute("data-path", s.file);
+            where->set_attribute("data-line", std::to_string(s.line));
+            add(m_doc, *head, "text", s.why, "muted");
+            if ((!s.before.empty() && !s.after.empty()) || !s.edits.empty()) {
+                grove::Node* apply = add(m_doc, *head, "link", "Apply", "profile-apply");
+                apply->set_attribute("data-apply", std::to_string(i));
+                apply->set_attribute("title", s.edits.empty() ? "Change the line in the editor; save to keep it" : "Reorder the fields in the editor; save to keep it");
+            }
+            add(m_doc, *box, "p", s.message, "profile-message");
+            if (!s.before.empty() && !s.after.empty()) {
+                add(m_doc, *box, "text", "- " + trimmed(s.before), "profile-before");
+                add(m_doc, *box, "text", "+ " + trimmed(s.after), "profile-after");
+            }
+        }
+        m_doc.touch();
+    }
+
+    static std::string percent_label(double p) {
+        char buf[32];
+        std::snprintf(buf, sizeof buf, p >= 10 ? "%.1f%%" : "%.2f%%", p);
+        return buf;
+    }
+
+    void apply_suggestion(std::size_t index) {
+        if (index >= m_profile.suggestions.size()) return;
+        const ProfileSuggestion& s = m_profile.suggestions[index];
+        open_file(s.file, s.line, 1);
+        OpenFile* f = find_file(normalized(s.file));
+        if (!f) f = find_file(s.file);
+        if (!f || !f->editor) {
+            notice("Couldn't open " + display_name(s.file) + " to change it");
+            return;
+        }
+        bool applied = false;
+        const std::string text = grove::input_string(*f->editor).value_or("");
+        const std::string changed = apply_profile_suggestion(text, s, applied);
+        if (!applied) {
+            notice((s.edits.empty() ? "Line " + std::to_string(s.line) : std::string("The fields")) + " of " + display_name(s.file) + " changed since the profile, so the suggestion wasn't applied; profile again to get a fresh one");
+            return;
+        }
+        f->editor->set_attribute("value", changed);
+        set_dirty(*f, changed != f->saved);
+        if (f->dirty) pin(*f);
+        schedule_semantic(f->path, 0.1);
+        m_doc.touch();
+        notice((s.edits.empty() ? "Changed line " + std::to_string(s.line) : "Reordered the fields of " + s.function) + " in " + display_name(s.file) + "; save to keep it");
+    }
+
     static std::size_t output_chunk_end(const std::string& text, std::size_t from) {
         constexpr std::size_t chunk = 8192;
         if (text.size() - from <= chunk) return text.size();
@@ -1192,6 +1440,9 @@ private:
         if (command == "save") save_active();
         else if (command == "build") build(false);
         else if (command == "run") build(true);
+        else if (command == "profile") profile();
+        else if (command == "complexity") complexity();
+        else if (command == "measure-complexity") complexity(true);
         else if (command == "close-tab") close_file(m_active);
         else if (command == "show-problems") show_panel("problems");
         else if (command == "show-warnings") show_panel("warnings");
@@ -3329,7 +3580,7 @@ private:
     }
 
     static const std::vector<std::string>& layout_views() {
-        static const std::vector<std::string> views = { "explorer", "terminal", "problems", "warnings", "output", "stats", "console", "elements", "git", "tasks", "history", "ports", "debug" };
+        static const std::vector<std::string> views = { "explorer", "terminal", "problems", "warnings", "output", "stats", "profile", "console", "elements", "git", "tasks", "history", "ports", "debug" };
         return views;
     }
 
@@ -4650,6 +4901,10 @@ private:
                 }
                 if (!hover && link) hover = HoverResult{ line, link->column, link->length, defined_in(link->definition) };
             }
+            if (auto number = walnut_number_hover(text, line, column, number_hover_options())) {
+                if (hover) hover->markdown += "---\n" + number->markdown;
+                else hover = number;
+            }
         } else if (intel_language(language)) {
             IntelRequest request{ f.path, language, text, line, column };
             hover = m_intel.hover(request);
@@ -4675,6 +4930,31 @@ private:
         hover->markdown = format_hover_signatures(hover->markdown, hover_columns());
         f.editor->set_attribute("hover", std::to_string(hover->line) + " " + std::to_string(hover->column) + " " + std::to_string(hover->length) + "\n" + hover->markdown);
         m_doc.touch();
+    }
+
+    NumberHoverOptions number_hover_options() const {
+        const Settings& s = m_ws.settings;
+        NumberHoverOptions o;
+        o.enabled = s.flag("editor", "number-hover", o.enabled);
+        o.int_size = s.flag("editor", "int-hover-size", o.int_size);
+        o.int_range = s.flag("editor", "int-hover-range", o.int_range);
+        o.int_all_digits = s.flag("editor", "int-hover-all-digits", o.int_all_digits);
+        o.int_hex = s.flag("editor", "int-hover-hex", o.int_hex);
+        o.int_count = s.flag("editor", "int-hover-count", o.int_count);
+        o.int_behavior = s.flag("editor", "int-hover-overflow", o.int_behavior);
+        o.float_size = s.flag("editor", "float-hover-size", o.float_size);
+        o.float_mantissa = s.flag("editor", "float-hover-mantissa", o.float_mantissa);
+        o.float_exponent = s.flag("editor", "float-hover-exponent", o.float_exponent);
+        o.float_digits = s.flag("editor", "float-hover-digits", o.float_digits);
+        o.float_epsilon = s.flag("editor", "float-hover-epsilon", o.float_epsilon);
+        o.float_max = s.flag("editor", "float-hover-max", o.float_max);
+        o.float_lowest = s.flag("editor", "float-hover-lowest", o.float_lowest);
+        o.float_min = s.flag("editor", "float-hover-min", o.float_min);
+        o.float_subnormal = s.flag("editor", "float-hover-subnormal", o.float_subnormal);
+        o.float_exact_int = s.flag("editor", "float-hover-exact-integers", o.float_exact_int);
+        o.float_exact_form = s.flag("editor", "float-hover-exact-form", o.float_exact_form);
+        o.float_behavior = s.flag("editor", "float-hover-special", o.float_behavior);
+        return o;
     }
 
     std::string defined_in(const CodeLocation& definition) const {
@@ -4988,6 +5268,7 @@ private:
         }
         const std::optional<int> result = m_job.take_result();
         if (!result) return;
+        if (!m_job_profile.empty()) finish_profile(*result);
         m_messages = parse_compiler_messages(m_output);
         if (!m_build_folder.empty()) {
             for (CompilerMessage& m : m_messages) {
@@ -5944,6 +6225,14 @@ private:
             build(true);
             return std::string("started");
         });
+        grove::register_native(m_doc, "canopy.profile", [this](const std::vector<std::string>&) {
+            profile();
+            return std::string("started");
+        });
+        grove::register_native(m_doc, "canopy.complexity", [this](const std::vector<std::string>&) {
+            complexity();
+            return std::string("started");
+        });
         grove::register_native(m_doc, "canopy.show_panel", [this](const std::vector<std::string>& args) {
             if (!args.empty()) show_panel(args[0]);
             return std::string();
@@ -6037,6 +6326,9 @@ private:
         std::vector<RunStats> steps;
     };
     std::vector<RunRecord> m_runs;
+    std::string m_job_profile;
+    WalnutProfile m_profile;
+    std::string m_profile_file;
     std::size_t m_job_steps = 0;
     bool m_job_program = false;
     std::string m_job_file;

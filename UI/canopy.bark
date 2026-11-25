@@ -1299,6 +1299,94 @@ input_code.dump {
     user-select: text;
 }
 
+#profile {
+    flex: 1;
+    overflow: auto;
+    padding: 6px 12px;
+    gap: 10px;
+    user-select: text;
+}
+
+.profile-title {
+    gap: 16px;
+    align-items: center;
+}
+
+.profile-row {
+    cursor: pointer;
+}
+
+.profile-row:hover {
+    background: $hover;
+}
+
+.profile-percent {
+    color: $warn;
+    min-width: 54px;
+}
+
+.profile-time {
+    color: $text;
+    min-width: 70px;
+}
+
+.profile-calls {
+    color: $muted;
+    min-width: 90px;
+}
+
+.profile-growth {
+    color: $blue;
+    min-width: 80px;
+}
+
+.profile-place {
+    color: $blue;
+    min-width: 120px;
+    cursor: pointer;
+}
+
+.profile-code {
+    color: $muted;
+    white-space: pre;
+}
+
+.profile-suggestions {
+    gap: 8px;
+}
+
+.profile-suggestion {
+    gap: 2px;
+    padding: 6px 8px;
+    border-left: 2px solid $accent;
+    background: $surface;
+}
+
+.profile-suggestion-head {
+    gap: 12px;
+    align-items: center;
+}
+
+.profile-apply {
+    color: $accent;
+    cursor: pointer;
+}
+
+.profile-message {
+    color: $text;
+    margin: 0;
+}
+
+.profile-before {
+    color: $git-red;
+    white-space: pre;
+}
+
+.profile-after {
+    color: $git-green;
+    white-space: pre;
+}
+
 .stats-title {
     color: $text;
     font-weight: bold;

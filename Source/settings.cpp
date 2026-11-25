@@ -451,7 +451,7 @@ const std::vector<std::string>& highlight_kinds() {
         "keyword", "type", "function", "namespace", "variable", "constant", "string", "escape",
         "number", "comment", "preprocessor", "operator", "tag", "attribute", "property", "plain",
         "control-keyword", "builtin-type", "declaration", "self", "this", "cast", "builtin-operator", "overloaded-operator",
-        "enum-member", "template-scope", "variable-template", "unresolved", "error-underline", "warning-underline",
+        "enum-member", "template-scope", "variable-template", "unresolved", "inactive", "error-underline", "warning-underline",
         "error-line", "background", "foreground",
     };
     return kinds;
